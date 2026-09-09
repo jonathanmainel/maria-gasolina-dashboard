@@ -1,65 +1,73 @@
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { isDemoMode } from "./lib/api";
-import { appUrl } from "./lib/app-path";
-import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { Session } from "@supabase/supabase-js";
+import { supabase } from "./lib/supabase";
 
-interface AuthValue {
+interface AuthContextType {
   session: Session | null;
-  user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthValue | null>(null);
+const AuthContext = createContext<AuthContextType>({
+  session: null,
+  loading: true,
+  signIn: async () => {},
+  signOut: async () => {},
+});
 
-export function AuthProvider({ children }: PropsWithChildren) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(!isDemoMode && isSupabaseConfigured);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (isDemoMode || !supabase) {
+    if (!supabase) {
       setLoading(false);
       return;
     }
-    void supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+
+    // 1. Obtém a sessão atual ou lê os tokens presentes no hash da URL
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setLoading(false);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+
+    // 2. Escuta mudanças na autenticação (como o retorno do OAuth com o Hash)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
       setLoading(false);
     });
-    return () => data.subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const value = useMemo<AuthValue>(() => ({
-    session,
-    user: session?.user ?? null,
-    loading,
-    signIn: async () => {
-      if (!supabase) throw new Error("Supabase não configurado");
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: new URL(appUrl("dashboard/maria-gasolina"), window.location.origin).toString() },
-      });
-      if (error) throw error;
-    },
-    signOut: async () => {
-      if (isDemoMode) {
-        window.location.assign(appUrl("login"));
-        return;
-      }
-      if (supabase) await supabase.auth.signOut();
-    },
-  }), [loading, session]);
+  const signIn = async () => {
+    if (!supabase) return;
+    const redirectUrl = import.meta.env.VITE_SITE_URL 
+      ? `${import.meta.env.VITE_SITE_URL}/`
+      : window.location.origin + window.location.pathname;
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectUrl,
+      },
+    });
+  };
+
+  const signOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setSession(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ session, loading, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() {
-  const value = useContext(AuthContext);
-  if (!value) throw new Error("useAuth must be used inside AuthProvider");
-  return value;
-}
+export const useAuth = () => useContext(AuthContext);
