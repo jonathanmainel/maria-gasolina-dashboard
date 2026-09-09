@@ -19,15 +19,18 @@ const initialRange: DateRange = {
   end: format(initialEnd, "yyyy-MM-dd"),
 };
 
-const PMAX_ASSET_INITIAL_LIMIT = 10;
+const TABLE_INITIAL_LIMIT = 10;
 
 export function DashboardPage() {
   const [range, setRange] = useState(initialRange);
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
   const [showAllPmaxAssets, setShowAllPmaxAssets] = useState(false);
+  const [showAllGoogleKeywords, setShowAllGoogleKeywords] = useState(false);
+  const [showAllMetaAds, setShowAllMetaAds] = useState(false);
   const overview = useQuery({ queryKey: ["overview", range], queryFn: () => getOverview(range) });
   const googleCampaigns = useQuery({ queryKey: ["entities", "google_ads", "campaign", range], queryFn: () => getEntities("google_ads", "campaign", range) });
   const googleGroups = useQuery({ queryKey: ["entities", "google_ads", "group", range], queryFn: () => getEntities("google_ads", "group", range) });
+  const googleKeywords = useQuery({ queryKey: ["entities", "google_ads", "keyword", range], queryFn: () => getEntities("google_ads", "keyword", range) });
   const metaCampaigns = useQuery({ queryKey: ["entities", "meta_ads", "campaign", range], queryFn: () => getEntities("meta_ads", "campaign", range) });
   const metaGroups = useQuery({ queryKey: ["entities", "meta_ads", "group", range], queryFn: () => getEntities("meta_ads", "group", range) });
   const metaAds = useQuery({ queryKey: ["entities", "meta_ads", "ad", range], queryFn: () => getEntities("meta_ads", "ad", range) });
@@ -50,8 +53,14 @@ export function DashboardPage() {
   const meta = data.current.sources.meta_ads;
   const metaPrevious = data.previous.sources.meta_ads;
   const pmaxAssetItems = [...(pmaxAssets.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
-  const visiblePmaxAssets = showAllPmaxAssets ? pmaxAssetItems : pmaxAssetItems.slice(0, PMAX_ASSET_INITIAL_LIMIT);
-  const remainingPmaxAssets = Math.max((pmaxAssets.data?.total_count ?? pmaxAssetItems.length) - PMAX_ASSET_INITIAL_LIMIT, 0);
+  const visiblePmaxAssets = showAllPmaxAssets ? pmaxAssetItems : pmaxAssetItems.slice(0, TABLE_INITIAL_LIMIT);
+  const remainingPmaxAssets = Math.max((pmaxAssets.data?.total_count ?? pmaxAssetItems.length) - TABLE_INITIAL_LIMIT, 0);
+  const googleKeywordItems = [...(googleKeywords.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+  const visibleGoogleKeywords = showAllGoogleKeywords ? googleKeywordItems : googleKeywordItems.slice(0, TABLE_INITIAL_LIMIT);
+  const remainingGoogleKeywords = Math.max((googleKeywords.data?.total_count ?? googleKeywordItems.length) - TABLE_INITIAL_LIMIT, 0);
+  const metaAdItems = [...(metaAds.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+  const visibleMetaAds = showAllMetaAds ? metaAdItems : metaAdItems.slice(0, TABLE_INITIAL_LIMIT);
+  const remainingMetaAds = Math.max((metaAds.data?.total_count ?? metaAdItems.length) - TABLE_INITIAL_LIMIT, 0);
 
   return (
     <DashboardShell
@@ -61,6 +70,8 @@ export function DashboardPage() {
         setRange(nextRange);
         setComparisonEnabled(nextComparison);
         setShowAllPmaxAssets(false);
+        setShowAllGoogleKeywords(false);
+        setShowAllMetaAds(false);
       }}
       lastSync={lastSync}
     >
@@ -78,7 +89,12 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {google && <PlatformOverview id="google-ads" title="Google Ads" subtitle="Desempenho das campanhas de pesquisa e Performance Max" icon={<GoogleAdsLogo size={30} />} current={google} previous={googlePrevious} />}
+      {google && <PlatformOverview id="google-ads" title="Google Ads" subtitle="Desempenho das campanhas de pesquisa" icon={<GoogleAdsLogo size={30} />} current={google} previous={googlePrevious} />}
+
+      <section className="dashboard-section subsection">
+        <SectionTitle eyebrow="Google Ads" title="Evolução dos resultados" description="Leitura diária das principais métricas" compact />
+        <DashboardCharts daily={data.daily} source="google_ads" />
+      </section>
 
       <section className="dashboard-section subsection">
         <SectionTitle eyebrow="Google Ads" title="Todas as campanhas" description="Campanhas ordenadas por investimento" compact />
@@ -87,8 +103,30 @@ export function DashboardPage() {
         </DataPanel>
       </section>
 
-      <section id="performance-max" className="dashboard-section subsection">
-        <SectionTitle eyebrow="Google Ads" title="Performance Max" description="Grupos de recursos e sinais de desempenho sem duplicar os totais da campanha" compact />
+      <section className="dashboard-section subsection">
+        <SectionTitle eyebrow="Google Ads" title="Grupos de anúncios" description="Detalhamento dos grupos ativos no período" compact />
+        <DataPanel loading={googleGroups.isLoading} error={googleGroups.isError}>
+          <DataTable items={googleGroups.data?.items ?? []} totalCount={googleGroups.data?.total_count} />
+        </DataPanel>
+      </section>
+
+      <section className="dashboard-section subsection">
+        <SectionTitle eyebrow="Google Ads" title="Palavras-chave" description="Termos com veiculação, ordenados por investimento" compact />
+        <DataPanel loading={googleKeywords.isLoading} error={googleKeywords.isError}>
+          <DataTable items={visibleGoogleKeywords} totalCount={googleKeywords.data?.total_count} />
+          {googleKeywordItems.length > TABLE_INITIAL_LIMIT && (
+            <ExpandTableButton
+              expanded={showAllGoogleKeywords}
+              onClick={() => setShowAllGoogleKeywords((current) => !current)}
+              expandLabel={`Ver mais ${remainingGoogleKeywords} palavras-chave`}
+              collapseLabel={`Mostrar apenas as ${TABLE_INITIAL_LIMIT} principais`}
+            />
+          )}
+        </DataPanel>
+      </section>
+
+      <section id="performance-max" className="dashboard-section platform-section">
+        <div className="platform-title"><div className="platform-icon"><GoogleAdsLogo size={30} /></div><div><span>Canal de mídia</span><h2>Performance Max</h2><p>Grupos de recursos e sinais de desempenho atribuídos</p></div></div>
         <div className="info-banner"><AlertCircle size={17} /><span>As métricas de recursos são exibidas como sinais atribuídos. Elas não são somadas novamente ao total da campanha.</span></div>
         <div className="content-panel">
           <PanelHeading icon={<Layers3 size={18} />} title="Grupos de recursos" count={pmaxGroups.data?.total_count} />
@@ -100,35 +138,23 @@ export function DashboardPage() {
           <PanelHeading icon={<PanelsTopLeft size={18} />} title="Recursos individuais" count={pmaxAssets.data?.total_count} />
           <DataPanel loading={pmaxAssets.isLoading} error={pmaxAssets.isError} embedded>
             <DataTable kind="pmax" items={visiblePmaxAssets} totalCount={pmaxAssets.data?.total_count} />
-            {pmaxAssetItems.length > PMAX_ASSET_INITIAL_LIMIT && (
-              <div className="table-show-more">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  aria-expanded={showAllPmaxAssets}
-                  onClick={() => setShowAllPmaxAssets((current) => !current)}
-                >
-                  {showAllPmaxAssets ? `Mostrar apenas os ${PMAX_ASSET_INITIAL_LIMIT} principais` : `Ver mais ${remainingPmaxAssets} recursos`}
-                </button>
-              </div>
+            {pmaxAssetItems.length > TABLE_INITIAL_LIMIT && (
+              <ExpandTableButton
+                expanded={showAllPmaxAssets}
+                onClick={() => setShowAllPmaxAssets((current) => !current)}
+                expandLabel={`Ver mais ${remainingPmaxAssets} recursos`}
+                collapseLabel={`Mostrar apenas os ${TABLE_INITIAL_LIMIT} principais`}
+              />
             )}
           </DataPanel>
         </div>
       </section>
-
-      <section className="dashboard-section subsection">
-        <SectionTitle eyebrow="Google Ads" title="Evolução dos resultados" description="Leitura diária das principais métricas" compact />
-        <DashboardCharts daily={data.daily} source="google_ads" />
-      </section>
-
-      <section className="dashboard-section subsection">
-        <SectionTitle eyebrow="Google Ads" title="Grupos de anúncios" description="Detalhamento dos grupos ativos no período" compact />
-        <DataPanel loading={googleGroups.isLoading} error={googleGroups.isError}>
-          <DataTable items={googleGroups.data?.items ?? []} totalCount={googleGroups.data?.total_count} />
-        </DataPanel>
-      </section>
-
       {meta && <PlatformOverview id="meta-ads" title="Meta Ads" subtitle="Desempenho das campanhas de Facebook e Instagram" icon={<SiMeta size={28} color="#1877F2" />} current={meta} previous={metaPrevious} />}
+
+      <section className="dashboard-section subsection">
+        <SectionTitle eyebrow="Meta Ads" title="Evolução dos resultados" description="Leitura diária das principais métricas" compact />
+        <DashboardCharts daily={data.daily} source="meta_ads" />
+      </section>
 
       <section className="dashboard-section subsection">
         <SectionTitle eyebrow="Meta Ads" title="Campanhas" description="Campanhas ordenadas por investimento" compact />
@@ -147,10 +173,28 @@ export function DashboardPage() {
       <section className="dashboard-section subsection final-section">
         <SectionTitle eyebrow="Meta Ads" title="Anúncios" description="Criativos com veiculação no período" compact />
         <DataPanel loading={metaAds.isLoading} error={metaAds.isError}>
-          <DataTable items={metaAds.data?.items ?? []} totalCount={metaAds.data?.total_count} />
+          <DataTable items={visibleMetaAds} totalCount={metaAds.data?.total_count} />
+          {metaAdItems.length > TABLE_INITIAL_LIMIT && (
+            <ExpandTableButton
+              expanded={showAllMetaAds}
+              onClick={() => setShowAllMetaAds((current) => !current)}
+              expandLabel={`Ver mais ${remainingMetaAds} anúncios`}
+              collapseLabel={`Mostrar apenas os ${TABLE_INITIAL_LIMIT} principais`}
+            />
+          )}
         </DataPanel>
       </section>
     </DashboardShell>
+  );
+}
+
+function ExpandTableButton({ expanded, onClick, expandLabel, collapseLabel }: { expanded: boolean; onClick: () => void; expandLabel: string; collapseLabel: string }) {
+  return (
+    <div className="table-show-more">
+      <button type="button" className="secondary-button" aria-expanded={expanded} onClick={onClick}>
+        {expanded ? collapseLabel : expandLabel}
+      </button>
+    </div>
   );
 }
 
