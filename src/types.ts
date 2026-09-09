@@ -1,5 +1,5 @@
 export type Source = "google_ads" | "meta_ads";
-export type EntityLevel = "campaign" | "group" | "ad";
+export type EntityLevel = "campaign" | "group" | "ad" | "keyword";
 export type PmaxLevel = "asset_group" | "asset";
 
 export interface Kpis {
