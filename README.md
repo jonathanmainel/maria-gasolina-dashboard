@@ -10,7 +10,7 @@ Dashboard privado, em React + Vite + TypeScript, conectado às funções de leit
 4. Cadastre no Google a origem do frontend e a callback exibida pelo Supabase.
 5. Após o primeiro login, vincule o usuário ao cliente na tabela `dashboard_client_users`.
 
-Nunca use a chave `service_role` no frontend.
+Nunca use uma chave `service_role`, `secret` ou `sb_secret_` no frontend. Chaves desse tipo devem ser revogadas imediatamente se forem expostas.
 
 ## Comandos
 
