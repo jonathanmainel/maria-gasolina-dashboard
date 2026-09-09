@@ -21,6 +21,7 @@ const initialRange: DateRange = {
 
 export function DashboardPage() {
   const [range, setRange] = useState(initialRange);
+  const [comparisonEnabled, setComparisonEnabled] = useState(true);
   const overview = useQuery({ queryKey: ["overview", range], queryFn: () => getOverview(range) });
   const googleCampaigns = useQuery({ queryKey: ["entities", "google_ads", "campaign", range], queryFn: () => getEntities("google_ads", "campaign", range) });
   const googleGroups = useQuery({ queryKey: ["entities", "google_ads", "group", range], queryFn: () => getEntities("google_ads", "group", range) });
@@ -47,7 +48,15 @@ export function DashboardPage() {
   const metaPrevious = data.previous.sources.meta_ads;
 
   return (
-    <DashboardShell range={range} onRangeChange={setRange} lastSync={lastSync}>
+    <DashboardShell
+      range={range}
+      comparisonEnabled={comparisonEnabled}
+      onPeriodApply={(nextRange, nextComparison) => {
+        setRange(nextRange);
+        setComparisonEnabled(nextComparison);
+      }}
+      lastSync={lastSync}
+    >
       <section id="resumo" className="dashboard-section first-section">
         <SectionTitle eyebrow="Visão geral" title="Resumo consolidado" description="Google Ads e Meta Ads no período selecionado" />
         <div className="kpi-grid summary-grid">
