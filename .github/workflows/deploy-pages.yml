@@ -40,6 +40,9 @@ jobs:
         run: npm test
 
       - name: Gerar versão de validação
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build:pages
 
       - name: Preparar GitHub Pages
@@ -63,4 +66,3 @@ jobs:
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
-
