@@ -343,3 +343,7 @@ td.name-cell { text-align: left; white-space: normal; }
   .period-comparison-info p { margin-left: 43px; }
   .period-picker-footer .primary-button { width: 100%; min-width: 0; }
 }
+
+.table-show-more { display: flex; justify-content: center; padding: 15px 16px 18px; border-top: 1px solid var(--line); background: #fff; }
+.table-show-more .secondary-button { width: auto; min-height: 38px; color: var(--red); border: 1px solid #e7c4c0; background: #fff; }
+.table-show-more .secondary-button:hover { border-color: var(--red); background: #fff2f0; }
