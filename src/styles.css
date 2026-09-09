@@ -314,9 +314,9 @@ td.name-cell { text-align: left; white-space: normal; }
 .calendar-grid button.muted { color: #b2bdc2; }
 .period-picker-footer { display: flex; align-items: center; gap: 22px; padding: 15px 18px; border-top: 1px solid #e5eaed; background: #fff; }
 .period-comparison-info { flex: 1 1 auto; min-width: 0; }
-.comparison-toggle { display: flex; align-items: center; gap: 9px; color: var(--navy); cursor: pointer; }
-.comparison-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.comparison-toggle > span { width: 34px; height: 20px; position: relative; flex: 0 0 auto; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
+.period-popover.period-picker .comparison-toggle { display: flex; align-items: center; gap: 9px; margin-top: 0; color: var(--navy); cursor: pointer; }
+.period-popover.period-picker .comparison-toggle input { width: 1px; height: 1px; position: absolute; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
+.period-popover.period-picker .comparison-toggle > span { width: 34px; height: 20px; position: relative; flex: 0 0 auto; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
 .comparison-toggle > span::after { content: ""; width: 14px; height: 14px; position: absolute; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(36, 56, 66, .25); transition: .18s ease; }
 .comparison-toggle input:checked + span { background: var(--red); }
 .comparison-toggle input:checked + span::after { transform: translateX(14px); }
