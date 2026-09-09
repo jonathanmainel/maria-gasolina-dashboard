@@ -18,16 +18,16 @@ export function AuthProvider(props: any) {
       return;
     }
 
-    // Lê a sessão inicial e captura tokens do OAuth
+    // Processa a sessão e lê os tokens presentes na URL Hash
     supabase.auth.getSession().then((res: any) => {
       setSession(res.data?.session ?? null);
       setLoading(false);
     });
 
-    // Escuta mudanças de estado da autenticação
+    // Escuta atualizações de login/logout
     const { data } = supabase.auth.onAuthStateChange((event: any, newSession: any) => {
       if (event) {
-        // Usa event para evitar warning de variavel nao utilizada
+        // Evento processado
       }
       setSession(newSession);
       setLoading(false);
@@ -41,13 +41,8 @@ export function AuthProvider(props: any) {
   const signIn = async () => {
     if (!supabase) return;
 
-    // Redireciona para a raiz do repositório no GitHub Pages sem a subrota /login
-    const origin = window.location.origin;
-    const basePath = window.location.pathname.replace(/\/login\/?$/, "");
-
-    const redirectUrl = import.meta.env.VITE_SITE_URL
-      ? `${import.meta.env.VITE_SITE_URL.replace(/\/$/, "")}/`
-      : `${origin}${basePath}/`;
+    // Garante que a URL enviada ao Supabase seja exatamente a cadastrada no painel
+    const redirectUrl = "https://jonathanmainel.github.io/maria-gasolina-dashboard/";
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
