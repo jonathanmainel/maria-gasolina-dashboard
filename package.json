@@ -1,0 +1,42 @@
+{
+  "name": "maria-gasolina-dashboard-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner",
+    "build": "vite build --configLoader runner && node scripts/prepare-sites-build.mjs",
+    "build:demo": "vite build --configLoader runner --mode demo --outDir .preview",
+    "preview": "vite preview --configLoader runner",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run src --configLoader runner",
+    "test:e2e": "playwright test",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/montserrat": "^5.3.0",
+    "@icons-pack/react-simple-icons": "^13.15.1",
+    "@supabase/supabase-js": "^2.116.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.102.8",
+    "@vitejs/plugin-react": "5.0.4",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.43.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-router-dom": "^7.18.3",
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "6.4.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}
