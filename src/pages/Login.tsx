@@ -11,7 +11,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Força o redirecionamento assim que a sessão for identificada
+  // Redireciona para o dashboard assim que o Supabase confirma a sessão
   useEffect(() => {
     if (!loading && (session || isDemoMode)) {
       navigate("/dashboard/maria-gasolina", { replace: true });
