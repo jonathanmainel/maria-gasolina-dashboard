@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 
 interface AuthContextType {
@@ -26,15 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Pega a sessão existente ou processa os tokens presentes na URL
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    // Processa a sessão existente e captura os tokens vindos na URL
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
       setLoading(false);
     });
 
-    // Escuta mudanças de estado do Supabase Auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    // Escuta mudanças no estado de autenticação (ex: retorno do OAuth)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
       setLoading(false);
     });
 
@@ -49,9 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Define a URL base sem o caminho '/login' para redirecionar de volta para a raiz do dashboard
+    const origin = window.location.origin;
+    const basePath = window.location.pathname.replace(/\/login\/?$/, "");
+    
     const redirectUrl = import.meta.env.VITE_SITE_URL 
-      ? `${import.meta.env.VITE_SITE_URL}/`
-      : window.location.origin + window.location.pathname;
+      ? `${import.meta.env.VITE_SITE_URL.replace(/\/$/, "")}/`
+      : `${origin}${basePath}/`;
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
