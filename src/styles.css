@@ -305,22 +305,24 @@ td.name-cell { text-align: left; white-space: normal; }
 .calendar-heading button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 7px; color: #71818a; background: transparent; }
 .calendar-heading button:hover { color: var(--navy); background: #f0f3f4; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; text-align: center; }
+.calendar-selection-help { margin: 0 0 8px; color: #7a8b93; font-size: 11px; font-weight: 600; }
 .calendar-grid.weekdays { margin-bottom: 5px; color: #667780; font-size: 10px; font-weight: 750; }
 .calendar-grid button { height: 32px; position: relative; z-index: 0; border: 0; border-radius: 7px; color: #425762; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; }
 .calendar-grid button:hover { color: var(--red); background: #fff2f0; }
-.calendar-grid button.between { border-radius: 0; color: var(--red); background: #fff0ee; }
+.calendar-grid button.between, .calendar-grid button.preview { border-radius: 0; color: var(--red); background: #fff0ee; }
 .calendar-grid button.selected { z-index: 1; color: #fff; background: var(--red); box-shadow: 0 2px 6px rgba(157, 42, 30, .26); }
 .calendar-grid button.muted { color: #b2bdc2; }
-.period-picker-footer { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "toggle apply" "detail apply"; align-items: center; column-gap: 22px; padding: 15px 18px; border-top: 1px solid #e5eaed; background: #fff; }
-.comparison-toggle { grid-area: toggle; display: flex; align-items: center; gap: 9px; color: var(--navy); cursor: pointer; }
+.period-picker-footer { display: flex; align-items: center; gap: 22px; padding: 15px 18px; border-top: 1px solid #e5eaed; background: #fff; }
+.period-comparison-info { flex: 1 1 auto; min-width: 0; }
+.comparison-toggle { display: flex; align-items: center; gap: 9px; color: var(--navy); cursor: pointer; }
 .comparison-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.comparison-toggle > span { width: 34px; height: 20px; position: relative; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
+.comparison-toggle > span { width: 34px; height: 20px; position: relative; flex: 0 0 auto; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
 .comparison-toggle > span::after { content: ""; width: 14px; height: 14px; position: absolute; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(36, 56, 66, .25); transition: .18s ease; }
 .comparison-toggle input:checked + span { background: var(--red); }
 .comparison-toggle input:checked + span::after { transform: translateX(14px); }
 .comparison-toggle strong { font-size: 12px; }
-.period-picker-footer p { grid-area: detail; margin: 3px 0 0 43px; color: #89979e; font-size: 10px; }
-.period-picker-footer .primary-button { width: auto; min-width: 150px; height: 42px; grid-area: apply; font-size: 12px; }
+.period-comparison-info p { margin: 3px 0 0 43px; color: #89979e; font-size: 10px; }
+.period-picker-footer .primary-button { width: auto; min-width: 150px; height: 42px; flex: 0 0 auto; font-size: 12px; }
 .comparison-hidden .comparison, .comparison-hidden .kpi-card > small { display: none; }
 .comparison-hidden .kpi-value-row { margin-top: 14px; }
 
@@ -337,7 +339,7 @@ td.name-cell { text-align: left; white-space: normal; }
   .period-presets .preset-divider, .preset-caption { display: none; }
   .period-presets button { font-size: 11px; }
   .period-calendar-panel { padding: 14px; }
-  .period-picker-footer { grid-template-columns: 1fr; grid-template-areas: "toggle" "detail" "apply"; row-gap: 9px; }
-  .period-picker-footer p { margin: 0; }
+  .period-picker-footer { flex-direction: column; align-items: stretch; gap: 10px; }
+  .period-comparison-info p { margin-left: 43px; }
   .period-picker-footer .primary-button { width: 100%; min-width: 0; }
 }
