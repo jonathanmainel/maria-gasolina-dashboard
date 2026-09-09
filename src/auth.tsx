@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 
-const AuthContext = createContext({
-  session: null as any,
+const AuthContext = createContext<any>({
+  session: null,
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
@@ -10,7 +10,7 @@ const AuthContext = createContext({
 
 export function AuthProvider({ children }: { children: any }) {
   const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (!supabase) {
@@ -18,27 +18,27 @@ export function AuthProvider({ children }: { children: any }) {
       return;
     }
 
-    // Processa a sessão e recupera os tokens do OAuth recebidos na URL
-    supabase.auth.getSession().then((res) => {
+    // Processa a sessão e captura tokens da URL
+    supabase.auth.getSession().then((res: any) => {
       setSession(res.data?.session ?? null);
       setLoading(false);
     });
 
-    // Escuta alterações na autenticação
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    // Escuta mudanças no estado de login
+    const { data } = supabase.auth.onAuthStateChange((_event: any, newSession: any) => {
       setSession(newSession);
       setLoading(false);
     });
 
     return () => {
-      data.subscription.unsubscribe();
+      data?.subscription?.unsubscribe();
     };
   }, []);
 
   const signIn = async () => {
     if (!supabase) return;
 
-    // Redireciona removendo a subrota /login para apontar para a raiz do repositório
+    // Redireciona removendo a subrota /login para voltar à raiz
     const origin = window.location.origin;
     const basePath = window.location.pathname.replace(/\/login\/?$/, "");
 
