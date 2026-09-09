@@ -1,36 +1,31 @@
 import { AlertCircle, ArrowRight, BarChart3, LockKeyhole } from "lucide-react";
-import { useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { isDemoMode } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { isSupabaseConfigured } from "../lib/supabase";
 
 export function LoginPage() {
-  const { session, loading } = useAuth();
+  const { session, signIn, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  if (!loading && (session || isDemoMode)) return <Navigate to={`/dashboard/maria-gasolina${isDemoMode ? "?demo=1" : ""}`} replace />;
+  const navigate = useNavigate();
+
+  // Força o redirecionamento assim que a sessão for identificada
+  useEffect(() => {
+    if (!loading && (session || isDemoMode)) {
+      navigate("/dashboard/maria-gasolina", { replace: true });
+    }
+  }, [session, loading, navigate]);
+
+  if (!loading && (session || isDemoMode)) {
+    return <Navigate to={`/dashboard/maria-gasolina${isDemoMode ? "?demo=1" : ""}`} replace />;
+  }
 
   const handleLogin = async () => {
     setError(null);
     try {
-      if (!supabase) {
-        throw new Error("Supabase não está configurado corretamente.");
-      }
-
-      // Redireciona diretamente para a URL do GitHub Pages ou URL atual
-      const redirectUrl = import.meta.env.VITE_SITE_URL 
-        ? `${import.meta.env.VITE_SITE_URL}/`
-        : window.location.origin + window.location.pathname;
-
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-        },
-      });
-
-      if (authError) throw authError;
+      await signIn();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível entrar.");
     }
