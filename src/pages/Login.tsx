@@ -4,16 +4,32 @@ import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import { isDemoMode } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
-import { isSupabaseConfigured } from "../lib/supabase";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
 export function LoginPage() {
-  const { session, signIn, loading } = useAuth();
+  const { session, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   if (!loading && (session || isDemoMode)) return <Navigate to={`/dashboard/maria-gasolina${isDemoMode ? "?demo=1" : ""}`} replace />;
 
   const handleLogin = async () => {
     setError(null);
-    try { await signIn(); } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível entrar."); }
+    try {
+      // Redireciona diretamente para a URL do GitHub Pages ou URL atual
+      const redirectUrl = import.meta.env.VITE_SITE_URL 
+        ? `${import.meta.env.VITE_SITE_URL}/`
+        : window.location.origin + window.location.pathname;
+
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+
+      if (authError) throw authError;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível entrar.");
+    }
   };
 
   return (
@@ -49,5 +65,15 @@ export function LoginPage() {
 
 export function PendingPage() {
   const { signOut } = useAuth();
-  return <main className="pending-page"><div className="pending-card"><img src={brandLogoUrl} alt="Maria Gasolina" /><span className="pending-icon"><LockKeyhole size={28} /></span><h1>Acesso pendente</h1><p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p><button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button></div></main>;
+  return (
+    <main className="pending-page">
+      <div className="pending-card">
+        <img src={brandLogoUrl} alt="Maria Gasolina" />
+        <span className="pending-icon"><LockKeyhole size={28} /></span>
+        <h1>Acesso pendente</h1>
+        <p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p>
+        <button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button>
+      </div>
+    </main>
+  );
 }
