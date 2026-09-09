@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, BarChart3, LockKeyhole } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Navigate, Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import { isDemoMode } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
@@ -9,14 +9,6 @@ import { isSupabaseConfigured } from "../lib/supabase";
 export function LoginPage() {
   const { session, signIn, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-
-  // Redireciona para o dashboard assim que o Supabase confirma a sessão
-  useEffect(() => {
-    if (!loading && (session || isDemoMode)) {
-      navigate("/dashboard/maria-gasolina", { replace: true });
-    }
-  }, [session, loading, navigate]);
 
   if (!loading && (session || isDemoMode)) {
     return <Navigate to={`/dashboard/maria-gasolina${isDemoMode ? "?demo=1" : ""}`} replace />;
