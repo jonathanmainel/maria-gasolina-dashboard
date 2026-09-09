@@ -32,25 +32,40 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
   useEffect(() => setDraft(range), [range]);
 
   useEffect(() => {
-    const sections = navigation
-      .map(({ id }) => document.getElementById(id))
-      .filter((section): section is HTMLElement => Boolean(section));
+    let animationFrame: number | undefined;
 
-    if (!sections.length) return;
+    const updateActiveSection = () => {
+      const marker = window.innerWidth <= 760 ? 128 : 88;
+      const sections = navigation
+        .map(({ id }) => document.getElementById(id))
+        .filter((section): section is HTMLElement => Boolean(section));
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleSection = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      const nextSection = sections
+        .filter((section) => section.getBoundingClientRect().top <= marker)
+        .at(-1)?.id ?? sections[0]?.id;
 
-        if (visibleSection) setActiveSection(visibleSection.target.id);
-      },
-      { rootMargin: "-18% 0px -60% 0px", threshold: [0, 0.1, 0.3, 0.6] },
-    );
+      if (nextSection) {
+        setActiveSection((current) => current === nextSection ? current : nextSection);
+      }
+    };
 
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    const handleScroll = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        updateActiveSection();
+      });
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", updateActiveSection);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateActiveSection);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
   }, []);
 
   const applyPeriod = () => {
