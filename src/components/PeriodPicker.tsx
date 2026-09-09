@@ -41,6 +41,8 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
   const [draft, setDraft] = useState<DateRange>(range);
   const [compare, setCompare] = useState(comparisonEnabled);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseISO(range.end)));
+  const [awaitingEnd, setAwaitingEnd] = useState(false);
+  const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const presets = useMemo(() => {
@@ -77,17 +79,25 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
   const selectPreset = (nextRange: DateRange) => {
     setDraft(nextRange);
     setVisibleMonth(startOfMonth(parseISO(nextRange.end)));
+    setAwaitingEnd(false);
+    setHoveredDay(null);
   };
 
   const selectDay = (day: Date) => {
     const value = toIso(day);
 
-    if (draft.start === draft.end || isBefore(day, start)) {
+    if (!awaitingEnd) {
       setDraft({ start: value, end: value });
+      setAwaitingEnd(true);
+      setHoveredDay(null);
       return;
     }
 
-    setDraft({ start: draft.start, end: value });
+    const nextStart = isBefore(day, start) ? day : start;
+    const nextEnd = isBefore(day, start) ? start : day;
+    setDraft(makeRange(nextStart, nextEnd));
+    setAwaitingEnd(false);
+    setHoveredDay(null);
   };
 
   const updateDate = (field: keyof DateRange, value: string) => {
@@ -98,6 +108,8 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
     if (field === "end" && next.end < next.start) next.start = next.end;
     setDraft(next);
     setVisibleMonth(startOfMonth(parseISO(value)));
+    setAwaitingEnd(false);
+    setHoveredDay(null);
   };
 
   const apply = () => {
@@ -138,21 +150,34 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
             <button type="button" onClick={() => setVisibleMonth((month) => addMonths(month, 1))} aria-label="Próximo mês"><ChevronRight size={19} /></button>
           </div>
 
+          <p className="calendar-selection-help">{awaitingEnd ? "Agora selecione a data final." : "Seleciona a data inicial e depois a data final."}</p>
+
           <div className="calendar-grid weekdays">
             {weekdays.map((day) => <span key={day}>{day}</span>)}
           </div>
           <div className="calendar-grid">
             {calendarDays.map((day) => {
-              const selected = isSameDay(day, start) || isSameDay(day, end);
-              const between = !isBefore(day, start) && !isAfter(day, end);
+              const previewStart = awaitingEnd && hoveredDay && isBefore(hoveredDay, start) ? hoveredDay : start;
+              const previewEnd = awaitingEnd && hoveredDay
+                ? (isBefore(hoveredDay, start) ? start : hoveredDay)
+                : end;
+              const selected = isSameDay(day, start) || (!awaitingEnd && isSameDay(day, end));
+              const between = !awaitingEnd && !isBefore(day, start) && !isAfter(day, end);
+              const preview = Boolean(awaitingEnd && hoveredDay && !isBefore(day, previewStart) && !isAfter(day, previewEnd));
               const muted = !isSameMonth(day, visibleMonth);
 
               return (
                 <button
                   type="button"
                   key={toIso(day)}
-                  className={`${selected ? "selected" : ""} ${between ? "between" : ""} ${muted ? "muted" : ""}`}
+                  data-date={toIso(day)}
+                  aria-pressed={selected}
+                  className={`${selected ? "selected" : ""} ${between ? "between" : ""} ${preview ? "preview" : ""} ${muted ? "muted" : ""}`}
                   onClick={() => selectDay(day)}
+                  onMouseEnter={() => awaitingEnd && setHoveredDay(day)}
+                  onMouseLeave={() => awaitingEnd && setHoveredDay(null)}
+                  onFocus={() => awaitingEnd && setHoveredDay(day)}
+                  onBlur={() => awaitingEnd && setHoveredDay(null)}
                 >
                   {format(day, "d")}
                 </button>
@@ -163,12 +188,14 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
       </div>
 
       <div className="period-picker-footer">
-        <label className="comparison-toggle">
-          <input type="checkbox" checked={compare} onChange={(event) => setCompare(event.target.checked)} />
-          <span aria-hidden="true" />
-          <strong>Comparar com período anterior</strong>
-        </label>
-        <p>{compare ? `Comparação: ${format(parseISO(comparisonRange.start), "dd MMM", { locale: ptBR })} a ${format(parseISO(comparisonRange.end), "dd MMM yyyy", { locale: ptBR })}` : "Comparação desativada"}</p>
+        <div className="period-comparison-info">
+          <label className="comparison-toggle">
+            <input type="checkbox" checked={compare} onChange={(event) => setCompare(event.target.checked)} />
+            <span aria-hidden="true" />
+            <strong>Comparar com período anterior</strong>
+          </label>
+          <p>{compare ? `Comparação: ${format(parseISO(comparisonRange.start), "dd MMM", { locale: ptBR })} a ${format(parseISO(comparisonRange.end), "dd MMM yyyy", { locale: ptBR })}` : "Comparação desativada"}</p>
+        </div>
         <button type="button" className="primary-button" onClick={apply}>Aplicar período</button>
       </div>
     </div>
