@@ -63,7 +63,7 @@ export const mockOverview: OverviewResponse = {
 
 const entity = (
   source: "google_ads" | "meta_ads",
-  level: "campaign" | "group" | "ad",
+  level: "campaign" | "group" | "ad" | "keyword",
   id: string,
   name: string,
   spend: number,
@@ -105,6 +105,24 @@ export const mockEntities: Record<string, CursorPage<EntityItem>> = {
       entity("google_ads", "group", "gg6", "Express | Geral", 106.96, 1665, 137, 31, "MG | PERFORMANCE MAX | EXPRESS"),
     ],
   },
+  google_keyword: {
+    total_count: 12,
+    next_cursor: null,
+    items: [
+      entity("google_ads", "keyword", "kw1", "[maria gasolina]", 98.42, 812, 55, 7, "Marca + Maria Gasolina"),
+      entity("google_ads", "keyword", "kw2", "[mercado em condomínio]", 87.31, 760, 44, 5, "Condomínios"),
+      entity("google_ads", "keyword", "kw3", "\"franquia de mercado\"", 76.18, 642, 38, 4, "Franquia de conveniência"),
+      entity("google_ads", "keyword", "kw4", "[mercado 24 horas]", 63.8, 526, 31, 4, "Express | Geral"),
+      entity("google_ads", "keyword", "kw5", "\"minimercado autônomo\"", 54.92, 418, 25, 3, "Mercado autônomo"),
+      entity("google_ads", "keyword", "kw6", "[loja de conveniência condomínio]", 48.77, 392, 22, 3, "Condomínios"),
+      entity("google_ads", "keyword", "kw7", "\"franquia de conveniência\"", 43.66, 344, 19, 2, "Franquia de conveniência"),
+      entity("google_ads", "keyword", "kw8", "[maria gasolina express]", 38.42, 315, 18, 2, "Marca + Maria Gasolina"),
+      entity("google_ads", "keyword", "kw9", "\"mercado no condomínio\"", 34.18, 278, 16, 2, "Condomínios"),
+      entity("google_ads", "keyword", "kw10", "[mini mercado condomínio]", 29.65, 242, 13, 1, "Condomínios"),
+      entity("google_ads", "keyword", "kw11", "\"mercado autônomo\"", 24.31, 198, 11, 1, "Mercado autônomo"),
+      entity("google_ads", "keyword", "kw12", "[franquia maria gasolina]", 18.67, 151, 8, 1, "Franquia de conveniência"),
+    ],
+  },
   meta_campaign: {
     total_count: 5,
     next_cursor: null,
@@ -128,7 +146,7 @@ export const mockEntities: Record<string, CursorPage<EntityItem>> = {
     ],
   },
   meta_ad: {
-    total_count: 6,
+    total_count: 12,
     next_cursor: null,
     items: [
       entity("meta_ads", "ad", "ma1", "Vídeo | Mercado no condomínio", 229.42, 11030, 143, 23, "Síndicos | Sudeste"),
@@ -137,6 +155,12 @@ export const mockEntities: Record<string, CursorPage<EntityItem>> = {
       entity("meta_ads", "ad", "ma4", "Reels | Renda recorrente", 198.92, 9450, 128, 14, "Empreendedores | Interesses"),
       entity("meta_ads", "ad", "ma5", "Depoimento | Síndico parceiro", 184.31, 8870, 120, 12, "Síndicos | Sudeste"),
       entity("meta_ads", "ad", "ma6", "Imagem | Sua loja completa", 176.72, 8020, 111, 8, "Visitantes do site | 30 dias"),
+      entity("meta_ads", "ad", "ma7", "Vídeo | Rotina sem filas", 154.37, 7160, 96, 7, "Condomínios | Capitais"),
+      entity("meta_ads", "ad", "ma8", "Carrossel | Produtos essenciais", 143.21, 6640, 88, 6, "Síndicos | Sudeste"),
+      entity("meta_ads", "ad", "ma9", "Reels | Empreender perto", 131.9, 6130, 81, 5, "Franqueados | Lookalike 2%"),
+      entity("meta_ads", "ad", "ma10", "Estático | Seu condomínio completo", 118.78, 5620, 74, 4, "Condomínios | Capitais"),
+      entity("meta_ads", "ad", "ma11", "Depoimento | Mais praticidade", 104.5, 5110, 67, 3, "Empreendedores | Interesses"),
+      entity("meta_ads", "ad", "ma12", "Imagem | Conheça a franquia", 92.14, 4680, 60, 2, "Franqueados | Lookalike 2%"),
     ],
   },
 };
