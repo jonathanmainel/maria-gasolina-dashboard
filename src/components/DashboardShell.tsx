@@ -1,15 +1,17 @@
-import { BarChart3, CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
-import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { BarChart3, CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, Settings } from "lucide-react";
+import { useEffect, useState, type PropsWithChildren } from "react";
 import SiGoogleads from "@icons-pack/react-simple-icons/icons/SiGoogleads";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
 import { useAuth } from "../auth";
 import { brandLogoUrl } from "../lib/app-path";
 import { dateTime, longDate } from "../lib/format";
 import type { DateRange } from "../types";
+import { PeriodPicker } from "./PeriodPicker";
 
 interface Props extends PropsWithChildren {
   range: DateRange;
-  onRangeChange: (range: DateRange) => void;
+  comparisonEnabled: boolean;
+  onPeriodApply: (range: DateRange, comparisonEnabled: boolean) => void;
   lastSync?: string;
 }
 
@@ -20,23 +22,19 @@ const navigation = [
   { id: "meta-ads", label: "Meta Ads", icon: SiMeta },
 ];
 
-export function DashboardShell({ range, onRangeChange, lastSync, children }: Props) {
+export function DashboardShell({ range, comparisonEnabled, onPeriodApply, lastSync, children }: Props) {
   const [periodOpen, setPeriodOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [draft, setDraft] = useState(range);
   const [activeSection, setActiveSection] = useState(navigation[0].id);
-  const periodRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
-
-  useEffect(() => setDraft(range), [range]);
 
   useEffect(() => {
     let animationFrame: number | undefined;
     let lastScrollY = window.scrollY;
 
     const updateActiveSection = () => {
-      const marker = window.innerWidth <= 760 ? 128 : 88;
+      const marker = window.innerWidth <= 760 ? 128 : 104;
       const isScrollingUp = window.scrollY < lastScrollY;
       const sectionIds = navigation
         .filter(({ id }) => document.getElementById(id))
@@ -47,7 +45,6 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
         .at(-1) ?? sectionIds[0];
 
       lastScrollY = window.scrollY;
-
       if (!candidate) return;
 
       setActiveSection((current) => {
@@ -58,11 +55,7 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
 
         if (isScrollingUp && candidateIndex < currentIndex) {
           const currentSection = document.getElementById(current);
-
-          // A small buffer avoids flickering while the heading crosses the fixed header.
-          if (currentSection && currentSection.getBoundingClientRect().top < marker + 32) {
-            return current;
-          }
+          if (currentSection && currentSection.getBoundingClientRect().top < marker + 32) return current;
         }
 
         return candidate;
@@ -88,13 +81,6 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
     };
   }, []);
 
-  const applyPeriod = () => {
-    if (draft.start <= draft.end) {
-      onRangeChange(draft);
-      setPeriodOpen(false);
-    }
-  };
-
   const goTo = (id: string) => {
     setActiveSection(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -108,7 +94,6 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
         <nav aria-label="Seções do dashboard">
           {navigation.map(({ id, label, icon: Icon }) => {
             const isActive = activeSection === id;
-
             return (
               <button key={id} className={isActive ? "active" : ""} onClick={() => goTo(id)} title={label} aria-label={label} aria-current={isActive ? "location" : undefined}>
                 <Icon size={20} />
@@ -128,19 +113,23 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
           <div><strong>Maria Gasolina Express</strong><span>Relatório de mídia</span></div>
         </div>
 
-        <div className="period-control" ref={periodRef}>
+        <div className="period-control">
           <button className="period-button" onClick={() => setPeriodOpen((value) => !value)} aria-expanded={periodOpen}>
-            <CalendarDays size={17} />
+            <CalendarDays size={19} />
             <span><small>Período analisado</small><strong>{longDate(range.start)} a {longDate(range.end)}</strong></span>
-            <ChevronDown size={16} />
+            <ChevronDown size={18} />
           </button>
-          {periodOpen && <div className="period-popover">
-            <div className="popover-heading"><strong>Escolher período</strong><button onClick={() => setPeriodOpen(false)} aria-label="Fechar"><X size={17} /></button></div>
-            <label>Data inicial<input type="date" value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} /></label>
-            <label>Data final<input type="date" value={draft.end} onChange={(event) => setDraft({ ...draft, end: event.target.value })} /></label>
-            <p>A comparação será feita automaticamente com os dias imediatamente anteriores.</p>
-            <button className="primary-button" onClick={applyPeriod}>Aplicar período</button>
-          </div>}
+          {periodOpen && (
+            <PeriodPicker
+              range={range}
+              comparisonEnabled={comparisonEnabled}
+              onClose={() => setPeriodOpen(false)}
+              onApply={(nextRange, nextComparison) => {
+                onPeriodApply(nextRange, nextComparison);
+                setPeriodOpen(false);
+              }}
+            />
+          )}
         </div>
 
         <div className="header-actions">
@@ -156,7 +145,7 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
           </div>
         </div>
       </header>
-      <main className="dashboard-content">{children}</main>
+      <main className={`dashboard-content ${comparisonEnabled ? "" : "comparison-hidden"}`}>{children}</main>
     </div>
   );
 }
