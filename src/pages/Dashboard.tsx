@@ -19,9 +19,12 @@ const initialRange: DateRange = {
   end: format(initialEnd, "yyyy-MM-dd"),
 };
 
+const PMAX_ASSET_INITIAL_LIMIT = 10;
+
 export function DashboardPage() {
   const [range, setRange] = useState(initialRange);
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
+  const [showAllPmaxAssets, setShowAllPmaxAssets] = useState(false);
   const overview = useQuery({ queryKey: ["overview", range], queryFn: () => getOverview(range) });
   const googleCampaigns = useQuery({ queryKey: ["entities", "google_ads", "campaign", range], queryFn: () => getEntities("google_ads", "campaign", range) });
   const googleGroups = useQuery({ queryKey: ["entities", "google_ads", "group", range], queryFn: () => getEntities("google_ads", "group", range) });
@@ -46,6 +49,9 @@ export function DashboardPage() {
   const googlePrevious = data.previous.sources.google_ads;
   const meta = data.current.sources.meta_ads;
   const metaPrevious = data.previous.sources.meta_ads;
+  const pmaxAssetItems = [...(pmaxAssets.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+  const visiblePmaxAssets = showAllPmaxAssets ? pmaxAssetItems : pmaxAssetItems.slice(0, PMAX_ASSET_INITIAL_LIMIT);
+  const remainingPmaxAssets = Math.max((pmaxAssets.data?.total_count ?? pmaxAssetItems.length) - PMAX_ASSET_INITIAL_LIMIT, 0);
 
   return (
     <DashboardShell
@@ -54,6 +60,7 @@ export function DashboardPage() {
       onPeriodApply={(nextRange, nextComparison) => {
         setRange(nextRange);
         setComparisonEnabled(nextComparison);
+        setShowAllPmaxAssets(false);
       }}
       lastSync={lastSync}
     >
@@ -92,7 +99,19 @@ export function DashboardPage() {
         <div className="content-panel">
           <PanelHeading icon={<PanelsTopLeft size={18} />} title="Recursos individuais" count={pmaxAssets.data?.total_count} />
           <DataPanel loading={pmaxAssets.isLoading} error={pmaxAssets.isError} embedded>
-            <DataTable kind="pmax" items={pmaxAssets.data?.items ?? []} totalCount={pmaxAssets.data?.total_count} />
+            <DataTable kind="pmax" items={visiblePmaxAssets} totalCount={pmaxAssets.data?.total_count} />
+            {pmaxAssetItems.length > PMAX_ASSET_INITIAL_LIMIT && (
+              <div className="table-show-more">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-expanded={showAllPmaxAssets}
+                  onClick={() => setShowAllPmaxAssets((current) => !current)}
+                >
+                  {showAllPmaxAssets ? `Mostrar apenas os ${PMAX_ASSET_INITIAL_LIMIT} principais` : `Ver mais ${remainingPmaxAssets} recursos`}
+                </button>
+              </div>
+            )}
           </DataPanel>
         </div>
       </section>
