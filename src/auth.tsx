@@ -26,13 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Captura a sessão inicial ou obtém os tokens do Hash da URL após o OAuth
+    // Pega a sessão existente ou processa os tokens presentes na URL
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // Escuta mudanças de estado no login/logout
+    // Escuta mudanças de estado do Supabase Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
@@ -44,7 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      console.error("Supabase client não está inicializado.");
+      return;
+    }
 
     const redirectUrl = import.meta.env.VITE_SITE_URL 
       ? `${import.meta.env.VITE_SITE_URL}/`
