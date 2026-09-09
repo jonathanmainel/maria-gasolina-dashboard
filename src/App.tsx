@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { LoginPage, PendingPage } from "./pages/Login";
@@ -41,7 +41,7 @@ function AuthCallback() {
           <span className="pending-icon">!</span>
           <h1>Não foi possível concluir o login</h1>
           <p>{exchangeError}</p>
-          <a className="secondary-button" href="./login">Voltar para o login</a>
+          <Link className="secondary-button" to="/login">Voltar para o login</Link>
         </div>
       </main>
     );
