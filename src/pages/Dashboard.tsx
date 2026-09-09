@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { AlertCircle, BarChart3, ChevronRight, Layers3, Megaphone, MousePointerClick, PanelsTopLeft, Target, WalletCards } from "lucide-react";
-import SiGoogleads from "@icons-pack/react-simple-icons/icons/SiGoogleads";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
 import { useMemo, useState } from "react";
 import { DashboardCharts } from "../components/DashboardCharts";
 import { DashboardShell } from "../components/DashboardShell";
+import { GoogleAdsLogo } from "../components/PlatformLogos";
 import { DataTable } from "../components/DataTable";
 import { KpiCard } from "../components/KpiCard";
 import { getEntities, getOverview, getPmax } from "../lib/api";
@@ -62,7 +62,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {google && <PlatformOverview id="google-ads" title="Google Ads" subtitle="Desempenho das campanhas de pesquisa e Performance Max" icon={<SiGoogleads size={25} color="#4285F4" />} current={google} previous={googlePrevious} />}
+      {google && <PlatformOverview id="google-ads" title="Google Ads" subtitle="Desempenho das campanhas de pesquisa e Performance Max" icon={<GoogleAdsLogo size={30} />} current={google} previous={googlePrevious} />}
 
       <section className="dashboard-section subsection">
         <SectionTitle eyebrow="Google Ads" title="Todas as campanhas" description="Campanhas ordenadas por investimento" compact />
