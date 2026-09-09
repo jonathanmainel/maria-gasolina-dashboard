@@ -1,6 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { LoginPage, PendingPage } from "./pages/Login";
 import { useAuth } from "./auth";
 import { isDemoMode } from "./lib/api";
@@ -15,8 +15,38 @@ function ScreenState({ message }: { message: string }) {
 
 function AuthCallback() {
   const { session, loading } = useAuth();
+  const [exchangeComplete, setExchangeComplete] = useState(false);
+  const [exchangeError, setExchangeError] = useState<string | null>(null);
 
-  if (loading) return <ScreenState message="Concluindo seu login..." />;
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("code");
+
+    if (!code || !supabase) {
+      setExchangeComplete(true);
+      return;
+    }
+
+    void supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+      if (error) setExchangeError(error.message);
+      setExchangeComplete(true);
+    });
+  }, []);
+
+  if (!exchangeComplete || loading) return <ScreenState message="Concluindo seu login..." />;
+
+  if (exchangeError) {
+    return (
+      <main className="pending-page">
+        <div className="pending-card">
+          <span className="pending-icon">!</span>
+          <h1>Não foi possível concluir o login</h1>
+          <p>{exchangeError}</p>
+          <a className="secondary-button" href="./login">Voltar para o login</a>
+        </div>
+      </main>
+    );
+  }
+
   return <Navigate to={session ? "/dashboard/maria-gasolina" : "/login"} replace />;
 }
 
@@ -47,6 +77,7 @@ function ProtectedRoute() {
 
 export default function App() {
   return <Routes>
+    <Route path="/" element={<AuthCallback />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/acesso-pendente" element={<PendingPage />} />
