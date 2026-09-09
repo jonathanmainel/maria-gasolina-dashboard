@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { appUrl } from "./lib/app-path";
 import { supabase } from "./lib/supabase";
 
 const AuthContext = createContext<any>({
@@ -18,43 +19,43 @@ export function AuthProvider(props: any) {
       return;
     }
 
-    // Processa a sessão e lê os tokens presentes na URL Hash
-    supabase.auth.getSession().then((res: any) => {
-      setSession(res.data?.session ?? null);
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        setSession(null);
+      } else {
+        setSession(data.session);
+      }
       setLoading(false);
     });
 
-    // Escuta atualizações de login/logout
-    const { data } = supabase.auth.onAuthStateChange((event: any, newSession: any) => {
-      if (event) {
-        // Evento processado
-      }
-      setSession(newSession);
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setLoading(false);
     });
 
     return () => {
-      data?.subscription?.unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      throw new Error("A conexão com o Supabase ainda não foi configurada.");
+    }
 
-    // Garante que a URL enviada ao Supabase seja exatamente a cadastrada no painel
-    const redirectUrl = "https://jonathanmainel.github.io/maria-gasolina-dashboard/";
-
-    await supabase.auth.signInWithOAuth({
+    const redirectTo = new URL(appUrl("auth/callback"), window.location.origin).toString();
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: redirectUrl,
-      },
+      options: { redirectTo },
     });
+
+    if (error) throw error;
   };
 
   const signOut = async () => {
     if (!supabase) return;
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     setSession(null);
   };
 
