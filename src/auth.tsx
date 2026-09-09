@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 
@@ -26,13 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Processa a sessão existente e captura os tokens vindos na URL
+    // Processa a sessão existente ou lê os tokens presentes na URL
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
 
-    // Escuta mudanças no estado de autenticação (ex: retorno do OAuth)
+    // Escuta mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setLoading(false);
@@ -44,12 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    if (!supabase) {
-      console.error("Supabase client não está inicializado.");
-      return;
-    }
+    if (!supabase) return;
 
-    // Define a URL base sem o caminho '/login' para redirecionar de volta para a raiz do dashboard
     const origin = window.location.origin;
     const basePath = window.location.pathname.replace(/\/login\/?$/, "");
     
