@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, BarChart3, LockKeyhole } from "lucide-react";
 import { useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { isDemoMode } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
@@ -56,6 +56,23 @@ export function LoginPage() {
 
 export function PendingPage() {
   const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignOut = async () => {
+    setError(null);
+    setIsSigningOut(true);
+
+    try {
+      await signOut();
+      navigate("/login", { replace: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível encerrar a sessão.");
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <main className="pending-page">
       <div className="pending-card">
@@ -63,7 +80,10 @@ export function PendingPage() {
         <span className="pending-icon"><LockKeyhole size={28} /></span>
         <h1>Acesso pendente</h1>
         <p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p>
-        <button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button>
+        {error && <div className="login-error"><AlertCircle size={17} />{error}</div>}
+        <button className="secondary-button" onClick={() => void handleSignOut()} disabled={isSigningOut}>
+          {isSigningOut ? "Saindo..." : "Sair e usar outra conta"}
+        </button>
       </div>
     </main>
   );
