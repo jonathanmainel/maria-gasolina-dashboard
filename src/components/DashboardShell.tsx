@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, ChevronDown, Home, LayoutDashboard, LogOut, Menu, PanelsTopLeft, Settings, Users, X } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import SiGoogleads from "@icons-pack/react-simple-icons/icons/SiGoogleads";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
@@ -25,10 +25,33 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [draft, setDraft] = useState(range);
+  const [activeSection, setActiveSection] = useState(navigation[0].id);
   const periodRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
 
   useEffect(() => setDraft(range), [range]);
+
+  useEffect(() => {
+    const sections = navigation
+      .map(({ id }) => document.getElementById(id))
+      .filter((section): section is HTMLElement => Boolean(section));
+
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleSection = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (visibleSection) setActiveSection(visibleSection.target.id);
+      },
+      { rootMargin: "-18% 0px -60% 0px", threshold: [0, 0.1, 0.3, 0.6] },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
 
   const applyPeriod = () => {
     if (draft.start <= draft.end) {
@@ -38,6 +61,7 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
   };
 
   const goTo = (id: string) => {
+    setActiveSection(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     setMobileOpen(false);
   };
@@ -47,12 +71,16 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
       <aside className={`side-rail ${mobileOpen ? "open" : ""}`}>
         <div className="brand-mark"><img src={brandLogoUrl} alt="Maria Gasolina" /></div>
         <nav aria-label="Seções do dashboard">
-          {navigation.map(({ id, label, icon: Icon }, index) => (
-            <button key={id} className={index === 0 ? "active" : ""} onClick={() => goTo(id)} title={label} aria-label={label}>
-              <Icon size={20} />
-              <span>{label}</span>
-            </button>
-          ))}
+          {navigation.map(({ id, label, icon: Icon }) => {
+            const isActive = activeSection === id;
+
+            return (
+              <button key={id} className={isActive ? "active" : ""} onClick={() => goTo(id)} title={label} aria-label={label} aria-current={isActive ? "location" : undefined}>
+                <Icon size={20} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </nav>
         <button className="rail-settings" title="Configurações" aria-label="Configurações"><Settings size={20} /></button>
       </aside>
