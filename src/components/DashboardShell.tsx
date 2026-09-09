@@ -33,20 +33,40 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
 
   useEffect(() => {
     let animationFrame: number | undefined;
+    let lastScrollY = window.scrollY;
 
     const updateActiveSection = () => {
       const marker = window.innerWidth <= 760 ? 128 : 88;
-      const sections = navigation
-        .map(({ id }) => document.getElementById(id))
-        .filter((section): section is HTMLElement => Boolean(section));
+      const isScrollingUp = window.scrollY < lastScrollY;
+      const sectionIds = navigation
+        .filter(({ id }) => document.getElementById(id))
+        .map(({ id }) => id);
 
-      const nextSection = sections
-        .filter((section) => section.getBoundingClientRect().top <= marker)
-        .at(-1)?.id ?? sections[0]?.id;
+      const candidate = sectionIds
+        .filter((id) => document.getElementById(id)!.getBoundingClientRect().top <= marker)
+        .at(-1) ?? sectionIds[0];
 
-      if (nextSection) {
-        setActiveSection((current) => current === nextSection ? current : nextSection);
-      }
+      lastScrollY = window.scrollY;
+
+      if (!candidate) return;
+
+      setActiveSection((current) => {
+        if (current === candidate) return current;
+
+        const currentIndex = sectionIds.indexOf(current);
+        const candidateIndex = sectionIds.indexOf(candidate);
+
+        if (isScrollingUp && candidateIndex < currentIndex) {
+          const currentSection = document.getElementById(current);
+
+          // A small buffer avoids flickering while the heading crosses the fixed header.
+          if (currentSection && currentSection.getBoundingClientRect().top < marker + 32) {
+            return current;
+          }
+        }
+
+        return candidate;
+      });
     };
 
     const handleScroll = () => {
