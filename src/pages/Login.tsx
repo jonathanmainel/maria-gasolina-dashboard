@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import { isDemoMode } from "../lib/api";
+import { brandLogoUrl } from "../lib/app-path";
 import { isSupabaseConfigured } from "../lib/supabase";
 
 export function LoginPage() {
@@ -19,7 +20,7 @@ export function LoginPage() {
     <main className="auth-page">
       <section className="auth-brand-panel">
         <div className="auth-brand-copy">
-          <img src="/brand/maria-gasolina.svg" alt="Maria Gasolina Express" />
+          <img src={brandLogoUrl} alt="Maria Gasolina Express" />
           <span>Relatórios de mídia</span>
           <h1>Os números que movem sua marca, em um só lugar.</h1>
           <p>Acompanhe campanhas, investimento e resultados com atualização diária e acesso protegido.</p>
@@ -29,7 +30,7 @@ export function LoginPage() {
       </section>
       <section className="auth-form-panel">
         <div className="login-card">
-          <div className="login-logo"><img src="/brand/maria-gasolina.svg" alt="" /></div>
+          <div className="login-logo"><img src={brandLogoUrl} alt="" /></div>
           <p className="eyebrow">Portal de resultados</p>
           <h2>Bem-vindo</h2>
           <p className="login-description">Entre com sua conta Google autorizada para acessar o dashboard.</p>
@@ -48,5 +49,5 @@ export function LoginPage() {
 
 export function PendingPage() {
   const { signOut } = useAuth();
-  return <main className="pending-page"><div className="pending-card"><img src="/brand/maria-gasolina.svg" alt="Maria Gasolina" /><span className="pending-icon"><LockKeyhole size={28} /></span><h1>Acesso pendente</h1><p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p><button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button></div></main>;
+  return <main className="pending-page"><div className="pending-card"><img src={brandLogoUrl} alt="Maria Gasolina" /><span className="pending-icon"><LockKeyhole size={28} /></span><h1>Acesso pendente</h1><p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p><button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button></div></main>;
 }

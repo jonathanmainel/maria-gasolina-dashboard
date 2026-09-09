@@ -9,6 +9,7 @@ import { DashboardShell } from "../components/DashboardShell";
 import { DataTable } from "../components/DataTable";
 import { KpiCard } from "../components/KpiCard";
 import { getEntities, getOverview, getPmax } from "../lib/api";
+import { brandLogoUrl } from "../lib/app-path";
 import { compact, money, percent } from "../lib/format";
 import type { DateRange, Kpis, Source } from "../types";
 
@@ -158,7 +159,7 @@ function DataPanel({ children, loading, error, embedded = false }: { children: R
 }
 
 function DashboardLoading() {
-  return <div className="screen-state"><img src="/brand/maria-gasolina.svg" alt="Maria Gasolina" /><div className="spinner" /><p>Carregando seu relatório...</p></div>;
+  return <div className="screen-state"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="spinner" /><p>Carregando seu relatório...</p></div>;
 }
 
 function DashboardError({ message, onRetry }: { message?: string; onRetry: () => void }) {

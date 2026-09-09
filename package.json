@@ -7,6 +7,7 @@
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner && node scripts/prepare-sites-build.mjs",
     "build:demo": "vite build --configLoader runner --mode demo --outDir .preview",
+    "build:pages": "vite build --configLoader runner --mode demo && node scripts/prepare-pages-build.mjs",
     "preview": "vite preview --configLoader runner",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src --configLoader runner",

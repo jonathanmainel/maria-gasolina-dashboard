@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import SiGoogleads from "@icons-pack/react-simple-icons/icons/SiGoogleads";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
 import { useAuth } from "../auth";
+import { brandLogoUrl } from "../lib/app-path";
 import { dateTime, longDate } from "../lib/format";
 import type { DateRange } from "../types";
 
@@ -44,7 +45,7 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
   return (
     <div className="app-shell">
       <aside className={`side-rail ${mobileOpen ? "open" : ""}`}>
-        <div className="brand-mark"><img src="/brand/maria-gasolina.svg" alt="Maria Gasolina" /></div>
+        <div className="brand-mark"><img src={brandLogoUrl} alt="Maria Gasolina" /></div>
         <nav aria-label="Seções do dashboard">
           {navigation.map(({ id, label, icon: Icon }, index) => (
             <button key={id} className={index === 0 ? "active" : ""} onClick={() => goTo(id)} title={label} aria-label={label}>
@@ -60,7 +61,7 @@ export function DashboardShell({ range, onRangeChange, lastSync, children }: Pro
       <header className="top-header">
         <div className="client-identity">
           <button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
-          <img src="/brand/maria-gasolina.svg" alt="" />
+          <img src={brandLogoUrl} alt="" />
           <div><strong>Maria Gasolina Express</strong><span>Relatório de mídia</span></div>
         </div>
 

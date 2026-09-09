@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { isDemoMode } from "./lib/api";
+import { appUrl } from "./lib/app-path";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 interface AuthValue {
@@ -41,13 +42,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!supabase) throw new Error("Supabase não configurado");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/dashboard/maria-gasolina` },
+        options: { redirectTo: new URL(appUrl("dashboard/maria-gasolina"), window.location.origin).toString() },
       });
       if (error) throw error;
     },
     signOut: async () => {
       if (isDemoMode) {
-        window.location.assign("/login");
+        window.location.assign(appUrl("login"));
         return;
       }
       if (supabase) await supabase.auth.signOut();

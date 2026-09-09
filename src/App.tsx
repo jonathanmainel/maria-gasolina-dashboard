@@ -4,6 +4,7 @@ import { lazy, Suspense } from "react";
 import { LoginPage, PendingPage } from "./pages/Login";
 import { useAuth } from "./auth";
 import { isDemoMode } from "./lib/api";
+import { brandLogoUrl } from "./lib/app-path";
 import { supabase } from "./lib/supabase";
 
 const DashboardPage = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.DashboardPage })));
@@ -22,7 +23,7 @@ function ProtectedRoute() {
   });
 
   if (isDemoMode) return <Outlet />;
-  if (loading || (session && membership.isLoading)) return <div className="screen-state"><img src="/brand/maria-gasolina.svg" alt="Maria Gasolina" /><div className="spinner" /><p>Validando seu acesso...</p></div>;
+  if (loading || (session && membership.isLoading)) return <div className="screen-state"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="spinner" /><p>Validando seu acesso...</p></div>;
   if (!session) return <Navigate to="/login" replace />;
   if (!membership.data || membership.isError) return <Navigate to="/acesso-pendente" replace />;
   return <Outlet />;
