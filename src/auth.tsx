@@ -1,70 +1,78 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "./lib/supabase";
+import { AlertCircle, ArrowRight, BarChart3, LockKeyhole } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Navigate, Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth";
+import { isDemoMode } from "../lib/api";
+import { brandLogoUrl } from "../lib/app-path";
+import { isSupabaseConfigured } from "../lib/supabase";
 
-const AuthContext = createContext<any>({
-  session: null,
-  loading: true,
-  signIn: async () => {},
-  signOut: async () => {},
-});
+export function LoginPage() {
+  const { session, signIn, loading } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-export function AuthProvider({ children }: { children: any }) {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
+  // Redireciona automaticamente se já existir uma sessão ativa ou se o token acabou de chegar no hash da URL
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
+    if (session || isDemoMode) {
+      navigate("/dashboard/maria-gasolina", { replace: true });
     }
+  }, [session, navigate]);
 
-    // Processa a sessão e captura tokens da URL
-    supabase.auth.getSession().then((res: any) => {
-      setSession(res.data?.session ?? null);
-      setLoading(false);
-    });
+  if (!loading && (session || isDemoMode)) {
+    return <Navigate to={`/dashboard/maria-gasolina${isDemoMode ? "?demo=1" : ""}`} replace />;
+  }
 
-    // Escuta mudanças no estado de login
-    const { data } = supabase.auth.onAuthStateChange((_event: any, newSession: any) => {
-      setSession(newSession);
-      setLoading(false);
-    });
-
-    return () => {
-      data?.subscription?.unsubscribe();
-    };
-  }, []);
-
-  const signIn = async () => {
-    if (!supabase) return;
-
-    // Redireciona removendo a subrota /login para voltar à raiz
-    const origin = window.location.origin;
-    const basePath = window.location.pathname.replace(/\/login\/?$/, "");
-
-    const redirectUrl = import.meta.env.VITE_SITE_URL
-      ? `${import.meta.env.VITE_SITE_URL.replace(/\/$/, "")}/`
-      : `${origin}${basePath}/`;
-
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectUrl,
-      },
-    });
-  };
-
-  const signOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setSession(null);
+  const handleLogin = async () => {
+    setError(null);
+    try {
+      await signIn();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível entrar.");
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
+    <main className="auth-page">
+      <section className="auth-brand-panel">
+        <div className="auth-brand-copy">
+          <img src={brandLogoUrl} alt="Maria Gasolina Express" />
+          <span>Relatórios de mídia</span>
+          <h1>Os números que movem sua marca, em um só lugar.</h1>
+          <p>Acompanhe campanhas, investimento e resultados com atualização diária e acesso protegido.</p>
+          <div className="auth-feature"><BarChart3 size={20} /><span><strong>Visão integrada</strong>Google Ads e Meta Ads em uma leitura simples.</span></div>
+          <div className="auth-feature"><LockKeyhole size={20} /><span><strong>Acesso privado</strong>Somente usuários autorizados pela Maria Gasolina.</span></div>
+        </div>
+      </section>
+      <section className="auth-form-panel">
+        <div className="login-card">
+          <div className="login-logo"><img src={brandLogoUrl} alt="" /></div>
+          <p className="eyebrow">Portal de resultados</p>
+          <h2>Bem-vindo</h2>
+          <p className="login-description">Entre com sua conta Google autorizada para acessar o dashboard.</p>
+          {error && <div className="login-error"><AlertCircle size={17} />{error}</div>}
+          {!isSupabaseConfigured && !isDemoMode && <div className="login-error"><AlertCircle size={17} />As credenciais públicas do Supabase ainda precisam ser configuradas.</div>}
+          <button className="google-button" onClick={() => void handleLogin()} disabled={!isSupabaseConfigured || loading}>
+            <span className="google-g">G</span><strong>{loading ? "Verificando acesso..." : "Continuar com Google"}</strong><ArrowRight size={17} />
+          </button>
+          {import.meta.env.DEV && <Link className="demo-link" to="/dashboard/maria-gasolina?demo=1">Abrir demonstração local</Link>}
+          <small>Ao continuar, você concorda com o uso dos seus dados apenas para autenticação e controle de acesso.</small>
+        </div>
+      </section>
+    </main>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function PendingPage() {
+  const { signOut } = useAuth();
+  return (
+    <main className="pending-page">
+      <div className="pending-card">
+        <img src={brandLogoUrl} alt="Maria Gasolina" />
+        <span className="pending-icon"><LockKeyhole size={28} /></span>
+        <h1>Acesso pendente</h1>
+        <p>Seu login foi reconhecido, mas ainda precisa ser vinculado ao painel Maria Gasolina. Solicite a liberação ao responsável pelo dashboard.</p>
+        <button className="secondary-button" onClick={() => void signOut()}>Sair e usar outra conta</button>
+      </div>
+    </main>
+  );
+}
