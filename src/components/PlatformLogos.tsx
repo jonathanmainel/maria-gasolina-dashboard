@@ -3,20 +3,19 @@ type GoogleAdsLogoProps = {
   className?: string;
 };
 
+const googleAdsLogoUrl =
+  "https://www.gstatic.com/marketing-cms/assets/images/a0/c7/a37cda3447639b52f627e91993ee/ads.webp=s80-fcrop64=1,00000000ffffffff-rw";
+
 export function GoogleAdsLogo({ size = 28, className }: GoogleAdsLogoProps) {
   return (
-    <svg
+    <img
+      alt=""
       aria-hidden="true"
       className={className}
-      fill="none"
-      focusable="false"
+      decoding="async"
       height={size}
-      viewBox="0 0 48 48"
+      src={googleAdsLogoUrl}
       width={size}
-    >
-      <path d="M24 6.6 41 36" stroke="#4285F4" strokeLinecap="round" strokeWidth="11" />
-      <path d="M24 6.6 7 36" stroke="#FBBC04" strokeLinecap="round" strokeWidth="11" />
-      <circle cx="7" cy="36" fill="#34A853" r="6.5" />
-    </svg>
+    />
   );
 }
