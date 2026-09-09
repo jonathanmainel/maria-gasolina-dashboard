@@ -14,6 +14,10 @@ export function LoginPage() {
   const handleLogin = async () => {
     setError(null);
     try {
+      if (!supabase) {
+        throw new Error("Supabase não está configurado corretamente.");
+      }
+
       // Redireciona diretamente para a URL do GitHub Pages ou URL atual
       const redirectUrl = import.meta.env.VITE_SITE_URL 
         ? `${import.meta.env.VITE_SITE_URL}/`
