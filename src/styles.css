@@ -311,16 +311,16 @@ td.name-cell { text-align: left; white-space: normal; }
 .calendar-grid button.between { border-radius: 0; color: var(--red); background: #fff0ee; }
 .calendar-grid button.selected { z-index: 1; color: #fff; background: var(--red); box-shadow: 0 2px 6px rgba(157, 42, 30, .26); }
 .calendar-grid button.muted { color: #b2bdc2; }
-.period-picker-footer { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 22px; padding: 15px 18px; border-top: 1px solid #e5eaed; background: #fff; }
-.comparison-toggle { display: flex; align-items: center; gap: 9px; color: var(--navy); cursor: pointer; }
+.period-picker-footer { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "toggle apply" "detail apply"; align-items: center; column-gap: 22px; padding: 15px 18px; border-top: 1px solid #e5eaed; background: #fff; }
+.comparison-toggle { grid-area: toggle; display: flex; align-items: center; gap: 9px; color: var(--navy); cursor: pointer; }
 .comparison-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .comparison-toggle > span { width: 34px; height: 20px; position: relative; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
 .comparison-toggle > span::after { content: ""; width: 14px; height: 14px; position: absolute; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(36, 56, 66, .25); transition: .18s ease; }
 .comparison-toggle input:checked + span { background: var(--red); }
 .comparison-toggle input:checked + span::after { transform: translateX(14px); }
 .comparison-toggle strong { font-size: 12px; }
-.period-picker-footer p { grid-column: 1; margin: 3px 0 0 43px; color: #89979e; font-size: 10px; }
-.period-picker-footer .primary-button { width: auto; min-width: 150px; height: 42px; grid-column: 2; grid-row: 1 / span 2; font-size: 12px; }
+.period-picker-footer p { grid-area: detail; margin: 3px 0 0 43px; color: #89979e; font-size: 10px; }
+.period-picker-footer .primary-button { width: auto; min-width: 150px; height: 42px; grid-area: apply; font-size: 12px; }
 .comparison-hidden .comparison, .comparison-hidden .kpi-card > small { display: none; }
 .comparison-hidden .kpi-value-row { margin-top: 14px; }
 
@@ -337,7 +337,7 @@ td.name-cell { text-align: left; white-space: normal; }
   .period-presets .preset-divider, .preset-caption { display: none; }
   .period-presets button { font-size: 11px; }
   .period-calendar-panel { padding: 14px; }
-  .period-picker-footer { grid-template-columns: 1fr; row-gap: 9px; }
-  .period-picker-footer p { margin: 0; grid-column: 1; }
-  .period-picker-footer .primary-button { width: 100%; min-width: 0; grid-column: 1; grid-row: auto; }
+  .period-picker-footer { grid-template-columns: 1fr; grid-template-areas: "toggle" "detail" "apply"; row-gap: 9px; }
+  .period-picker-footer p { margin: 0; }
+  .period-picker-footer .primary-button { width: 100%; min-width: 0; }
 }
