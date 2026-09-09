@@ -26,13 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 1. Obtém a sessão atual ou lê os tokens presentes no hash da URL
+    // Captura a sessão inicial ou obtém os tokens do Hash da URL após o OAuth
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // 2. Escuta mudanças na autenticação (como o retorno do OAuth com o Hash)
+    // Escuta mudanças de estado no login/logout
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async () => {
     if (!supabase) return;
+
     const redirectUrl = import.meta.env.VITE_SITE_URL 
       ? `${import.meta.env.VITE_SITE_URL}/`
       : window.location.origin + window.location.pathname;
