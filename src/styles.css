@@ -323,7 +323,7 @@ td.name-cell { text-align: left; white-space: normal; }
 .period-popover.period-picker .comparison-toggle input { width: 1px; height: 1px; position: absolute; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
 .period-popover.period-picker .comparison-toggle > span { width: 34px; height: 20px; position: relative; flex: 0 0 auto; border-radius: 999px; background: #c8d2d6; transition: .18s ease; }
 .comparison-toggle > span::after { content: ""; width: 14px; height: 14px; position: absolute; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(36, 56, 66, .25); transition: .18s ease; }
-.comparison-toggle input:checked + span { background: var(--red); }
+.period-popover.period-picker .comparison-toggle input:checked + span { background: #257c58; }
 .comparison-toggle input:checked + span::after { transform: translateX(14px); }
 .comparison-toggle strong { font-size: 12px; }
 .period-comparison-info p { margin: 3px 0 0 43px; color: #89979e; font-size: 10px; }
