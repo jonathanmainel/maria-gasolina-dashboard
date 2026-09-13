@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, Settings } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, Settings } from "lucide-react";
 import { useEffect, useState, type PropsWithChildren } from "react";
 import SiGoogleads from "@icons-pack/react-simple-icons/icons/SiGoogleads";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
@@ -20,6 +20,7 @@ const navigation = [
   { id: "google-ads", label: "Google Ads", icon: SiGoogleads },
   { id: "performance-max", label: "Performance Max", icon: BarChart3 },
   { id: "meta-ads", label: "Meta Ads", icon: SiMeta },
+  { id: "google-analytics", label: "Google Analytics", icon: Activity },
 ];
 
 export function DashboardShell({ range, comparisonEnabled, onPeriodApply, lastSync, children }: Props) {
@@ -149,3 +150,4 @@ export function DashboardShell({ range, comparisonEnabled, onPeriodApply, lastSy
     </div>
   );
 }
+

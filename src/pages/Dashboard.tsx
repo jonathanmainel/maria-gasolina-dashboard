@@ -3,15 +3,15 @@ import { addDays, format } from "date-fns";
 import { AlertCircle, BarChart3, ChevronRight, Layers3, Megaphone, MousePointerClick, PanelsTopLeft, Target, WalletCards } from "lucide-react";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
 import { useMemo, useState } from "react";
-import { DashboardCharts } from "../components/DashboardCharts";
+import { AnalyticsCharts, DashboardCharts } from "../components/DashboardCharts";
 import { DashboardShell } from "../components/DashboardShell";
-import { GoogleAdsLogo } from "../components/PlatformLogos";
+import { GoogleAdsLogo, GoogleAnalyticsLogo } from "../components/PlatformLogos";
 import { DataTable } from "../components/DataTable";
 import { KpiCard } from "../components/KpiCard";
 import { getEntities, getOverview, getPmax } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
 import { compact, money, percent } from "../lib/format";
-import type { DateRange, Kpis, Source } from "../types";
+import type { AnalyticsKpis, DateRange, Kpis } from "../types";
 
 const initialEnd = addDays(new Date(), -1);
 const initialRange: DateRange = {
@@ -52,6 +52,7 @@ export function DashboardPage() {
   const googlePrevious = data.previous.sources.google_ads;
   const meta = data.current.sources.meta_ads;
   const metaPrevious = data.previous.sources.meta_ads;
+  const analytics = data.analytics;
   const pmaxAssetItems = [...(pmaxAssets.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
   const visiblePmaxAssets = showAllPmaxAssets ? pmaxAssetItems : pmaxAssetItems.slice(0, TABLE_INITIAL_LIMIT);
   const remainingPmaxAssets = Math.max((pmaxAssets.data?.total_count ?? pmaxAssetItems.length) - TABLE_INITIAL_LIMIT, 0);
@@ -170,7 +171,7 @@ export function DashboardPage() {
         </DataPanel>
       </section>
 
-      <section className="dashboard-section subsection final-section">
+      <section className="dashboard-section subsection">
         <SectionTitle eyebrow="Meta Ads" title="Anúncios" description="Criativos com veiculação no período" compact />
         <DataPanel loading={metaAds.isLoading} error={metaAds.isError}>
           <DataTable items={visibleMetaAds} totalCount={metaAds.data?.total_count} />
@@ -184,6 +185,16 @@ export function DashboardPage() {
           )}
         </DataPanel>
       </section>
+
+      {analytics && (
+        <>
+          <AnalyticsOverview current={analytics.current} previous={analytics.previous} />
+          <section className="dashboard-section subsection final-section">
+            <SectionTitle eyebrow="Google Analytics" title="Evolução do site" description="Leitura diária de aquisição, usuários, conteúdo e eventos" compact />
+            <AnalyticsCharts daily={analytics.daily} />
+          </section>
+        </>
+      )}
     </DashboardShell>
   );
 }
@@ -216,6 +227,33 @@ function PlatformOverview({ id, title, subtitle, icon, current, previous }: { id
   );
 }
 
+function AnalyticsOverview({ current, previous }: { current: AnalyticsKpis; previous?: AnalyticsKpis }) {
+  const engagementRate = current.sessions ? (current.engaged_sessions * 100) / current.sessions : null;
+
+  return (
+    <section id="google-analytics" className="dashboard-section platform-section">
+      <div className="platform-title">
+        <div className="platform-icon"><GoogleAnalyticsLogo size={28} /></div>
+        <div>
+          <span>Comportamento no site</span>
+          <h2>Google Analytics</h2>
+          <p>Desempenho do site no período. Taxa de engajamento: {percent(engagementRate)}</p>
+        </div>
+      </div>
+      <div className="kpi-grid platform-grid">
+        <KpiCard label="Sessões" value={compact(current.sessions)} current={current.sessions} previous={previous?.sessions} previousValue={compact(previous?.sessions)} accent="red" />
+        <KpiCard label="Sessões engajadas" value={compact(current.engaged_sessions)} current={current.engaged_sessions} previous={previous?.engaged_sessions} previousValue={compact(previous?.engaged_sessions)} accent="gold" />
+        <KpiCard label="Usuários ativos" value={compact(current.active_users)} current={current.active_users} previous={previous?.active_users} previousValue={compact(previous?.active_users)} />
+        <KpiCard label="Novos usuários" value={compact(current.new_users)} current={current.new_users} previous={previous?.new_users} previousValue={compact(previous?.new_users)} />
+        <KpiCard label="Visualizações" value={compact(current.views)} current={current.views} previous={previous?.views} previousValue={compact(previous?.views)} />
+        <KpiCard label="Eventos" value={compact(current.events)} current={current.events} previous={previous?.events} previousValue={compact(previous?.events)} />
+        <KpiCard label="Eventos principais" value={compact(current.conversions)} current={current.conversions} previous={previous?.conversions} previousValue={compact(previous?.conversions)} accent="gold" />
+        <KpiCard label="Receita" value={money(current.revenue)} current={current.revenue} previous={previous?.revenue} previousValue={money(previous?.revenue)} accent="red" />
+      </div>
+    </section>
+  );
+}
+
 function SectionTitle({ eyebrow, title, description, compact: small }: { eyebrow: string; title: string; description: string; compact?: boolean }) {
   return <div className={`section-heading ${small ? "compact" : ""}`}><span>{eyebrow}</span><div><h1>{title}</h1><p>{description}</p></div></div>;
 }
@@ -237,3 +275,4 @@ function DashboardLoading() {
 function DashboardError({ message, onRetry }: { message?: string; onRetry: () => void }) {
   return <div className="screen-state error"><AlertCircle size={30} /><h1>Não foi possível abrir o relatório</h1><p>{message ?? "Tente novamente em alguns instantes."}</p><button className="primary-button" onClick={onRetry}>Tentar novamente</button></div>;
 }
+

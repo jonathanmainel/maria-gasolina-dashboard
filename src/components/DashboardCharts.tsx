@@ -1,5 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { DailyMetric, Source } from "../types";
+import type { AnalyticsDailyMetric, DailyMetric, Source } from "../types";
 import { money, percent, shortDate } from "../lib/format";
 
 interface Props { daily: DailyMetric[]; source: Source }
@@ -56,6 +56,64 @@ export function DashboardCharts({ daily, source }: Props) {
   );
 }
 
+export function AnalyticsCharts({ daily }: { daily: AnalyticsDailyMetric[] }) {
+  const data = daily.map((item) => ({ ...item, label: shortDate(item.date) }));
+
+  return (
+    <div className="charts-grid analytics-charts">
+      <ChartCard title="Sessões e sessões engajadas">
+        <AnalyticsLineChart data={data} lines={[
+          { key: "sessions", name: "Sessões", color: "#e37400" },
+          { key: "engaged_sessions", name: "Sessões engajadas", color: "#d7982b" },
+        ]} />
+      </ChartCard>
+      <ChartCard title="Usuários">
+        <AnalyticsLineChart data={data} lines={[
+          { key: "active_users", name: "Usuários ativos", color: "#324552" },
+          { key: "new_users", name: "Novos usuários", color: "#9d2a1e" },
+        ]} />
+      </ChartCard>
+      <ChartCard title="Conteúdo e eventos">
+        <AnalyticsLineChart data={data} lines={[
+          { key: "views", name: "Visualizações", color: "#324552" },
+          { key: "events", name: "Eventos", color: "#d7982b" },
+          { key: "conversions", name: "Eventos principais", color: "#9d2a1e" },
+        ]} />
+      </ChartCard>
+    </div>
+  );
+}
+
+function AnalyticsLineChart({
+  data,
+  lines,
+}: {
+  data: Array<AnalyticsDailyMetric & { label: string }>;
+  lines: Array<{ key: keyof AnalyticsDailyMetric; name: string; color: string }>;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
+        <CartesianGrid stroke="#eef1f3" vertical={false} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
+        <YAxis tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
+        <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
+        {lines.map((line, index) => (
+          <Line
+            key={line.key}
+            dataKey={line.key}
+            name={line.name}
+            type="monotone"
+            stroke={line.color}
+            strokeWidth={index === 0 ? 2.5 : 2}
+            dot={index === 0 ? { r: 3 } : false}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <article className="chart-card">
@@ -64,3 +122,4 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     </article>
   );
 }
+

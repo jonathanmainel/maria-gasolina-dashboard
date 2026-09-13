@@ -103,6 +103,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 
 .platform-title { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
 .platform-icon { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 9px; }
+.google-analytics-logo { display: inline-flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.google-analytics-logo > span { display: block; width: 24%; border-radius: 999px; background: #f9ab00; }
+.google-analytics-logo > span:nth-child(1) { height: 32%; }
+.google-analytics-logo > span:nth-child(2) { height: 65%; }
+.google-analytics-logo > span:nth-child(3) { height: 100%; background: #e37400; }
 .platform-title span { color: #9aa5aa; font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .1em; }
 .platform-title h2 { margin: 2px 0 0; color: var(--navy-2); font-size: 22px; line-height: 1.1; }
 .platform-title p { margin: 4px 0 0; color: #829098; font-size: 12px; }
@@ -347,3 +352,4 @@ td.name-cell { text-align: left; white-space: normal; }
 .table-show-more { display: flex; justify-content: center; padding: 15px 16px 18px; border-top: 1px solid var(--line); background: #fff; }
 .table-show-more .secondary-button { width: auto; min-height: 38px; color: var(--red); border: 1px solid #e7c4c0; background: #fff; }
 .table-show-more .secondary-button:hover { border-color: var(--red); background: #fff2f0; }
+

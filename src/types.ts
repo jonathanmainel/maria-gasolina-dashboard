@@ -31,6 +31,30 @@ export interface DailyMetric {
   results: number;
 }
 
+export interface AnalyticsKpis {
+  has_data: boolean;
+  sessions: number;
+  engaged_sessions: number;
+  active_users: number;
+  new_users: number;
+  views: number;
+  events: number;
+  conversions: number;
+  revenue: number;
+}
+
+export interface AnalyticsDailyMetric {
+  date: string;
+  sessions: number;
+  engaged_sessions: number;
+  active_users: number;
+  new_users: number;
+  views: number;
+  events: number;
+  conversions: number;
+  revenue: number;
+}
+
 export interface OverviewResponse {
   client: { id: number; slug: string; name: string; timezone: string };
   period: { start: string; end: string; days: number };
@@ -40,6 +64,11 @@ export interface OverviewResponse {
   current: { consolidated: Kpis; sources: Partial<Record<Source, Kpis>> };
   previous: { consolidated: Kpis; sources: Partial<Record<Source, Kpis>> };
   daily: DailyMetric[];
+  analytics?: {
+    current: AnalyticsKpis;
+    previous: AnalyticsKpis;
+    daily: AnalyticsDailyMetric[];
+  };
 }
 
 export interface EntityItem extends Kpis {
@@ -79,3 +108,4 @@ export interface DateRange {
   start: string;
   end: string;
 }
+

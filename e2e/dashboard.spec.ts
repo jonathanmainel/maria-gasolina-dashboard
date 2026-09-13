@@ -17,7 +17,7 @@ test("desktop dashboard renders and core controls work", async ({ page }) => {
   await page.screenshot({ path: resolve(evidenceDir, "dashboard-desktop-top-1440.png") });
 
   await page.getByRole("button", { name: /Período analisado/ }).click();
-  await expect(page.getByText("Escolher período")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Escolher período" })).toBeVisible();
   await page.locator('input[type="date"]').first().fill("2026-09-03");
   await page.getByRole("button", { name: "Aplicar período" }).click();
   await expect(page.getByRole("button", { name: /3 de setembro/ })).toBeVisible();
@@ -28,6 +28,12 @@ test("desktop dashboard renders and core controls work", async ({ page }) => {
 
   await page.getByRole("button", { name: "Meta Ads" }).click();
   await expect(page.getByRole("heading", { name: "Meta Ads", exact: true })).toBeInViewport();
+
+  await page.getByRole("button", { name: "Google Analytics" }).click();
+  await expect(page.getByRole("heading", { name: "Google Analytics", exact: true })).toBeInViewport();
+  await expect(page.locator("#google-analytics .kpi-card")).toHaveCount(8);
+  await expect(page.getByText(/Taxa de engajamento:/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evolução do site" })).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
@@ -50,6 +56,10 @@ test("mobile dashboard uses one-column cards and expandable rows", async ({ page
   await page.getByRole("button", { name: "Google Ads" }).click();
   await expect(page.getByRole("heading", { name: "Google Ads", exact: true })).toBeInViewport();
 
+  await page.getByRole("button", { name: "Abrir menu" }).click();
+  await page.getByRole("button", { name: "Google Analytics" }).click();
+  await expect(page.getByRole("heading", { name: "Google Analytics", exact: true })).toBeInViewport();
+
   const firstRow = page.locator(".mobile-row").first().getByRole("button");
   await firstRow.click();
   await expect(page.locator(".mobile-details").first()).toBeVisible();
@@ -70,3 +80,4 @@ test("login and pending routes render without exposing dashboard data", async ({
   await expect(page.getByRole("heading", { name: "Acesso pendente" })).toBeVisible();
   await expect(page.getByText(/ainda precisa ser vinculado/)).toBeVisible();
 });
+

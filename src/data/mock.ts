@@ -1,4 +1,4 @@
-import type { CursorPage, EntityItem, OverviewResponse, PmaxItem } from "../types";
+import type { AnalyticsDailyMetric, AnalyticsKpis, CursorPage, EntityItem, OverviewResponse, PmaxItem } from "../types";
 
 const kpis = (spend: number, impressions: number, clicks: number, results: number, reach?: number) => ({
   has_data: true,
@@ -27,6 +27,27 @@ const metaDaily = [
   [178.15, 8720, 111, 10, 7910], [185.44, 9014, 116, 12, 8240], [199.32, 9480, 120, 14, 8701],
   [176.6, 8672, 109, 11, 8032], [205.71, 9915, 128, 15, 9093], [196.9, 9560, 122, 13, 8875], [207.39, 10240, 135, 15, 9998],
 ];
+const analyticsDaily: AnalyticsDailyMetric[] = [
+  { date: days[0], sessions: 381, engaged_sessions: 249, active_users: 334, new_users: 278, views: 612, events: 1840, conversions: 12, revenue: 0 },
+  { date: days[1], sessions: 407, engaged_sessions: 276, active_users: 356, new_users: 291, views: 674, events: 2016, conversions: 15, revenue: 0 },
+  { date: days[2], sessions: 429, engaged_sessions: 301, active_users: 378, new_users: 312, views: 718, events: 2174, conversions: 18, revenue: 0 },
+  { date: days[3], sessions: 394, engaged_sessions: 258, active_users: 342, new_users: 284, views: 638, events: 1905, conversions: 13, revenue: 0 },
+  { date: days[4], sessions: 452, engaged_sessions: 319, active_users: 401, new_users: 326, views: 764, events: 2298, conversions: 19, revenue: 0 },
+  { date: days[5], sessions: 438, engaged_sessions: 297, active_users: 386, new_users: 315, views: 735, events: 2207, conversions: 17, revenue: 0 },
+  { date: days[6], sessions: 469, engaged_sessions: 327, active_users: 414, new_users: 339, views: 802, events: 2416, conversions: 21, revenue: 0 },
+];
+
+const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => daily.reduce<AnalyticsKpis>((total, item) => ({
+  has_data: true,
+  sessions: total.sessions + item.sessions,
+  engaged_sessions: total.engaged_sessions + item.engaged_sessions,
+  active_users: total.active_users + item.active_users,
+  new_users: total.new_users + item.new_users,
+  views: total.views + item.views,
+  events: total.events + item.events,
+  conversions: total.conversions + item.conversions,
+  revenue: total.revenue + item.revenue,
+}), { has_data: false, sessions: 0, engaged_sessions: 0, active_users: 0, new_users: 0, views: 0, events: 0, conversions: 0, revenue: 0 });
 
 export const mockOverview: OverviewResponse = {
   client: { id: 1, slug: "maria-gasolina", name: "Maria Gasolina Express", timezone: "America/Sao_Paulo" },
@@ -36,6 +57,7 @@ export const mockOverview: OverviewResponse = {
   last_sync: {
     google_ads: { status: "success", completed_at: "2026-09-09T11:04:00Z", range_start: days[0], range_end: days[6] },
     meta_ads: { status: "success", completed_at: "2026-09-09T11:07:00Z", range_start: days[0], range_end: days[6] },
+    ga4: { status: "success", completed_at: "2026-09-09T11:10:00Z", range_start: days[0], range_end: days[6] },
   },
   current: {
     consolidated: kpis(2217.66, 71376, 1181, 137),
@@ -59,6 +81,21 @@ export const mockOverview: OverviewResponse = {
       { date, source: "meta_ads" as const, spend: m[0], impressions: m[1], reach: m[4], clicks: m[2], link_clicks: Math.round(m[2] * 0.58), results: m[3] },
     ];
   }),
+  analytics: {
+    current: analyticsKpis(analyticsDaily),
+    previous: {
+      has_data: true,
+      sessions: 2764,
+      engaged_sessions: 1812,
+      active_users: 2421,
+      new_users: 1998,
+      views: 4598,
+      events: 13842,
+      conversions: 104,
+      revenue: 0,
+    },
+    daily: analyticsDaily,
+  },
 };
 
 const entity = (
@@ -225,3 +262,4 @@ export const mockPmax: Record<string, CursorPage<PmaxItem>> = {
     ],
   },
 };
+
