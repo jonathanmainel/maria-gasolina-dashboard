@@ -18,6 +18,14 @@ test("desktop dashboard renders and core controls work", async ({ page }) => {
 
   await page.getByRole("button", { name: /Período analisado/ }).click();
   await expect(page.getByRole("dialog", { name: "Escolher período" })).toBeVisible();
+  const comparisonToggle = page.getByRole("checkbox", { name: "Comparar com período anterior" });
+  const comparisonTrack = page.locator(".comparison-toggle > span");
+  await expect(comparisonToggle).toBeChecked();
+  await expect(comparisonTrack).toHaveCSS("background-color", "rgb(37, 124, 88)");
+  await comparisonToggle.uncheck({ force: true });
+  await expect(comparisonTrack).toHaveCSS("background-color", "rgb(200, 210, 214)");
+  await comparisonToggle.check({ force: true });
+  await expect(comparisonTrack).toHaveCSS("background-color", "rgb(37, 124, 88)");
   await page.locator('input[type="date"]').first().fill("2026-09-03");
   await page.getByRole("button", { name: "Aplicar período" }).click();
   await expect(page.getByRole("button", { name: /3 de setembro/ })).toBeVisible();
