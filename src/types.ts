@@ -41,6 +41,10 @@ export interface AnalyticsKpis {
   events: number;
   conversions: number;
   revenue: number;
+  generate_leads: number;
+  engagement_rate?: number | null;
+  views_per_session?: number | null;
+  lead_rate?: number | null;
 }
 
 export interface AnalyticsDailyMetric {
@@ -53,6 +57,31 @@ export interface AnalyticsDailyMetric {
   events: number;
   conversions: number;
   revenue: number;
+  page_views: number;
+  scrolls: number;
+  generate_leads: number;
+}
+
+export interface AnalyticsAcquisitionItem {
+  channel_group: string;
+  source_medium: string;
+  sessions: number;
+  engaged_sessions: number;
+  new_users: number;
+  views: number;
+  events: number;
+  key_events: number;
+  generate_leads: number;
+  engagement_rate: number | null;
+  lead_rate: number | null;
+}
+
+export interface AnalyticsEventItem {
+  event_name: string;
+  event_count: number;
+  daily_average: number;
+  key_events: number;
+  share_of_total: number | null;
 }
 
 export interface OverviewResponse {
