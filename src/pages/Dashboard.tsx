@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { AlertCircle, BarChart3, ChevronRight, Layers3, Megaphone, MousePointerClick, PanelsTopLeft, Target, WalletCards } from "lucide-react";
 import SiMeta from "@icons-pack/react-simple-icons/icons/SiMeta";
 import { useMemo, useState } from "react";
 import { AnalyticsCharts, DashboardCharts } from "../components/DashboardCharts";
+import { AnalyticsAcquisitionTable, AnalyticsEventsTable } from "../components/AnalyticsTables";
 import { DashboardShell } from "../components/DashboardShell";
 import { GoogleAdsLogo, GoogleAnalyticsLogo } from "../components/PlatformLogos";
 import { DataTable } from "../components/DataTable";
 import { KpiCard } from "../components/KpiCard";
-import { getEntities, getOverview, getPmax } from "../lib/api";
+import { getAnalyticsAcquisition, getAnalyticsEvents, getEntities, getOverview, getPmax } from "../lib/api";
 import { brandLogoUrl } from "../lib/app-path";
 import { compact, money, percent } from "../lib/format";
 import type { AnalyticsKpis, DateRange, Kpis } from "../types";
@@ -36,6 +37,18 @@ export function DashboardPage() {
   const metaAds = useQuery({ queryKey: ["entities", "meta_ads", "ad", range], queryFn: () => getEntities("meta_ads", "ad", range) });
   const pmaxGroups = useQuery({ queryKey: ["pmax", "asset_group", range], queryFn: () => getPmax("asset_group", range) });
   const pmaxAssets = useQuery({ queryKey: ["pmax", "asset", range], queryFn: () => getPmax("asset", range) });
+  const analyticsAcquisition = useInfiniteQuery({
+    queryKey: ["analytics-acquisition", range.start, range.end],
+    initialPageParam: null as Record<string, string | number> | null,
+    queryFn: ({ pageParam }) => getAnalyticsAcquisition(range, pageParam, TABLE_INITIAL_LIMIT),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
+  const analyticsEvents = useInfiniteQuery({
+    queryKey: ["analytics-events", range.start, range.end],
+    initialPageParam: null as Record<string, string | number> | null,
+    queryFn: ({ pageParam }) => getAnalyticsEvents(range, pageParam, TABLE_INITIAL_LIMIT),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
 
   const lastSync = useMemo(() => {
     const values = Object.values(overview.data?.last_sync ?? {}).map((item) => item.completed_at).filter(Boolean);
@@ -62,6 +75,10 @@ export function DashboardPage() {
   const metaAdItems = [...(metaAds.data?.items ?? [])].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
   const visibleMetaAds = showAllMetaAds ? metaAdItems : metaAdItems.slice(0, TABLE_INITIAL_LIMIT);
   const remainingMetaAds = Math.max((metaAds.data?.total_count ?? metaAdItems.length) - TABLE_INITIAL_LIMIT, 0);
+  const acquisitionItems = analyticsAcquisition.data?.pages.flatMap((page) => page.items) ?? [];
+  const acquisitionTotal = analyticsAcquisition.data?.pages[0]?.total_count ?? 0;
+  const eventItems = analyticsEvents.data?.pages.flatMap((page) => page.items) ?? [];
+  const eventTotal = analyticsEvents.data?.pages[0]?.total_count ?? 0;
 
   return (
     <DashboardShell
@@ -189,9 +206,31 @@ export function DashboardPage() {
       {analytics && (
         <>
           <AnalyticsOverview current={analytics.current} previous={analytics.previous} />
-          <section className="dashboard-section subsection final-section">
+          <section className="dashboard-section subsection">
             <SectionTitle eyebrow="Google Analytics" title="Evolução do site" description="Leitura diária de aquisição, usuários, conteúdo e eventos" compact />
             <AnalyticsCharts daily={analytics.daily} />
+          </section>
+          <section className="dashboard-section subsection" key={`acquisition-${range.start}-${range.end}`}>
+            <SectionTitle eyebrow="Google Analytics" title="Aquisição por origem/mídia" description="Canais que iniciaram sessões e geraram leads no período" compact />
+            <DataPanel loading={analyticsAcquisition.isLoading} error={analyticsAcquisition.isError && !analyticsAcquisition.data}>
+              <AnalyticsAcquisitionTable items={acquisitionItems} totalCount={acquisitionTotal} />
+              <LoadMoreButton
+                visible={Boolean(analyticsAcquisition.hasNextPage)} loading={analyticsAcquisition.isFetchingNextPage}
+                error={analyticsAcquisition.isFetchNextPageError} remaining={Math.max(acquisitionTotal - acquisitionItems.length, 0)}
+                noun="origens" onClick={() => void analyticsAcquisition.fetchNextPage()}
+              />
+            </DataPanel>
+          </section>
+          <section className="dashboard-section subsection final-section" key={`events-${range.start}-${range.end}`}>
+            <SectionTitle eyebrow="Google Analytics" title="Eventos do site" description="Interações registradas pelo GA4 no período selecionado" compact />
+            <DataPanel loading={analyticsEvents.isLoading} error={analyticsEvents.isError && !analyticsEvents.data}>
+              <AnalyticsEventsTable items={eventItems} totalCount={eventTotal} />
+              <LoadMoreButton
+                visible={Boolean(analyticsEvents.hasNextPage)} loading={analyticsEvents.isFetchingNextPage}
+                error={analyticsEvents.isFetchNextPageError} remaining={Math.max(eventTotal - eventItems.length, 0)}
+                noun="eventos" onClick={() => void analyticsEvents.fetchNextPage()}
+              />
+            </DataPanel>
           </section>
         </>
       )}
@@ -227,8 +266,23 @@ function PlatformOverview({ id, title, subtitle, icon, current, previous }: { id
   );
 }
 
+function LoadMoreButton({ visible, loading, error, remaining, noun, onClick }: { visible: boolean; loading: boolean; error: boolean; remaining: number; noun: string; onClick: () => void }) {
+  if (!visible && !error) return null;
+  return <div className={`table-show-more ${error ? "pagination-error" : ""}`}>
+    {error && <span>Não foi possível carregar a próxima página.</span>}
+    <button type="button" className="secondary-button" disabled={loading} onClick={onClick}>
+      {loading ? "Carregando..." : error ? "Tentar carregar mais" : `Ver mais ${Math.min(remaining, TABLE_INITIAL_LIMIT)} ${noun}`}
+    </button>
+  </div>;
+}
+
 function AnalyticsOverview({ current, previous }: { current: AnalyticsKpis; previous?: AnalyticsKpis }) {
   const engagementRate = current.sessions ? (current.engaged_sessions * 100) / current.sessions : null;
+  const previousEngagementRate = previous?.sessions ? (previous.engaged_sessions * 100) / previous.sessions : null;
+  const viewsPerSession = current.sessions ? current.views / current.sessions : null;
+  const previousViewsPerSession = previous?.sessions ? previous.views / previous.sessions : null;
+  const leadRate = current.sessions ? (current.generate_leads * 100) / current.sessions : null;
+  const previousLeadRate = previous?.sessions ? (previous.generate_leads * 100) / previous.sessions : null;
 
   return (
     <section id="google-analytics" className="dashboard-section platform-section">
@@ -243,13 +297,14 @@ function AnalyticsOverview({ current, previous }: { current: AnalyticsKpis; prev
       <div className="kpi-grid platform-grid">
         <KpiCard label="Sessões" value={compact(current.sessions)} current={current.sessions} previous={previous?.sessions} previousValue={compact(previous?.sessions)} accent="red" />
         <KpiCard label="Sessões engajadas" value={compact(current.engaged_sessions)} current={current.engaged_sessions} previous={previous?.engaged_sessions} previousValue={compact(previous?.engaged_sessions)} accent="gold" />
-        <KpiCard label="Usuários ativos" value={compact(current.active_users)} current={current.active_users} previous={previous?.active_users} previousValue={compact(previous?.active_users)} />
+        <KpiCard label="Taxa de engajamento" value={percent(engagementRate)} current={engagementRate} previous={previousEngagementRate} previousValue={percent(previousEngagementRate)} />
         <KpiCard label="Novos usuários" value={compact(current.new_users)} current={current.new_users} previous={previous?.new_users} previousValue={compact(previous?.new_users)} />
         <KpiCard label="Visualizações" value={compact(current.views)} current={current.views} previous={previous?.views} previousValue={compact(previous?.views)} />
-        <KpiCard label="Eventos" value={compact(current.events)} current={current.events} previous={previous?.events} previousValue={compact(previous?.events)} />
-        <KpiCard label="Eventos principais" value={compact(current.conversions)} current={current.conversions} previous={previous?.conversions} previousValue={compact(previous?.conversions)} accent="gold" />
-        <KpiCard label="Receita" value={money(current.revenue)} current={current.revenue} previous={previous?.revenue} previousValue={money(previous?.revenue)} accent="red" />
+        <KpiCard label="Visualizações por sessão" value={compact(viewsPerSession)} current={viewsPerSession} previous={previousViewsPerSession} previousValue={compact(previousViewsPerSession)} />
+        <KpiCard label="Leads gerados" value={compact(current.generate_leads)} current={current.generate_leads} previous={previous?.generate_leads} previousValue={compact(previous?.generate_leads)} accent="gold" />
+        <KpiCard label="Taxa de geração de leads" value={percent(leadRate)} current={leadRate} previous={previousLeadRate} previousValue={percent(previousLeadRate)} accent="red" />
       </div>
+      {current.generate_leads === 0 && <div className="info-banner analytics-warning"><AlertCircle size={17} /><span>Nenhum evento generate_lead registrado no período.</span></div>}
     </section>
   );
 }
