@@ -41,7 +41,7 @@ test("desktop dashboard renders and core controls work", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Google Analytics", exact: true })).toBeInViewport();
   const analyticsSection = page.locator("#google-analytics");
   await expect(analyticsSection.locator(".kpi-card")).toHaveCount(8);
-  for (const label of ["Sessões", "Sessões engajadas", "Taxa de engajamento", "Novos usuários", "Visualizações", "Visualizações por sessão", "Leads gerados", "Taxa de geração de leads"]) {
+  for (const label of ["Sessões", "Sessões engajadas", "Taxa de engajamento", "Novos usuários", "Visualizações", "Visualizações por sessão", "Conversões (form_submit)", "Taxa de conversão"]) {
     await expect(analyticsSection.getByText(label, { exact: true })).toBeVisible();
   }
   await expect(analyticsSection.getByText("Receita", { exact: true })).toHaveCount(0);
@@ -51,19 +51,34 @@ test("desktop dashboard renders and core controls work", async ({ page }) => {
   const eventChart = page.getByRole("heading", { name: "Eventos do site", level: 3 }).locator("xpath=ancestor::article");
   await expect(eventChart.getByText("page_view", { exact: true })).toBeVisible();
   await expect(eventChart.getByText("scroll", { exact: true })).toBeVisible();
-  await expect(eventChart.getByText("generate_lead", { exact: true })).toBeVisible();
+  await expect(eventChart.getByText("form_submit", { exact: true })).toBeVisible();
 
   const acquisitionTable = page.getByTestId("ga4-acquisition-table");
   await expect(acquisitionTable.locator("tbody tr")).toHaveCount(10);
+  await expect(acquisitionTable.locator("thead button")).toHaveCount(8);
+  const acquisitionViews = acquisitionTable.getByRole("button", { name: /Ordenar por Visualizações/ });
+  await acquisitionViews.click();
+  await expect(acquisitionViews.locator("xpath=ancestor::th")).toHaveAttribute("aria-sort", "descending");
+  const acquisitionConversions = acquisitionTable.getByRole("button", { name: /Ordenar por Conversões/ });
+  await acquisitionConversions.click();
+  await expect(acquisitionConversions.locator("xpath=ancestor::th")).toHaveAttribute("aria-sort", "descending");
+  await acquisitionConversions.click();
+  await expect(acquisitionConversions.locator("xpath=ancestor::th")).toHaveAttribute("aria-sort", "ascending");
+  await expect(acquisitionTable.locator("tbody tr").first()).toContainText("Unassigned");
   await page.getByRole("button", { name: /Ver mais 2 origens/ }).click();
   await expect(acquisitionTable.locator("tbody tr")).toHaveCount(12);
   await expect(acquisitionTable.getByRole("cell", { name: "(direct) / (none)" })).toBeVisible();
 
   const eventsTable = page.getByTestId("ga4-events-table");
   await expect(eventsTable.locator("tbody tr")).toHaveCount(10);
+  await expect(eventsTable.locator("thead button")).toHaveCount(5);
+  const eventQuantity = eventsTable.getByRole("button", { name: /Ordenar por Quantidade/ });
+  await eventQuantity.click();
+  await expect(eventQuantity.locator("xpath=ancestor::th")).toHaveAttribute("aria-sort", "ascending");
+  await expect(eventsTable.locator("tbody tr").first()).toContainText("file_download");
   await page.getByRole("button", { name: /Ver mais 2 eventos/ }).click();
   await expect(eventsTable.locator("tbody tr")).toHaveCount(12);
-  await expect(eventsTable.getByRole("cell", { name: "generate_lead" })).toBeVisible();
+  await expect(eventsTable.getByRole("cell", { name: "form_submit" })).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);

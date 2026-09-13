@@ -77,7 +77,7 @@ export function AnalyticsCharts({ daily }: { daily: AnalyticsDailyMetric[] }) {
         <AnalyticsLineChart data={data} lines={[
           { key: "page_views", name: "page_view", color: "#324552" },
           { key: "scrolls", name: "scroll", color: "#d7982b" },
-          { key: "generate_leads", name: "generate_lead", color: "#9d2a1e" },
+          { key: "generate_leads", name: "form_submit", color: "#9d2a1e" },
         ]} />
       </ChartCard>
     </div>

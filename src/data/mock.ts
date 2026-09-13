@@ -123,7 +123,7 @@ export const mockAnalyticsAcquisition: AnalyticsAcquisitionItem[] = acquisitionB
 
 const eventSeed: Array<[string, number, number]> = [
   ["page_view", 5003, 0], ["scroll", 1808, 0], ["session_start", 3008, 0], ["user_engagement", 2763, 0],
-  ["first_visit", 2358, 0], ["generate_lead", 127, 127], ["click", 892, 0], ["form_start", 318, 0],
+  ["first_visit", 2358, 0], ["form_submit", 127, 127], ["click", 892, 0], ["form_start", 318, 0],
   ["view_search_results", 204, 0], ["file_download", 96, 0], ["video_start", 71, 0], ["(not set)", 18, 0],
 ];
 const eventTotal = eventSeed.reduce((sum, [, count]) => sum + count, 0);

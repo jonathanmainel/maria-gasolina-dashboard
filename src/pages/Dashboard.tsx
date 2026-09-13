@@ -211,7 +211,7 @@ export function DashboardPage() {
             <AnalyticsCharts daily={analytics.daily} />
           </section>
           <section className="dashboard-section subsection" key={`acquisition-${range.start}-${range.end}`}>
-            <SectionTitle eyebrow="Google Analytics" title="Aquisição por origem/mídia" description="Canais que iniciaram sessões e geraram leads no período" compact />
+            <SectionTitle eyebrow="Google Analytics" title="Aquisição por origem/mídia" description="Canais que iniciaram sessões e geraram conversões no período" compact />
             <DataPanel loading={analyticsAcquisition.isLoading} error={analyticsAcquisition.isError && !analyticsAcquisition.data}>
               <AnalyticsAcquisitionTable items={acquisitionItems} totalCount={acquisitionTotal} />
               <LoadMoreButton
@@ -301,10 +301,10 @@ function AnalyticsOverview({ current, previous }: { current: AnalyticsKpis; prev
         <KpiCard label="Novos usuários" value={compact(current.new_users)} current={current.new_users} previous={previous?.new_users} previousValue={compact(previous?.new_users)} />
         <KpiCard label="Visualizações" value={compact(current.views)} current={current.views} previous={previous?.views} previousValue={compact(previous?.views)} />
         <KpiCard label="Visualizações por sessão" value={compact(viewsPerSession)} current={viewsPerSession} previous={previousViewsPerSession} previousValue={compact(previousViewsPerSession)} />
-        <KpiCard label="Leads gerados" value={compact(current.generate_leads)} current={current.generate_leads} previous={previous?.generate_leads} previousValue={compact(previous?.generate_leads)} accent="gold" />
-        <KpiCard label="Taxa de geração de leads" value={percent(leadRate)} current={leadRate} previous={previousLeadRate} previousValue={percent(previousLeadRate)} accent="red" />
+        <KpiCard label="Conversões (form_submit)" value={compact(current.generate_leads)} current={current.generate_leads} previous={previous?.generate_leads} previousValue={compact(previous?.generate_leads)} accent="gold" />
+        <KpiCard label="Taxa de conversão" value={percent(leadRate)} current={leadRate} previous={previousLeadRate} previousValue={percent(previousLeadRate)} accent="red" />
       </div>
-      {current.generate_leads === 0 && <div className="info-banner analytics-warning"><AlertCircle size={17} /><span>Nenhum evento generate_lead registrado no período.</span></div>}
+      {current.generate_leads === 0 && <div className="info-banner analytics-warning"><AlertCircle size={17} /><span>Nenhum evento form_submit registrado no período.</span></div>}
     </section>
   );
 }
