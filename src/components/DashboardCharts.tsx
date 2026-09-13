@@ -1,4 +1,4 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AnalyticsDailyMetric, DailyMetric, Source } from "../types";
 import { money, percent, shortDate } from "../lib/format";
 
@@ -73,11 +73,11 @@ export function AnalyticsCharts({ daily }: { daily: AnalyticsDailyMetric[] }) {
           { key: "new_users", name: "Novos usuários", color: "#9d2a1e" },
         ]} />
       </ChartCard>
-      <ChartCard title="Conteúdo e eventos">
+      <ChartCard title="Eventos do site">
         <AnalyticsLineChart data={data} lines={[
-          { key: "views", name: "Visualizações", color: "#324552" },
-          { key: "events", name: "Eventos", color: "#d7982b" },
-          { key: "conversions", name: "Eventos principais", color: "#9d2a1e" },
+          { key: "page_views", name: "page_view", color: "#324552" },
+          { key: "scrolls", name: "scroll", color: "#d7982b" },
+          { key: "generate_leads", name: "generate_lead", color: "#9d2a1e" },
         ]} />
       </ChartCard>
     </div>
@@ -98,6 +98,7 @@ function AnalyticsLineChart({
         <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
         <YAxis tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
         <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 10, color: "#7a8991" }} />
         {lines.map((line, index) => (
           <Line
             key={line.key}
