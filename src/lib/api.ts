@@ -1,5 +1,5 @@
-import type { CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
-import { mockEntities, mockOverview, mockPmax } from "../data/mock";
+import type { AnalyticsAcquisitionItem, AnalyticsEventItem, CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
+import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockEntities, mockOverview, mockPmax } from "../data/mock";
 import { supabase } from "./supabase";
 
 export const isDemoMode =
@@ -59,3 +59,53 @@ export async function getPmax(level: PmaxLevel, range: DateRange): Promise<Curso
   if (error) throw error;
   return data as CursorPage<PmaxItem>;
 }
+
+function mockPage<T>(items: T[], cursor: Record<string, string | number> | null, limit: number): CursorPage<T> {
+  const offset = Number(cursor?.offset ?? 0);
+  const page = items.slice(offset, offset + limit);
+  const nextOffset = offset + page.length;
+  return { items: page, total_count: items.length, next_cursor: nextOffset < items.length ? { offset: nextOffset } : null };
+}
+
+export async function getAnalyticsAcquisition(
+  range: DateRange,
+  cursor: Record<string, string | number> | null = null,
+  limit = 10,
+): Promise<CursorPage<AnalyticsAcquisitionItem>> {
+  if (isDemoMode) {
+    await delay();
+    return mockPage(mockAnalyticsAcquisition, cursor, limit);
+  }
+  if (!supabase) throw new Error("A conexão com o Supabase ainda não foi configurada.");
+  const { data, error } = await supabase.rpc("get_dashboard_ga4_acquisition", {
+    p_client_slug: "maria-gasolina",
+    p_start_date: range.start,
+    p_end_date: range.end,
+    p_limit: limit,
+    p_cursor: cursor,
+  });
+  if (error) throw error;
+  return data as CursorPage<AnalyticsAcquisitionItem>;
+}
+
+export async function getAnalyticsEvents(
+  range: DateRange,
+  cursor: Record<string, string | number> | null = null,
+  limit = 10,
+): Promise<CursorPage<AnalyticsEventItem>> {
+  if (isDemoMode) {
+    await delay();
+    return mockPage(mockAnalyticsEvents, cursor, limit);
+  }
+  if (!supabase) throw new Error("A conexão com o Supabase ainda não foi configurada.");
+  const { data, error } = await supabase.rpc("get_dashboard_ga4_events", {
+    p_client_slug: "maria-gasolina",
+    p_start_date: range.start,
+    p_end_date: range.end,
+    p_limit: limit,
+    p_cursor: cursor,
+  });
+  if (error) throw error;
+  return data as CursorPage<AnalyticsEventItem>;
+}
+
