@@ -10,14 +10,28 @@ interface Props {
   kind?: "entity" | "pmax";
   totalCount?: number;
   emptyLabel?: string;
+  defaultSortKey?: SortKey;
+  defaultSortDirection?: "asc" | "desc";
 }
 
-export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Nenhum dado neste período." }: Props) {
-  const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "spend", direction: "desc" });
+const sortOptions: Array<{ key: SortKey; label: string }> = [
+  { key: "spend", label: "Investimento" },
+  { key: "results", label: "Resultados" },
+  { key: "cost_per_result", label: "Custo por resultado" },
+  { key: "ctr", label: "CTR" },
+  { key: "clicks", label: "Cliques" },
+  { key: "impressions", label: "Impressões" },
+];
+
+export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Nenhum dado neste período.", defaultSortKey = "spend", defaultSortDirection = "desc" }: Props) {
+  const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: defaultSortKey, direction: defaultSortDirection });
   const [expanded, setExpanded] = useState<string | null>(null);
   const sorted = useMemo(() => [...items].sort((a, b) => {
-    const av = a[sort.key] ?? (sort.key === "item_name" ? "" : -Infinity);
-    const bv = b[sort.key] ?? (sort.key === "item_name" ? "" : -Infinity);
+    const av = a[sort.key];
+    const bv = b[sort.key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
     const result = typeof av === "string" ? av.localeCompare(String(bv), "pt-BR") : Number(av) - Number(bv);
     return sort.direction === "asc" ? result : -result;
   }), [items, sort]);
@@ -31,6 +45,18 @@ export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Ne
 
   return (
     <div className="table-wrap">
+      <div className="table-toolbar">
+        <label>
+          <span>Ordenar por</span>
+          <select value={sort.key} onChange={(event) => setSort({ key: event.target.value as SortKey, direction: event.target.value === "cost_per_result" ? "asc" : "desc" })}>
+            {sortOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+          </select>
+        </label>
+        <button type="button" onClick={() => setSort((current) => ({ ...current, direction: current.direction === "asc" ? "desc" : "asc" }))}>
+          {sort.direction === "asc" ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {sort.direction === "asc" ? "Menor primeiro" : "Maior primeiro"}
+        </button>
+      </div>
       <div className="desktop-table">
         <table>
           <thead>

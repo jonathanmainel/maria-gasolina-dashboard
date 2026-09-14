@@ -1,6 +1,9 @@
 export type Source = "google_ads" | "meta_ads";
 export type EntityLevel = "campaign" | "group" | "ad" | "keyword";
 export type PmaxLevel = "asset_group" | "asset";
+export type DashboardView = "overview" | "google" | "meta" | "analytics";
+export type OverviewMetric = "spend" | "results" | "cost_per_result";
+export type CampaignScope = "all" | "franchise" | "condominium";
 
 export interface Kpis {
   has_data: boolean;

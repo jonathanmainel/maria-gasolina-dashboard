@@ -5,3 +5,4 @@ export function appUrl(path: string) {
 }
 
 export const brandLogoUrl = appUrl("brand/maria-gasolina.svg");
+export const googleAdsLogoUrl = appUrl("brand/google-ads.png");

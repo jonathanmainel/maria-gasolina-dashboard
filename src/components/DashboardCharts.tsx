@@ -1,126 +1,130 @@
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { AnalyticsDailyMetric, DailyMetric, Source } from "../types";
-import { money, percent, shortDate } from "../lib/format";
+import { useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { compact, money, percent, shortDate } from "../lib/format";
+import type { AnalyticsDailyMetric, DailyMetric, OverviewMetric, Source } from "../types";
 
-interface Props { daily: DailyMetric[]; source: Source }
+const performanceMetrics: Array<{ id: OverviewMetric; label: string }> = [
+  { id: "spend", label: "Investimento" },
+  { id: "results", label: "Resultados" },
+  { id: "cost_per_result", label: "Custo por resultado" },
+];
 
-export function DashboardCharts({ daily, source }: Props) {
-  const data = daily.filter((item) => item.source === source).map((item) => ({
-    ...item,
-    label: shortDate(item.date),
-    ctr: item.impressions ? (item.clicks * 100) / item.impressions : 0,
-    cpc: item.clicks ? item.spend / item.clicks : 0,
-  }));
+const analyticsMetrics = [
+  { id: "sessions", label: "Sessões" },
+  { id: "active_users", label: "Usuários" },
+  { id: "generate_leads", label: "Conversões" },
+] as const;
 
-  const chartColor = source === "google_ads" ? "#324552" : "#1877f2";
-  const gold = "#d7982b";
-
-  return (
-    <div className="charts-grid">
-      <ChartCard title="Cliques e CTR">
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
-            <CartesianGrid stroke="#eef1f3" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
-            <YAxis tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
-            <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
-            <Line dataKey="clicks" name="Cliques" type="monotone" stroke={chartColor} strokeWidth={2.5} dot={{ r: 3 }} />
-            <Line dataKey="ctr" name="CTR (%)" type="monotone" stroke={gold} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-      <ChartCard title="Resultados">
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
-            <CartesianGrid stroke="#eef1f3" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
-            <YAxis tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
-            <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
-            <Line dataKey="results" name="Resultados" type="monotone" stroke="#9d2a1e" strokeWidth={2.5} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-      <ChartCard title="Investimento e CPC">
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 12, right: 12, left: -14, bottom: 0 }}>
-            <CartesianGrid stroke="#eef1f3" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
-            <YAxis tickFormatter={(value) => `R$ ${value}`} tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
-            <Tooltip formatter={(value, name) => name === "CPC" ? money(Number(value)) : money(Number(value))} contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
-            <Line dataKey="spend" name="Investimento" type="monotone" stroke={chartColor} strokeWidth={2.5} dot={{ r: 3 }} />
-            <Line dataKey="cpc" name="CPC" type="monotone" stroke={gold} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-    </div>
-  );
+interface PerformanceChartPoint {
+  label: string;
+  value?: number | null;
+  google?: number | null;
+  meta?: number | null;
 }
 
-export function AnalyticsCharts({ daily }: { daily: AnalyticsDailyMetric[] }) {
-  const data = daily.map((item) => ({ ...item, label: shortDate(item.date) }));
-
-  return (
-    <div className="charts-grid analytics-charts">
-      <ChartCard title="Sessões e sessões engajadas">
-        <AnalyticsLineChart data={data} lines={[
-          { key: "sessions", name: "Sessões", color: "#e37400" },
-          { key: "engaged_sessions", name: "Sessões engajadas", color: "#d7982b" },
-        ]} />
-      </ChartCard>
-      <ChartCard title="Usuários">
-        <AnalyticsLineChart data={data} lines={[
-          { key: "active_users", name: "Usuários ativos", color: "#324552" },
-          { key: "new_users", name: "Novos usuários", color: "#9d2a1e" },
-        ]} />
-      </ChartCard>
-      <ChartCard title="Eventos do site">
-        <AnalyticsLineChart data={data} lines={[
-          { key: "page_views", name: "page_view", color: "#324552" },
-          { key: "scrolls", name: "scroll", color: "#d7982b" },
-          { key: "generate_leads", name: "form_submit", color: "#9d2a1e" },
-        ]} />
-      </ChartCard>
-    </div>
-  );
+function performanceValue(item: DailyMetric, metric: OverviewMetric) {
+  if (metric === "cost_per_result") return item.results ? item.spend / item.results : null;
+  return item[metric];
 }
 
-function AnalyticsLineChart({
-  data,
-  lines,
-}: {
-  data: Array<AnalyticsDailyMetric & { label: string }>;
-  lines: Array<{ key: keyof AnalyticsDailyMetric; name: string; color: string }>;
-}) {
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
-        <CartesianGrid stroke="#eef1f3" vertical={false} />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#7a8991", fontSize: 11 }} />
-        <YAxis tickLine={false} axisLine={false} tick={{ fill: "#9aa6ac", fontSize: 10 }} />
-        <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #dfe4e7", fontSize: 12 }} />
-        <Legend wrapperStyle={{ fontSize: 10, color: "#7a8991" }} />
-        {lines.map((line, index) => (
-          <Line
-            key={line.key}
-            dataKey={line.key}
-            name={line.name}
-            type="monotone"
-            stroke={line.color}
-            strokeWidth={index === 0 ? 2.5 : 2}
-            dot={index === 0 ? { r: 3 } : false}
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  );
+function formatPerformance(value: number, metric: OverviewMetric) {
+  if (metric === "spend" || metric === "cost_per_result") return money(value);
+  return compact(value);
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+export function PerformanceHeroChart({ daily, source }: { daily: DailyMetric[]; source?: Source }) {
+  const [metric, setMetric] = useState<OverviewMetric>("spend");
+  const data = useMemo<PerformanceChartPoint[]>(() => {
+    if (source) {
+      return daily.filter((item) => item.source === source).map((item) => ({
+        label: shortDate(item.date),
+        value: performanceValue(item, metric),
+      }));
+    }
+
+    const grouped = new Map<string, { label: string; google: number | null; meta: number | null }>();
+    daily.forEach((item) => {
+      const entry = grouped.get(item.date) ?? { label: shortDate(item.date), google: null, meta: null };
+      if (item.source === "google_ads") entry.google = performanceValue(item, metric);
+      if (item.source === "meta_ads") entry.meta = performanceValue(item, metric);
+      grouped.set(item.date, entry);
+    });
+    return [...grouped.values()];
+  }, [daily, metric, source]);
+
+  const singleColor = source === "meta_ads" ? "#d7982b" : "#9d2a1e";
+
   return (
-    <article className="chart-card">
-      <div className="chart-title"><h3>{title}</h3><span>por dia</span></div>
-      {children}
+    <article className="hero-chart-card">
+      <div className="hero-chart-head">
+        <div>
+          <h2>{source ? "Evolução de performance" : "Evolução por canal"}</h2>
+          <p>{source ? "Desempenho diário dentro do canal" : "Google Ads e Meta Ads no período selecionado"}</p>
+        </div>
+        <div className="metric-tabs" aria-label="Métrica do gráfico">
+          {performanceMetrics.map((item) => (
+            <button key={item.id} type="button" className={metric === item.id ? "active" : ""} onClick={() => setMetric(item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="hero-chart-body">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 18, right: 16, left: 4, bottom: 0 }}>
+            <defs>
+              <linearGradient id="googleFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#9d2a1e" stopOpacity={0.2} /><stop offset="100%" stopColor="#9d2a1e" stopOpacity={0.02} /></linearGradient>
+              <linearGradient id="metaFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d7982b" stopOpacity={0.22} /><stop offset="100%" stopColor="#d7982b" stopOpacity={0.02} /></linearGradient>
+              <linearGradient id="singleFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={singleColor} stopOpacity={0.22} /><stop offset="100%" stopColor={singleColor} stopOpacity={0.02} /></linearGradient>
+            </defs>
+            <CartesianGrid stroke="#e9eeef" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#71838c", fontSize: 11 }} dy={10} />
+            <YAxis tickLine={false} axisLine={false} width={72} tick={{ fill: "#839198", fontSize: 10 }} tickFormatter={(value) => metric === "results" ? compact(Number(value)) : money(Number(value)).replace(",00", "")} />
+            <Tooltip formatter={(value, name) => [formatPerformance(Number(value), metric), String(name)]} contentStyle={{ borderRadius: 12, border: "1px solid #dfe6e8", boxShadow: "0 12px 28px rgba(36,56,66,.12)", fontSize: 12 }} />
+            {!source && <Legend wrapperStyle={{ fontSize: 11, paddingTop: 16 }} />}
+            {source ? (
+              <Area type="monotone" dataKey="value" name={source === "google_ads" ? "Google Ads" : "Meta Ads"} stroke={singleColor} strokeWidth={3} fill="url(#singleFill)" activeDot={{ r: 5 }} />
+            ) : (
+              <>
+                <Area type="monotone" dataKey="google" name="Google Ads" stroke="#9d2a1e" strokeWidth={3} fill="url(#googleFill)" activeDot={{ r: 5 }} connectNulls />
+                <Area type="monotone" dataKey="meta" name="Meta Ads" stroke="#d7982b" strokeWidth={3} fill="url(#metaFill)" activeDot={{ r: 5 }} connectNulls />
+              </>
+            )}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </article>
   );
 }
 
+export function AnalyticsPerformanceChart({ daily }: { daily: AnalyticsDailyMetric[] }) {
+  const [metric, setMetric] = useState<(typeof analyticsMetrics)[number]["id"]>("sessions");
+  const data = daily.map((item) => ({ ...item, label: shortDate(item.date) }));
+
+  return (
+    <article className="hero-chart-card analytics-hero-chart">
+      <div className="hero-chart-head">
+        <div><h2>Evolução do site</h2><p>Aquisição, usuários e conversões registradas no GA4</p></div>
+        <div className="metric-tabs" aria-label="Métrica do gráfico">
+          {analyticsMetrics.map((item) => <button key={item.id} type="button" className={metric === item.id ? "active" : ""} onClick={() => setMetric(item.id)}>{item.label}</button>)}
+        </div>
+      </div>
+      <div className="hero-chart-body">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 18, right: 16, left: 4, bottom: 0 }}>
+            <defs><linearGradient id="analyticsFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d7982b" stopOpacity={0.28} /><stop offset="100%" stopColor="#d7982b" stopOpacity={0.02} /></linearGradient></defs>
+            <CartesianGrid stroke="#e9eeef" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#71838c", fontSize: 11 }} dy={10} />
+            <YAxis tickLine={false} axisLine={false} width={60} tick={{ fill: "#839198", fontSize: 10 }} tickFormatter={(value) => compact(Number(value))} />
+            <Tooltip formatter={(value) => compact(Number(value))} contentStyle={{ borderRadius: 12, border: "1px solid #dfe6e8", boxShadow: "0 12px 28px rgba(36,56,66,.12)", fontSize: 12 }} />
+            <Area type="monotone" dataKey={metric} name={analyticsMetrics.find((item) => item.id === metric)?.label} stroke="#d7982b" strokeWidth={3} fill="url(#analyticsFill)" activeDot={{ r: 5 }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </article>
+  );
+}
+
+export function RateSummary({ current, previous }: { current: number | null; previous: number | null }) {
+  return <span>{percent(current)}{previous != null && <small> antes {percent(previous)}</small>}</span>;
+}
