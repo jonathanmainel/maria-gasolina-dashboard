@@ -109,3 +109,51 @@ export async function getAnalyticsEvents(
   return data as CursorPage<AnalyticsEventItem>;
 }
 
+
+// ---------------------------------------------------------------------------
+// v2 — frentes, orgânico e CRM. Em produção cada função chama uma RPC do
+// Supabase; enquanto as integrações (Meta Graph API, CRM Elo) não existem,
+// tudo cai no gerador de demonstração.
+// ---------------------------------------------------------------------------
+import { demoCampaigns, demoCreatives, demoCrm, demoDelivery, demoFrontDaily, demoOrganicDaily, demoOrganicPosts, demoWhatsappFlow } from "../data/demo";
+import type { CampaignRow, Creative, CrmSummary, DeliveryStatus, Front, FrontDaily, OrganicDaily, OrganicPost } from "../types";
+
+export interface FrontBundle {
+  daily: FrontDaily[];
+  campaigns: CampaignRow[];
+  creatives: Creative[];
+}
+
+export async function getFrontData(range: DateRange): Promise<FrontBundle> {
+  if (isDemoMode || !supabase) {
+    await delay(180);
+    const daily = demoFrontDaily;
+    const inPeriod = daily.filter((r) => r.date >= range.start && r.date <= range.end);
+    return { daily, campaigns: demoCampaigns(inPeriod), creatives: demoCreatives(inPeriod) };
+  }
+  const { data, error } = await supabase.rpc("get_dashboard_fronts", { p_client_slug: "maria-gasolina", p_start_date: range.start, p_end_date: range.end });
+  if (error) throw error;
+  return data as FrontBundle;
+}
+
+export interface OrganicBundle { daily: OrganicDaily[]; posts: OrganicPost[] }
+
+export async function getOrganic(range: DateRange): Promise<OrganicBundle> {
+  if (isDemoMode || !supabase) {
+    await delay(200);
+    return { daily: demoOrganicDaily, posts: demoOrganicPosts.filter((p) => p.published_at >= range.start && p.published_at <= range.end) };
+  }
+  const { data, error } = await supabase.rpc("get_dashboard_organic", { p_client_slug: "maria-gasolina", p_start_date: range.start, p_end_date: range.end });
+  if (error) throw error;
+  return data as OrganicBundle;
+}
+
+export async function getCrm(front: Front, leads: number): Promise<CrmSummary> {
+  await delay(120);
+  return demoCrm(front, leads);
+}
+
+export async function getDelivery(): Promise<DeliveryStatus & { whatsapp: typeof demoWhatsappFlow }> {
+  await delay(80);
+  return { ...demoDelivery, whatsapp: demoWhatsappFlow };
+}

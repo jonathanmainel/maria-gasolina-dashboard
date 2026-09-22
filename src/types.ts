@@ -141,3 +141,192 @@ export interface DateRange {
   end: string;
 }
 
+
+// ---------------------------------------------------------------------------
+// v2 — frentes, orgânico, CRM e metas
+// ---------------------------------------------------------------------------
+
+export type Front = "franchise" | "condominium";
+export type Channel = "google_ads" | "meta_ads";
+export type Platform = "instagram" | "facebook";
+export type AppView = "executive" | "franchise" | "condominium" | "organic" | "crm" | "settings";
+
+export interface FrontDaily {
+  date: string;
+  front: Front;
+  channel: Channel;
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  leads: number;
+}
+
+export interface FrontTotals {
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  leads: number;
+  cpl: number | null;
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+  conv_rate: number | null;
+}
+
+export interface CampaignRow {
+  id: string;
+  name: string;
+  front: Front;
+  channel: Channel;
+  objective: string;
+  status: "ACTIVE" | "PAUSED" | "LEARNING";
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  cpl: number | null;
+  ctr: number | null;
+  cpc: number | null;
+}
+
+export interface Creative {
+  id: string;
+  name: string;
+  front: Front;
+  channel: Channel;
+  format: "video" | "image" | "carousel";
+  headline: string;
+  palette: [string, string];
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  cpl: number | null;
+  ctr: number | null;
+  hook_rate: number | null;
+}
+
+export interface OrganicDaily {
+  date: string;
+  platform: Platform;
+  followers: number;
+  new_followers: number;
+  unfollows: number;
+  reach: number;
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  dms: number;
+  profile_visits: number;
+  posts: number;
+  stories: number;
+}
+
+export interface OrganicPost {
+  id: string;
+  platform: Platform;
+  format: "reel" | "carousel" | "image" | "story";
+  caption: string;
+  published_at: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  reach: number;
+  engagement_rate: number;
+  palette: [string, string];
+}
+
+export interface OrganicSummary {
+  platform: Platform;
+  followers: number;
+  followers_start: number;
+  new_followers: number;
+  unfollows: number;
+  growth_rate: number | null;
+  reach: number;
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  dms: number;
+  profile_visits: number;
+  engagement_rate: number | null;
+  posts: number;
+  stories: number;
+}
+
+export interface CrmStage {
+  id: string;
+  name: string;
+  count: number;
+  avg_days: number;
+}
+
+export interface CrmMonthly {
+  month: string;
+  leads: number;
+  meetings: number;
+  contracts: number;
+  revenue: number;
+}
+
+export interface CrmSource {
+  name: string;
+  leads: number;
+  contracts: number;
+}
+
+export interface CrmSummary {
+  front: Front;
+  stages: CrmStage[];
+  contracts: number;
+  revenue: number;
+  avg_ticket: number;
+  conversion_rate: number | null;
+  avg_cycle_days: number;
+  pipeline_value: number;
+  /** Previsão ponderada de receita adicional a partir do pipeline aberto (probabilidade histórica de fechamento por etapa × ticket médio). */
+  projected_revenue: number;
+  monthly: CrmMonthly[];
+  sources: CrmSource[];
+  recent: Array<{ id: string; name: string; city: string; stage: string; source: string; value: number; updated_at: string }>;
+}
+
+export interface Goals {
+  media_budget: number;
+  leads_franchise: number;
+  leads_condominium: number;
+  cpl_franchise: number;
+  cpl_condominium: number;
+  posts: number;
+  stories: number;
+  followers_growth: number;
+  contracts_franchise: number;
+  contracts_condominium: number;
+}
+
+export interface DeliveryStatus {
+  posts_published: number;
+  stories_published: number;
+  creatives_delivered: number;
+  creatives_goal: number;
+  videos_delivered: number;
+  videos_goal: number;
+  weekly_reports: number;
+  weekly_reports_goal: number;
+}
+
+export interface GeoCity {
+  city: string;
+  state: string;
+  x: number;
+  y: number;
+  units: number;
+  kind: "hq" | "unit" | "lead";
+}
