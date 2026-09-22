@@ -17,14 +17,48 @@ export function FrontView({ front, data, range, onNavigate }: { front: Front; da
   const colors = useChartColors();
   const [goals] = useGoals();
   const bundle = data[front];
-  const { current, previous, rows, prevRows } = bundle;
-  const series = useMemo(() => dailySeries(rows), [rows]);
-  const weeks = useMemo(() => weeklySeries(rows), [rows]);
+  const { current, rows, prevRows } = bundle;
   const [chartMode, setChartMode] = useState<"daily" | "weekly">("daily");
   const [channelFilter, setChannelFilter] = useState<"all" | "meta_ads" | "google_ads">("all");
+  const filteredRows = useMemo(
+  () =>
+    channelFilter === "all"
+      ? rows
+      : rows.filter((r) => r.channel === channelFilter),
+  [rows, channelFilter],
+);
+
+const filteredPrevRows = useMemo(
+  () =>
+    channelFilter === "all"
+      ? prevRows
+      : prevRows.filter((r) => r.channel === channelFilter),
+  [prevRows, channelFilter],
+);
+
+const filteredCurrent = useMemo(
+  () => totals(filteredRows),
+  [filteredRows],
+);
+
+const filteredPrevious = useMemo(
+  () => totals(filteredPrevRows),
+  [filteredPrevRows],
+);
+const series = useMemo(
+  () => dailySeries(filteredRows),
+  [filteredRows],
+);
+
+const weeks = useMemo(
+  () => weeklySeries(filteredRows),
+  [filteredRows],
+);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "leads", dir: "desc" });
   const month = monthProgress(range);
-  const monthRows = rows.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7));
+  const monthRows = filteredRows.filter(
+    (r) => r.date.slice(0, 7) === range.end.slice(0, 7),
+  );
   const monthLeads = monthRows.reduce((s, r) => s + r.leads, 0);
   const monthSpend = monthRows.reduce((s, r) => s + r.spend, 0);
   const monthCpl = monthLeads ? monthSpend / monthLeads : 0;
@@ -62,13 +96,13 @@ export function FrontView({ front, data, range, onNavigate }: { front: Front; da
       </div>
 
       <div className="grid grid-6">
-        <Kpi label="Investimento" value={current.spend} previous={previous.spend} format={money} accent={meta.accent} icon={<Wallet size={16} />} spark={series.map((d) => d.spend)} />
-        <Kpi label={`Leads (${meta.leadWord})`} value={current.leads} previous={previous.leads} format={integer} accent={meta.accent} icon={<Target size={16} />} spark={series.map((d) => d.leads)} />
-        <Kpi label="Custo por lead" value={current.cpl} previous={previous.cpl} format={money} accent="green" icon={<Zap size={16} />} lowerIsBetter spark={series.map((d) => d.cpl ?? 0)} />
-        <Kpi label="Conversão clique → lead" value={current.conv_rate} previous={previous.conv_rate} format={percent} accent="sky" icon={<Percent size={16} />} />
-        <Kpi label="Cliques" value={current.clicks} previous={previous.clicks} format={integer} accent="navy" icon={<MousePointerClick size={16} />} spark={series.map((d) => d.clicks)} />
-        <Kpi label="Impressões" value={current.impressions} previous={previous.impressions} format={compact} accent="navy" icon={<Eye size={16} />} spark={series.map((d) => d.impressions)} />
-      </div>
+  <Kpi label="Investimento" value={filteredCurrent.spend} previous={filteredPrevious.spend} format={money} accent={meta.accent} icon={<Wallet size={16} />} spark={series.map((d) => d.spend)} />
+  <Kpi label={`Leads (${meta.leadWord})`} value={filteredCurrent.leads} previous={filteredPrevious.leads} format={integer} accent={meta.accent} icon={<Target size={16} />} spark={series.map((d) => d.leads)} />
+  <Kpi label="Custo por lead" value={filteredCurrent.cpl} previous={filteredPrevious.cpl} format={money} accent="green" icon={<Zap size={16} />} lowerIsBetter spark={series.map((d) => d.cpl ?? 0)} />
+  <Kpi label="Conversão clique → lead" value={filteredCurrent.conv_rate} previous={filteredPrevious.conv_rate} format={percent} accent="sky" icon={<Percent size={16} />} />
+  <Kpi label="Cliques" value={filteredCurrent.clicks} previous={filteredPrevious.clicks} format={integer} accent="navy" icon={<MousePointerClick size={16} />} spark={series.map((d) => d.clicks)} />
+  <Kpi label="Impressões" value={filteredCurrent.impressions} previous={filteredPrevious.impressions} format={compact} accent="navy" icon={<Eye size={16} />} spark={series.map((d) => d.impressions)} />
+</div>
 
       <div className="grid grid-hero" style={{ marginTop: 14 }}>
         <Panel title="Leads e custo por lead ao longo do tempo" description="Barras são leads, a linha é o CPL do dia" actions={<Segmented value={chartMode} onChange={setChartMode} options={[{ id: "daily", label: "Diário" }, { id: "weekly", label: "Semanal" }]} />}>
@@ -94,8 +128,30 @@ export function FrontView({ front, data, range, onNavigate }: { front: Front; da
             <Pacing label="Fatia da verba total" actual={monthSpend} goal={goals.media_budget * (front === "franchise" ? 0.7 : 0.3)} ratio={month.ratio} color={meta.color} format={money} lowerIsBetter />
           </div>
           <div className="grid grid-2" style={{ gap: 10, marginTop: 16 }}>
-            <MiniStat label="CPC" value={current.cpc ?? 0} format={money} delta={<Delta current={current.cpc} previous={previous.cpc} lowerIsBetter />} />
-            <MiniStat label="CTR" value={current.ctr ?? 0} format={percent} delta={<Delta current={current.ctr} previous={previous.ctr} />} />
+            <MiniStat
+              label="CPC"
+              value={filteredCurrent.cpc ?? 0}
+              format={money}
+              delta={
+                <Delta
+                  current={filteredCurrent.cpc}
+                  previous={filteredPrevious.cpc}
+                  lowerIsBetter
+                />
+              }
+            />
+
+            <MiniStat
+              label="CTR"
+              value={filteredCurrent.ctr ?? 0}
+              format={percent}
+              delta={
+                <Delta
+                  current={filteredCurrent.ctr}
+                  previous={filteredPrevious.ctr}
+                />
+              }
+            />
           </div>
         </Panel>
       </div>
