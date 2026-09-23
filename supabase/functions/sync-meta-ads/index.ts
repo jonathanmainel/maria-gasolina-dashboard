@@ -255,7 +255,7 @@ function normalizeMetaCampaignInsight(
 
 export default {
   fetch: withSupabase(
-    { auth: ["publishable", "secret"] },
+    { auth: "secret" },
     async (req, ctx) => {
       if (req.method !== "POST") {
         return Response.json(
