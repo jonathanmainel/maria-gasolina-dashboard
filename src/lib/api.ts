@@ -147,7 +147,7 @@ export interface FrontBundle {
 }
 
 const FRANCHISE_PATTERN = /franq/i;
-const CONDOMINIUM_PATTERN = /condom/i;
+const CONDOMINIUM_PATTERN = /cond/i;
 
 export function classifyFront(name: string | null | undefined): Front | null {
   const value = name ?? "";
