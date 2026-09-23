@@ -1,0 +1,10 @@
+alter function private.dashboard_read_client_id(text) security invoker;
+alter function private.dashboard_kpis_json(bigint, date, date) security invoker;
+alter function public.get_dashboard_overview(text, date, date) security invoker;
+alter function public.get_dashboard_entities(text, text, text, date, date, integer, jsonb) security invoker;
+alter function public.get_dashboard_pmax(text, date, date, text, integer, jsonb) security invoker;
+grant usage on schema private to authenticated;
+grant execute on function private.dashboard_read_client_id(text) to authenticated;
+grant execute on function private.dashboard_kpis_json(bigint, date, date) to authenticated;
+revoke all on function private.dashboard_read_client_id(text) from public, anon;
+revoke all on function private.dashboard_kpis_json(bigint, date, date) from public, anon;;

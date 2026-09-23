@@ -205,30 +205,46 @@ function getActionValue(
 function normalizeMetaCampaignInsight(
   row: MetaCampaignInsight,
 ) {
+  const impressions = Number(row.impressions ?? 0);
+  const linkClicks = Number(row.inline_link_clicks ?? 0);
+
+  const linkCtr =
+    impressions > 0
+      ? (linkClicks / impressions) * 100
+      : 0;
+
   return {
     source: "meta_ads",
 
     account_id: row.account_id ?? null,
     campaign_id: row.campaign_id ?? null,
     campaign_name: row.campaign_name ?? null,
+    campaign_status: null,
+
     metric_date: row.date_start ?? null,
 
-    impressions: Number(row.impressions ?? 0),
+    impressions,
     reach: Number(row.reach ?? 0),
     clicks: Number(row.clicks ?? 0),
-    link_clicks: Number(row.inline_link_clicks ?? 0),
+    link_clicks: linkClicks,
 
     conversions: getActionValue(
       row.actions,
       "lead",
     ),
 
+    all_conversions: null,
+
     spend: Number(row.spend ?? 0),
+    conversion_value: 0,
+
+    source_updated_at: null,
 
     extra_metrics: {
       cpc: Number(row.cpc ?? 0),
       cpm: Number(row.cpm ?? 0),
       ctr: Number(row.ctr ?? 0),
+      link_ctr: linkCtr,
       frequency: Number(row.frequency ?? 0),
 
       actions: row.actions ?? [],
@@ -240,7 +256,7 @@ function normalizeMetaCampaignInsight(
 export default {
   fetch: withSupabase(
     { auth: ["publishable", "secret"] },
-    async (req) => {
+    async (req, ctx) => {
       if (req.method !== "POST") {
         return Response.json(
           {
@@ -347,6 +363,35 @@ export default {
         );
       }
 
+      const { data: client, error: clientError } =
+        await ctx.supabaseAdmin
+          .from("dashboard_clients")
+          .select("id, slug, name")
+          .eq("slug", client_slug)
+          .eq("active", true)
+          .maybeSingle();
+
+      if (clientError) {
+        return Response.json(
+          {
+            ok: false,
+            error: "Failed to resolve dashboard client.",
+            details: clientError.message,
+          },
+          { status: 500 },
+        );
+      }
+
+      if (!client) {
+        return Response.json(
+          {
+            ok: false,
+            error: `Active dashboard client not found for slug: ${client_slug}`,
+          },
+          { status: 404 },
+        );
+      }
+
       try {
         if (!metaAdAccountId) {
           return Response.json(
@@ -379,6 +424,12 @@ export default {
             start_date,
             end_date,
             dry_run,
+          },
+
+          dashboard_client: {
+            id: client.id,
+            slug: client.slug,
+            name: client.name,
           },
 
           meta_configuration: {
