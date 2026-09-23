@@ -9,24 +9,21 @@ import {
   validateIngestionRequest,
 } from "../_shared/ingestion.ts";
 
-type MetaAdAccount = {
-  id: string;
-  account_id?: string;
-  name?: string;
-  account_status?: number;
-  currency?: string;
-  timezone_name?: string;
-};
-
 type MetaAction = {
   action_type: string;
   value: string;
 };
 
-type MetaCampaignInsight = {
+type MetaInsightLevel = "account" | "campaign" | "adset" | "ad";
+
+type MetaInsight = {
   account_id?: string;
   campaign_id?: string;
   campaign_name?: string;
+  adset_id?: string;
+  adset_name?: string;
+  ad_id?: string;
+  ad_name?: string;
   date_start?: string;
   date_stop?: string;
   impressions?: string;
@@ -42,8 +39,8 @@ type MetaCampaignInsight = {
   action_values?: MetaAction[];
 };
 
-type MetaCampaignInsightsResponse = {
-  data?: MetaCampaignInsight[];
+type MetaInsightsResponse = {
+  data?: MetaInsight[];
   paging?: {
     next?: string;
   };
@@ -55,67 +52,59 @@ type MetaCampaignInsightsResponse = {
   };
 };
 
-type MetaAdAccountsResponse = {
-  data?: MetaAdAccount[];
-  paging?: {
-    next?: string;
-  };
-  error?: {
-    message?: string;
-    type?: string;
-    code?: number;
-    error_subcode?: number;
-  };
+const META_COMMON_INSIGHT_FIELDS = [
+  "account_id",
+  "date_start",
+  "date_stop",
+  "impressions",
+  "reach",
+  "clicks",
+  "inline_link_clicks",
+  "spend",
+  "cpc",
+  "cpm",
+  "ctr",
+  "frequency",
+  "actions",
+  "action_values",
+];
+
+const RESPONSE_PREVIEW_LIMIT = 25;
+
+const META_LEVEL_FIELDS: Record<MetaInsightLevel, string[]> = {
+  account: [],
+  campaign: ["campaign_id", "campaign_name"],
+  adset: [
+    "campaign_id",
+    "campaign_name",
+    "adset_id",
+    "adset_name",
+  ],
+  ad: [
+    "campaign_id",
+    "campaign_name",
+    "adset_id",
+    "adset_name",
+    "ad_id",
+    "ad_name",
+  ],
 };
 
-async function fetchMetaAdAccounts(
-  apiVersion: string,
-  accessToken: string,
-): Promise<MetaAdAccount[]> {
-  const url = new URL(
-    `https://graph.facebook.com/${apiVersion}/me/adaccounts`,
-  );
-
-  url.searchParams.set(
-    "fields",
-    "id,account_id,name,account_status,currency,timezone_name",
-  );
-
-  url.searchParams.set("limit", "100");
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const payload = (await response.json()) as MetaAdAccountsResponse;
-
-  if (!response.ok || payload.error) {
-    throw new Error(
-      payload.error?.message ??
-        `Meta API request failed with HTTP ${response.status}`,
-    );
-  }
-
-  return payload.data ?? [];
-}
-
-async function fetchMetaCampaignInsights(
+async function fetchMetaInsights(
   apiVersion: string,
   accessToken: string,
   accountId: string,
   startDate: string,
   endDate: string,
-): Promise<MetaCampaignInsight[]> {
-  const results: MetaCampaignInsight[] = [];
+  level: MetaInsightLevel,
+): Promise<MetaInsight[]> {
+  const results: MetaInsight[] = [];
 
   const url = new URL(
     `https://graph.facebook.com/${apiVersion}/act_${accountId}/insights`,
   );
 
-  url.searchParams.set("level", "campaign");
+  url.searchParams.set("level", level);
 
   url.searchParams.set(
     "time_range",
@@ -129,24 +118,7 @@ async function fetchMetaCampaignInsights(
 
   url.searchParams.set(
     "fields",
-    [
-      "account_id",
-      "campaign_id",
-      "campaign_name",
-      "date_start",
-      "date_stop",
-      "impressions",
-      "reach",
-      "clicks",
-      "inline_link_clicks",
-      "spend",
-      "cpc",
-      "cpm",
-      "ctr",
-      "frequency",
-      "actions",
-      "action_values",
-    ].join(","),
+    [...META_COMMON_INSIGHT_FIELDS, ...META_LEVEL_FIELDS[level]].join(","),
   );
 
   url.searchParams.set("limit", "100");
@@ -161,83 +133,12 @@ async function fetchMetaCampaignInsights(
       },
     });
 
-    const payload =
-      (await response.json()) as MetaCampaignInsightsResponse;
+    const payload = (await response.json()) as MetaInsightsResponse;
 
     if (!response.ok || payload.error) {
       throw new Error(
         payload.error?.message ??
-          `Meta Insights API request failed with HTTP ${response.status}`,
-      );
-    }
-
-    results.push(...(payload.data ?? []));
-
-    nextUrl = payload.paging?.next ?? null;
-  }
-
-  return results;
-}
-
-async function fetchMetaDailyInsights(
-  apiVersion: string,
-  accessToken: string,
-  accountId: string,
-  startDate: string,
-  endDate: string,
-): Promise<MetaCampaignInsight[]> {
-  const results: MetaCampaignInsight[] = [];
-
-  const url = new URL(
-    `https://graph.facebook.com/${apiVersion}/act_${accountId}/insights`,
-  );
-
-  url.searchParams.set("level", "account");
-
-  url.searchParams.set(
-    "time_range",
-    JSON.stringify({
-      since: startDate,
-      until: endDate,
-    }),
-  );
-
-  url.searchParams.set("time_increment", "1");
-
-  url.searchParams.set(
-    "fields",
-    [
-      "account_id",
-      "date_start",
-      "date_stop",
-      "impressions",
-      "reach",
-      "clicks",
-      "inline_link_clicks",
-      "spend",
-      "actions",
-    ].join(","),
-  );
-
-  url.searchParams.set("limit", "100");
-
-  let nextUrl: string | null = url.toString();
-
-  while (nextUrl) {
-    const response = await fetch(nextUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    const payload =
-      (await response.json()) as MetaCampaignInsightsResponse;
-
-    if (!response.ok || payload.error) {
-      throw new Error(
-        payload.error?.message ??
-          `Meta Daily Insights API request failed with HTTP ${response.status}`,
+          `Meta ${level} insights request failed with HTTP ${response.status}`,
       );
     }
 
@@ -260,17 +161,22 @@ function getActionValue(
   return action ? Number(action.value) || 0 : 0;
 }
 
-function normalizeMetaCampaignInsight(
-  row: MetaCampaignInsight,
-) {
+function buildMetaExtraMetrics(row: MetaInsight) {
   const impressions = Number(row.impressions ?? 0);
   const linkClicks = Number(row.inline_link_clicks ?? 0);
 
-  const linkCtr =
-    impressions > 0
-      ? (linkClicks / impressions) * 100
-      : 0;
+  return {
+    cpc: Number(row.cpc ?? 0),
+    cpm: Number(row.cpm ?? 0),
+    ctr: Number(row.ctr ?? 0),
+    link_ctr: impressions > 0 ? (linkClicks / impressions) * 100 : 0,
+    frequency: Number(row.frequency ?? 0),
+    actions: row.actions ?? [],
+    action_values: row.action_values ?? [],
+  };
+}
 
+function normalizeMetaCampaignInsight(row: MetaInsight) {
   return {
     source: "meta_ads",
 
@@ -281,10 +187,10 @@ function normalizeMetaCampaignInsight(
 
     metric_date: row.date_start ?? null,
 
-    impressions,
+    impressions: Number(row.impressions ?? 0),
     reach: Number(row.reach ?? 0),
     clicks: Number(row.clicks ?? 0),
-    link_clicks: linkClicks,
+    link_clicks: Number(row.inline_link_clicks ?? 0),
 
     conversions: getActionValue(
       row.actions,
@@ -298,22 +204,11 @@ function normalizeMetaCampaignInsight(
 
     source_updated_at: null,
 
-    extra_metrics: {
-      cpc: Number(row.cpc ?? 0),
-      cpm: Number(row.cpm ?? 0),
-      ctr: Number(row.ctr ?? 0),
-      link_ctr: linkCtr,
-      frequency: Number(row.frequency ?? 0),
-
-      actions: row.actions ?? [],
-      action_values: row.action_values ?? [],
-    },
+    extra_metrics: buildMetaExtraMetrics(row),
   };
 }
 
-function normalizeMetaDailyInsight(
-  row: MetaCampaignInsight,
-) {
+function normalizeMetaDailyInsight(row: MetaInsight) {
   return {
     account_id: row.account_id ?? null,
     metric_date: row.date_start ?? null,
@@ -338,6 +233,56 @@ function normalizeMetaDailyInsight(
   };
 }
 
+function normalizeMetaAdSetInsight(row: MetaInsight) {
+  return {
+    account_id: row.account_id ?? null,
+    campaign_id: row.campaign_id ?? null,
+    campaign_name: row.campaign_name ?? null,
+    group_id: row.adset_id ?? null,
+    group_name: row.adset_name ?? null,
+    group_status: null,
+    metric_date: row.date_start ?? null,
+    impressions: Number(row.impressions ?? 0),
+    reach: Number(row.reach ?? 0),
+    clicks: Number(row.clicks ?? 0),
+    link_clicks: Number(row.inline_link_clicks ?? 0),
+    conversions: getActionValue(row.actions, "lead"),
+    all_conversions: null,
+    spend: Number(row.spend ?? 0),
+    conversion_value: 0,
+    extra_metrics: buildMetaExtraMetrics(row),
+    source_updated_at: null,
+  };
+}
+
+function normalizeMetaAdInsight(row: MetaInsight) {
+  return {
+    account_id: row.account_id ?? null,
+    campaign_id: row.campaign_id ?? null,
+    campaign_name: row.campaign_name ?? null,
+    adset_id: row.adset_id ?? null,
+    adset_name: row.adset_name ?? null,
+    ad_id: row.ad_id ?? null,
+    ad_name: row.ad_name ?? null,
+    ad_status: null,
+    metric_date: row.date_start ?? null,
+    impressions: Number(row.impressions ?? 0),
+    reach: Number(row.reach ?? 0),
+    clicks: Number(row.clicks ?? 0),
+    link_clicks: Number(row.inline_link_clicks ?? 0),
+    conversions: getActionValue(row.actions, "lead"),
+    all_conversions: null,
+    spend: Number(row.spend ?? 0),
+    conversion_value: 0,
+    extra_metrics: buildMetaExtraMetrics(row),
+    source_updated_at: null,
+  };
+}
+
+function sortRows<T>(rows: T[], getKey: (row: T) => string): T[] {
+  return rows.sort((left, right) => getKey(left).localeCompare(getKey(right)));
+}
+
 async function createPayloadHash(value: unknown): Promise<string> {
   const encoded = new TextEncoder().encode(JSON.stringify(value));
 
@@ -349,6 +294,18 @@ async function createPayloadHash(value: unknown): Promise<string> {
   return Array.from(new Uint8Array(hashBuffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function getDatabaseWriteStatus(result: unknown): string | null {
+  if (
+    typeof result !== "object" ||
+    result === null ||
+    !("status" in result)
+  ) {
+    return null;
+  }
+
+  return String(result.status);
 }
 
 export default {
@@ -476,98 +433,211 @@ export default {
           );
         }
 
-        const campaignInsights: MetaCampaignInsight[] = [];
-        const dailyInsights: MetaCampaignInsight[] = [];
+        const dailyInsights: MetaInsight[] = [];
+        const campaignInsights: MetaInsight[] = [];
+        const adSetInsights: MetaInsight[] = [];
+        const adInsights: MetaInsight[] = [];
 
         for (const sourceAccount of sourceAccounts) {
-          const [accountCampaignInsights, accountDailyInsights] =
+          const [
+            accountDailyInsights,
+            accountCampaignInsights,
+            accountAdSetInsights,
+            accountAdInsights,
+          ] =
             await Promise.all([
-              fetchMetaCampaignInsights(
+              fetchMetaInsights(
                 metaApiVersion,
                 metaAccessToken,
                 sourceAccount.account_id,
                 start_date,
                 end_date,
+                "account",
               ),
-              fetchMetaDailyInsights(
+              fetchMetaInsights(
                 metaApiVersion,
                 metaAccessToken,
                 sourceAccount.account_id,
                 start_date,
                 end_date,
+                "campaign",
+              ),
+              fetchMetaInsights(
+                metaApiVersion,
+                metaAccessToken,
+                sourceAccount.account_id,
+                start_date,
+                end_date,
+                "adset",
+              ),
+              fetchMetaInsights(
+                metaApiVersion,
+                metaAccessToken,
+                sourceAccount.account_id,
+                start_date,
+                end_date,
+                "ad",
               ),
             ]);
 
-          campaignInsights.push(...accountCampaignInsights);
           dailyInsights.push(...accountDailyInsights);
+          campaignInsights.push(...accountCampaignInsights);
+          adSetInsights.push(...accountAdSetInsights);
+          adInsights.push(...accountAdInsights);
         }
 
-        const normalizedCampaignRows = campaignInsights.map(
-          normalizeMetaCampaignInsight,
+        const normalizedDailyRows = sortRows(
+          dailyInsights.map(normalizeMetaDailyInsight),
+          (row) => `${row.account_id ?? ""}|${row.metric_date ?? ""}`,
         );
 
-        const normalizedDailyRows = dailyInsights.map(
-          normalizeMetaDailyInsight,
+        const normalizedCampaignRows = sortRows(
+          campaignInsights.map(normalizeMetaCampaignInsight),
+          (row) =>
+            `${row.account_id ?? ""}|${row.campaign_id ?? ""}|${row.metric_date ?? ""}`,
+        );
+
+        const normalizedAdSetRows = sortRows(
+          adSetInsights.map(normalizeMetaAdSetInsight),
+          (row) =>
+            `${row.account_id ?? ""}|${row.group_id ?? ""}|${row.metric_date ?? ""}`,
+        );
+
+        const normalizedAdRows = sortRows(
+          adInsights.map(normalizeMetaAdInsight),
+          (row) =>
+            `${row.account_id ?? ""}|${row.ad_id ?? ""}|${row.metric_date ?? ""}`,
         );
 
         let databaseWritePerformed = false;
-        let databaseWriteResult: unknown = null;
+        let databaseWriteResult: {
+          paid_media: unknown;
+          ad_sets: unknown;
+        } | null = null;
         let databaseWriteStatus: string | null = null;
 
         if (!dry_run) {
-          const payloadHash = await createPayloadHash({
+          const paidMediaPayloadHash = await createPayloadHash({
             daily: normalizedDailyRows,
             campaigns: normalizedCampaignRows,
-            ads: [],
+            ads: normalizedAdRows,
           });
 
-          const idempotencyKey = [
+          const paidMediaIdempotencyKey = [
             "meta_ads",
             "paid_media_v1",
             client_slug,
             start_date,
             end_date,
-            payloadHash,
+            paidMediaPayloadHash,
           ].join(":");
 
-          const { data: writeResult, error: writeError } =
+          const adSetPayloadHash = await createPayloadHash({
+            ad_sets: normalizedAdSetRows,
+          });
+
+          const adSetIdempotencyKey = [
+            "meta_ads",
+            "ad_sets_v1",
+            client_slug,
+            start_date,
+            end_date,
+            adSetPayloadHash,
+          ].join(":");
+
+          const { data: paidMediaWriteResult, error: paidMediaWriteError } =
             await ctx.supabaseAdmin.rpc(
               "upsert_dashboard_paid_media_batch",
               {
                 p_client_slug: client_slug,
                 p_source: "meta_ads",
-                p_idempotency_key: idempotencyKey,
+                p_idempotency_key: paidMediaIdempotencyKey,
                 p_range_start: start_date,
                 p_range_end: end_date,
                 p_daily_metrics: normalizedDailyRows,
                 p_campaign_daily: normalizedCampaignRows,
-                p_ad_daily: [],
+                p_ad_daily: normalizedAdRows,
               },
             );
 
-          if (writeError) {
+          if (paidMediaWriteError) {
             return Response.json(
               {
                 ok: false,
                 mode: "write",
                 meta_api_called: true,
                 database_write_performed: false,
-                error: "Failed to write Meta Ads data.",
-                details: writeError.message,
+                database_write_status: null,
+                database_write_result: {
+                  paid_media: null,
+                  ad_sets: null,
+                },
+                error: "Failed to write Meta Ads paid media data.",
+                details: paidMediaWriteError.message,
               },
               { status: 500 },
             );
           }
 
+          const paidMediaWriteStatus = getDatabaseWriteStatus(
+            paidMediaWriteResult,
+          );
+
+          const { data: adSetWriteResult, error: adSetWriteError } =
+            await ctx.supabaseAdmin.rpc(
+              "upsert_dashboard_paid_media_group_batch",
+              {
+                p_client_slug: client_slug,
+                p_source: "meta_ads",
+                p_group_kind: "ad_set",
+                p_idempotency_key: adSetIdempotencyKey,
+                p_range_start: start_date,
+                p_range_end: end_date,
+                p_group_daily: normalizedAdSetRows,
+              },
+            );
+
+          if (adSetWriteError) {
+            const paidMediaWritePerformed = paidMediaWriteStatus === "success";
+
+            return Response.json(
+              {
+                ok: false,
+                mode: "write",
+                meta_api_called: true,
+                database_write_performed: paidMediaWritePerformed,
+                database_write_status: paidMediaWritePerformed
+                  ? "partial_success"
+                  : paidMediaWriteStatus,
+                database_write_result: {
+                  paid_media: paidMediaWriteResult,
+                  ad_sets: null,
+                },
+                error: "Failed to write Meta Ads ad set data.",
+                details: adSetWriteError.message,
+              },
+              { status: 500 },
+            );
+          }
+
+          const adSetWriteStatus = getDatabaseWriteStatus(adSetWriteResult);
+
+          databaseWritePerformed =
+            paidMediaWriteStatus === "success" ||
+            adSetWriteStatus === "success";
+
           databaseWriteStatus =
-            typeof writeResult === "object" &&
-            writeResult !== null &&
-            "status" in writeResult
-              ? String(writeResult.status)
+            paidMediaWriteStatus === "already_processed" &&
+              adSetWriteStatus === "already_processed"
+              ? "already_processed"
+              : databaseWritePerformed
+              ? "success"
               : null;
 
-          databaseWritePerformed = databaseWriteStatus === "success";
-          databaseWriteResult = writeResult;
+          databaseWriteResult = {
+            paid_media: paidMediaWriteResult,
+            ad_sets: adSetWriteResult,
+          };
         }
 
         return Response.json({
@@ -604,14 +674,37 @@ export default {
 
           campaign_insights: {
             count: campaignInsights.length,
-            rows: campaignInsights,
+            rows: campaignInsights.slice(0, RESPONSE_PREVIEW_LIMIT),
+            truncated: campaignInsights.length > RESPONSE_PREVIEW_LIMIT,
+          },
+
+          meta_insights: {
+            daily_count: dailyInsights.length,
+            campaign_count: campaignInsights.length,
+            ad_set_count: adSetInsights.length,
+            ad_count: adInsights.length,
           },
 
           normalized_preview: {
-            campaign_count: normalizedCampaignRows.length,
-            campaign_rows: normalizedCampaignRows,
+            row_limit: RESPONSE_PREVIEW_LIMIT,
             daily_count: normalizedDailyRows.length,
-            daily_rows: normalizedDailyRows,
+            daily_rows: normalizedDailyRows.slice(0, RESPONSE_PREVIEW_LIMIT),
+            daily_truncated:
+              normalizedDailyRows.length > RESPONSE_PREVIEW_LIMIT,
+            campaign_count: normalizedCampaignRows.length,
+            campaign_rows: normalizedCampaignRows.slice(
+              0,
+              RESPONSE_PREVIEW_LIMIT,
+            ),
+            campaign_truncated:
+              normalizedCampaignRows.length > RESPONSE_PREVIEW_LIMIT,
+            ad_set_count: normalizedAdSetRows.length,
+            ad_set_rows: normalizedAdSetRows.slice(0, RESPONSE_PREVIEW_LIMIT),
+            ad_set_truncated:
+              normalizedAdSetRows.length > RESPONSE_PREVIEW_LIMIT,
+            ad_count: normalizedAdRows.length,
+            ad_rows: normalizedAdRows.slice(0, RESPONSE_PREVIEW_LIMIT),
+            ad_truncated: normalizedAdRows.length > RESPONSE_PREVIEW_LIMIT,
           },
 
           database_write_performed: databaseWritePerformed,
@@ -619,10 +712,10 @@ export default {
           database_write_result: databaseWriteResult,
 
           message: dry_run
-            ? "Meta Ads daily and campaign insights fetched successfully. No database write was performed."
+            ? "Meta Ads daily, campaign, ad set, and ad insights fetched successfully. No database write was performed."
             : databaseWriteStatus === "already_processed"
               ? "Meta Ads payload was already processed. No database write was performed."
-              : "Meta Ads daily and campaign data written successfully.",
+              : "Meta Ads daily, campaign, ad set, and ad data written successfully.",
         });
       } catch (error) {
         return Response.json(
