@@ -338,6 +338,19 @@ function normalizeMetaDailyInsight(
   };
 }
 
+async function createPayloadHash(value: unknown): Promise<string> {
+  const encoded = new TextEncoder().encode(JSON.stringify(value));
+
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    encoded,
+  );
+
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export default {
   fetch: withSupabase(
     { auth: "secret" },
@@ -497,9 +510,69 @@ export default {
           normalizeMetaDailyInsight,
         );
 
+        let databaseWritePerformed = false;
+        let databaseWriteResult: unknown = null;
+        let databaseWriteStatus: string | null = null;
+
+        if (!dry_run) {
+          const payloadHash = await createPayloadHash({
+            daily: normalizedDailyRows,
+            campaigns: normalizedCampaignRows,
+            ads: [],
+          });
+
+          const idempotencyKey = [
+            "meta_ads",
+            "paid_media_v1",
+            client_slug,
+            start_date,
+            end_date,
+            payloadHash,
+          ].join(":");
+
+          const { data: writeResult, error: writeError } =
+            await ctx.supabaseAdmin.rpc(
+              "upsert_dashboard_paid_media_batch",
+              {
+                p_client_slug: client_slug,
+                p_source: "meta_ads",
+                p_idempotency_key: idempotencyKey,
+                p_range_start: start_date,
+                p_range_end: end_date,
+                p_daily_metrics: normalizedDailyRows,
+                p_campaign_daily: normalizedCampaignRows,
+                p_ad_daily: [],
+              },
+            );
+
+          if (writeError) {
+            return Response.json(
+              {
+                ok: false,
+                mode: "write",
+                meta_api_called: true,
+                database_write_performed: false,
+                error: "Failed to write Meta Ads data.",
+                details: writeError.message,
+              },
+              { status: 500 },
+            );
+          }
+
+          databaseWriteStatus =
+            typeof writeResult === "object" &&
+            writeResult !== null &&
+            "status" in writeResult
+              ? String(writeResult.status)
+              : null;
+
+          databaseWritePerformed = databaseWriteStatus === "success";
+          databaseWriteResult = writeResult;
+        }
+
         return Response.json({
           ok: true,
-          mode: "dry_run",
+          mode: dry_run ? "dry_run" : "write",
 
           request: {
             client_slug,
@@ -541,16 +614,21 @@ export default {
             daily_rows: normalizedDailyRows,
           },
 
-          database_write_performed: false,
+          database_write_performed: databaseWritePerformed,
+          database_write_status: databaseWriteStatus,
+          database_write_result: databaseWriteResult,
 
-          message:
-            "Meta Ads campaign insights fetched successfully. No database write was performed.",
+          message: dry_run
+            ? "Meta Ads daily and campaign insights fetched successfully. No database write was performed."
+            : databaseWriteStatus === "already_processed"
+              ? "Meta Ads payload was already processed. No database write was performed."
+              : "Meta Ads daily and campaign data written successfully.",
         });
       } catch (error) {
         return Response.json(
           {
             ok: false,
-            mode: "dry_run",
+            mode: dry_run ? "dry_run" : "write",
             meta_api_called: true,
             database_write_performed: false,
             error:
