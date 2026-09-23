@@ -35,3 +35,19 @@ export function validateSourceAccount(
     .eq("active", true)
     .maybeSingle();
 }
+
+export function listSourceAccounts(
+  supabaseAdmin: SupabaseAdminClient,
+  params: {
+    clientId: number;
+    source: DashboardSource;
+  },
+) {
+  return supabaseAdmin
+    .from("dashboard_source_accounts")
+    .select("id, account_id, account_name")
+    .eq("client_id", params.clientId)
+    .eq("source", params.source)
+    .eq("active", true)
+    .order("id", { ascending: true });
+}

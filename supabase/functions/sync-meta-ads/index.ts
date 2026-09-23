@@ -1,6 +1,9 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
-import { resolveDashboardClient, validateSourceAccount } from "../_shared/dashboard.ts";
+import {
+  listSourceAccounts,
+  resolveDashboardClient,
+} from "../_shared/dashboard.ts";
 import {
   type IngestionRequest,
   validateIngestionRequest,
@@ -285,7 +288,6 @@ export default {
         dryRun: dry_run,
       } = validation.value;
 
-      const metaAdAccountId = Deno.env.get("META_AD_ACCOUNT_ID");
       const metaAccessToken = Deno.env.get("META_ACCESS_TOKEN");
       const metaApiVersion = Deno.env.get("META_API_VERSION");
 
@@ -334,55 +336,49 @@ export default {
       }
 
       try {
-        if (!metaAdAccountId) {
-          return Response.json(
-            {
-              ok: false,
-              error: "META_AD_ACCOUNT_ID is not configured.",
-            },
-            { status: 500 },
-          );
-        }
-
-        const { data: authorizedSourceAccount, error: sourceAccountError } =
-          await validateSourceAccount(ctx.supabaseAdmin, {
+        const { data: sourceAccounts, error: sourceAccountsError } =
+          await listSourceAccounts(ctx.supabaseAdmin, {
             clientId: dashboardClient.id,
             source: "meta_ads",
-            accountId: metaAdAccountId,
           });
 
-        if (sourceAccountError) {
+        if (sourceAccountsError) {
           return Response.json(
             {
               ok: false,
-              error: "Failed to validate dashboard source account.",
-              details: sourceAccountError.message,
+              error: "Failed to list dashboard source accounts.",
+              details: sourceAccountsError.message,
             },
             { status: 500 },
           );
         }
 
-        if (!authorizedSourceAccount) {
+        if (!sourceAccounts || sourceAccounts.length === 0) {
           return Response.json(
             {
               ok: false,
-              error: "Meta Ads account is not authorized for this dashboard client.",
+              error: "No active Meta Ads account configured for this dashboard client.",
               client_slug,
-              account_id: metaAdAccountId,
               meta_api_called: false,
               database_write_performed: false,
             },
-            { status: 403 },
+            { status: 404 },
           );
         }
 
-        const insights = await fetchMetaCampaignInsights(
-          metaApiVersion,
-          metaAccessToken,
-          metaAdAccountId,
-          start_date,
-          end_date,
-        );
+        const insights: MetaCampaignInsight[] = [];
+
+        for (const sourceAccount of sourceAccounts) {
+          const accountInsights = await fetchMetaCampaignInsights(
+            metaApiVersion,
+            metaAccessToken,
+            sourceAccount.account_id,
+            start_date,
+            end_date,
+          );
+
+          insights.push(...accountInsights);
+        }
 
         const normalizedRows = insights.map(
           normalizeMetaCampaignInsight,
@@ -407,7 +403,14 @@ export default {
 
           meta_configuration: {
             api_version: metaApiVersion,
-            account_id: metaAdAccountId,
+            account_id:
+              sourceAccounts.length === 1
+                ? sourceAccounts[0].account_id
+                : null,
+
+            account_ids: sourceAccounts.map(
+              (sourceAccount) => sourceAccount.account_id,
+            ),
             token_configured: true,
           },
 
