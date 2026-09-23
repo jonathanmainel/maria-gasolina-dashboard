@@ -22,7 +22,9 @@ export interface NumberFieldSpec {
   kind?: FieldKind;
 }
 
-export function formatByKind(value: number, kind: FieldKind = "integer") {
+// Interno ao módulo: exportar uma função junto com um componente quebra o
+// Fast Refresh do vite-plugin-react.
+function formatByKind(value: number, kind: FieldKind = "integer") {
   if (kind === "currency") return money(value);
   if (kind === "decimal") return value.toFixed(1).replace(".", ",");
   return integer(value);
