@@ -146,8 +146,8 @@ export interface FrontBundle {
   origin: "supabase" | "demo";
 }
 
-const FRANCHISE_PATTERN = /franquia|franquead|franchis/i;
-const CONDOMINIUM_PATTERN = /condom|s[ií]ndic/i;
+const FRANCHISE_PATTERN = /franq/i;
+const CONDOMINIUM_PATTERN = /condom/i;
 
 export function classifyFront(name: string | null | undefined): Front | null {
   const value = name ?? "";
