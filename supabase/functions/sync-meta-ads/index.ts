@@ -1,5 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
+import { resolveDashboardClient, validateSourceAccount } from "../_shared/dashboard.ts";
 
 type SyncMetaAdsRequest = {
   client_slug?: string;
@@ -363,26 +364,21 @@ export default {
         );
       }
 
-      const { data: client, error: clientError } =
-        await ctx.supabaseAdmin
-          .from("dashboard_clients")
-          .select("id, slug, name")
-          .eq("slug", client_slug)
-          .eq("active", true)
-          .maybeSingle();
+      const { data: dashboardClient, error: dashboardClientError } =
+        await resolveDashboardClient(ctx.supabaseAdmin, client_slug);
 
-      if (clientError) {
+      if (dashboardClientError) {
         return Response.json(
           {
             ok: false,
             error: "Failed to resolve dashboard client.",
-            details: clientError.message,
+            details: dashboardClientError.message,
           },
           { status: 500 },
         );
       }
 
-      if (!client) {
+      if (!dashboardClient) {
         return Response.json(
           {
             ok: false,
@@ -403,15 +399,12 @@ export default {
           );
         }
 
-        const { data: sourceAccount, error: sourceAccountError } =
-          await ctx.supabaseAdmin
-            .from("dashboard_source_accounts")
-            .select("id, account_id, account_name")
-            .eq("client_id", client.id)
-            .eq("source", "meta_ads")
-            .eq("account_id", metaAdAccountId)
-            .eq("active", true)
-            .maybeSingle();
+        const { data: authorizedSourceAccount, error: sourceAccountError } =
+          await validateSourceAccount(ctx.supabaseAdmin, {
+            clientId: dashboardClient.id,
+            source: "meta_ads",
+            accountId: metaAdAccountId,
+          });
 
         if (sourceAccountError) {
           return Response.json(
@@ -424,7 +417,7 @@ export default {
           );
         }
 
-        if (!sourceAccount) {
+        if (!authorizedSourceAccount) {
           return Response.json(
             {
               ok: false,
@@ -462,9 +455,9 @@ export default {
           },
 
           dashboard_client: {
-            id: client.id,
-            slug: client.slug,
-            name: client.name,
+            id: dashboardClient.id,
+            slug: dashboardClient.slug,
+            name: dashboardClient.name,
           },
 
           meta_configuration: {
