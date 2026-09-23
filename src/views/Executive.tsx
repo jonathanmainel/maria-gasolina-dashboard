@@ -1,16 +1,16 @@
-import { ArrowRight, BadgeDollarSign, Clapperboard, FileBarChart2, FileSignature, Images, MessageCircle, Palette, PiggyBank, Rocket, Target, UserPlus, Wallet, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, BadgeDollarSign, Clapperboard, FileBarChart2, FileSignature, Images, MessageCircle, Palette, PiggyBank, Rocket, Target, UserPlus, Wallet, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { lazy, Suspense } from "react";
 const BrazilMap = lazy(() => import("../components/three/BrazilMap").then((m) => ({ default: m.BrazilMap })));
 import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented, Sparkline, useTilt } from "../components/ui/primitives";
 import geo from "../data/brazil-geo.json";
-import { demoCrm } from "../data/demo";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { dailySeries, monthProgress } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, DateRange, GeoCity } from "../types";
+import { Ga4Section } from "./Ga4Section";
 
 const cities = geo.cities as GeoCity[];
 const unitCount = cities.filter((c) => c.kind !== "lead").reduce((s, c) => s + c.units, 0);
@@ -18,11 +18,11 @@ const cityCount = cities.filter((c) => c.kind !== "lead").length;
 const leadCities = cities.filter((c) => c.kind === "lead").reduce((s, c) => s + c.units, 0);
 
 export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData; range: DateRange; onNavigate: (v: AppView) => void }) {
-  const [goals] = useGoals();
+  const goals = useGoals();
   const colors = useChartColors();
   const [metric, setMetric] = useState<"leads" | "spend" | "cpl">("leads");
   const organicTilt = useTilt<HTMLElement>(6);
-  const { all, franchise, condominium, instagram, facebook, delivery } = data;
+  const { all, franchise, condominium, instagram, facebook, delivery, whatsapp } = data;
   const series = useMemo(() => dailySeries(data.current), [data.current]);
   const month = monthProgress(range);
   const monthRows = useMemo(() => data.current.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7)), [data.current, range.end]);
@@ -58,12 +58,9 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const [followA, followB] = split(orgSpark);
 
   // Vendas: funil comercial das duas frentes, direto do CRM (ilustrativo até a API do Elo).
-  const crmFranchise = useMemo(() => demoCrm("franchise", franchise.current.leads), [franchise.current.leads]);
-  const crmCondominium = useMemo(() => demoCrm("condominium", condominium.current.leads), [condominium.current.leads]);
-  const crmFranchisePrev = useMemo(() => demoCrm("franchise", franchise.previous.leads), [franchise.previous.leads]);
-  const crmCondominiumPrev = useMemo(() => demoCrm("condominium", condominium.previous.leads), [condominium.previous.leads]);
+  const crmFranchise = data.crm.franchise;
+  const crmCondominium = data.crm.condominium;
   const salesContracts = crmFranchise.contracts + crmCondominium.contracts;
-  const salesContractsPrev = crmFranchisePrev.contracts + crmCondominiumPrev.contracts;
   const salesLeads = franchise.current.leads + condominium.current.leads;
   const salesConvRate = salesLeads ? (salesContracts * 100) / salesLeads : null;
   const salesProjected = crmFranchise.projected_revenue + crmCondominium.projected_revenue;
@@ -78,6 +75,17 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           <p>Expansão de franquias, captação de condomínios e presença orgânica lado a lado, com o ritmo do mês contra as metas.</p>
         </div>
       </div>
+
+      {data.unclassified.campaigns.length > 0 && (
+        <div className="demo-note">
+          <AlertTriangle size={16} />
+          <span>
+            <b>{integer(data.unclassified.campaigns.length)} campanha(s) fora do padrão de nomenclatura</b> não puderam ser atribuídas a
+            nenhuma frente e ficaram de fora dos números acima ({money(data.unclassified.spend)} de investimento, {integer(data.unclassified.leads)} leads).
+            Inclua "FRANQUIA" ou "CONDOMÍNIO" no nome da campanha para que ela entre na frente certa.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-4">
         <Kpi label="Investimento em mídia" value={all.current.spend} previous={all.previous.spend} format={money} accent="red" icon={<Wallet size={17} />} spark={sparkSpend} />
@@ -106,8 +114,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
             <Pacing label="Verba de mídia" actual={monthSpend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />
             <Pacing label="Leads · Franquias" actual={monthLeadsF} goal={goals.leads_franchise} ratio={month.ratio} color="var(--red)" format={integer} />
             <Pacing label="Leads · Condomínios" actual={monthLeadsC} goal={goals.leads_condominium} ratio={month.ratio} color="var(--gold)" format={integer} />
-            <Pacing label="Posts publicados" actual={delivery?.posts_published ?? 0} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />
-            <Pacing label="Stories publicados" actual={delivery?.stories_published ?? 0} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />
+            <Pacing label="Posts publicados" actual={delivery.posts_published} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />
+            <Pacing label="Stories publicados" actual={delivery.stories_published} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />
           </div>
         </Panel>
       </div>
@@ -141,11 +149,11 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
 
       <div className="section-title" style={{ marginTop: 22 }}>
         <div><h2>Vendas</h2><p>Resultado comercial das duas frentes, direto do funil do CRM Elo.</p></div>
-        <span className="badge sky">CRM Elo · ilustrativo</span>
+        <span className="badge sky">CRM Elo · entrada manual</span>
       </div>
       <div className="grid grid-4">
-        <Kpi label="Contratos no período" value={salesContracts} previous={salesContractsPrev} format={integer} accent="sky" icon={<FileSignature size={16} />} foot={`${crmFranchise.contracts} franquias · ${crmCondominium.contracts} condomínios`} />
-        <Kpi label="Receita faturada" value={crmFranchise.revenue} previous={crmFranchisePrev.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} foot={`ticket médio ${money(crmFranchise.avg_ticket)}`} />
+        <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={`${crmFranchise.contracts} franquias · ${crmCondominium.contracts} condomínios`} />
+        <Kpi label="Receita faturada" value={crmFranchise.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={`ticket médio ${money(crmFranchise.avg_ticket)}`} />
         <Kpi label="Pipeline projetado" value={salesProjected} format={money} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="previsão ponderada do funil aberto" />
         <Kpi label="Conversão lead → contrato" value={salesConvRate} format={percent} accent="red" icon={<Target size={16} />} hideDelta foot="das duas frentes somadas" />
       </div>
@@ -200,11 +208,11 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         </Panel>
         <Panel title="Entregas GT+ no mês" description="O combinado em contrato, item a item" badge={<span className="badge gold">Contrato</span>}>
           <div className="delivery">
-            <DeliveryItem icon={<Images size={16} />} label="Posts no feed" hint="Instagram institucional" value={delivery?.posts_published ?? 0} goal={goals.posts} />
-            <DeliveryItem icon={<Clapperboard size={16} />} label="Stories" hint="Instagram institucional" value={delivery?.stories_published ?? 0} goal={goals.stories} />
-            <DeliveryItem icon={<Palette size={16} />} label="Criativos de mídia" hint="ciclo de 12 a cada 15 dias" value={delivery?.creatives_delivered ?? 0} goal={delivery?.creatives_goal ?? 24} />
-            <DeliveryItem icon={<Rocket size={16} />} label="Vídeos editados" hint="SLA de 7 dias corridos" value={delivery?.videos_delivered ?? 0} goal={delivery?.videos_goal ?? 8} />
-            <DeliveryItem icon={<FileBarChart2 size={16} />} label="Relatórios semanais" hint="enviados ao time comercial" value={delivery?.weekly_reports ?? 0} goal={delivery?.weekly_reports_goal ?? 4} />
+            <DeliveryItem icon={<Images size={16} />} label="Posts no feed" hint="Instagram institucional" value={delivery.posts_published} goal={goals.posts} />
+            <DeliveryItem icon={<Clapperboard size={16} />} label="Stories" hint="Instagram institucional" value={delivery.stories_published} goal={goals.stories} />
+            <DeliveryItem icon={<Palette size={16} />} label="Criativos de mídia" hint="ciclo de 12 a cada 15 dias" value={delivery.creatives_delivered} goal={delivery.creatives_goal} />
+            <DeliveryItem icon={<Rocket size={16} />} label="Vídeos editados" hint="SLA de 7 dias corridos" value={delivery.videos_delivered} goal={delivery.videos_goal} />
+            <DeliveryItem icon={<FileBarChart2 size={16} />} label="Relatórios semanais" hint="enviados ao time comercial" value={delivery.weekly_reports} goal={delivery.weekly_reports_goal} />
           </div>
         </Panel>
       </div>
@@ -215,10 +223,10 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         </Panel>
         <Panel title="Automação WhatsApp" description="Régua de relacionamento após o cadastro" badge={<span className="badge green">Ativa</span>}>
           <div className="grid grid-2" style={{ gap: 10 }}>
-            <MiniStat label="Contatos alcançados" value={delivery?.whatsapp.contacts_reached ?? 0} format={integer} />
-            <MiniStat label="Responderam" value={delivery?.whatsapp.replied ?? 0} format={integer} />
-            <MiniStat label="Discovery Day agendados" value={delivery?.whatsapp.scheduled_discovery ?? 0} format={integer} />
-            <MiniStat label="1ª resposta (min)" value={delivery?.whatsapp.avg_first_response_min ?? 0} format={(n) => n.toFixed(1).replace(".", ",")} />
+            <MiniStat label="Contatos alcançados" value={whatsapp.contacts_reached} format={integer} />
+            <MiniStat label="Responderam" value={whatsapp.replied} format={integer} />
+            <MiniStat label="Discovery Day agendados" value={whatsapp.scheduled_discovery} format={integer} />
+            <MiniStat label="1ª resposta (min)" value={whatsapp.avg_first_response_min} format={(n) => n.toFixed(1).replace(".", ",")} />
           </div>
           <p style={{ margin: "12px 0 0", color: "var(--muted)", fontSize: 11 }}><MessageCircle size={12} style={{ verticalAlign: -2 }} /> Resposta imediata a todo cadastro, sem depender do consultor.</p>
         </Panel>
@@ -231,6 +239,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           </div>
         </Panel>
       </div>
+
+      <Ga4Section range={range} />
     </div>
   );
 }

@@ -181,7 +181,7 @@ export interface CampaignRow {
   front: Front;
   channel: Channel;
   objective: string;
-  status: "ACTIVE" | "PAUSED" | "LEARNING";
+  status: "ACTIVE" | "PAUSED" | "LEARNING" | "REMOVED";
   spend: number;
   impressions: number;
   clicks: number;
@@ -330,3 +330,39 @@ export interface GeoCity {
   units: number;
   kind: "hq" | "unit" | "lead";
 }
+
+
+// ---------------------------------------------------------------------------
+// v3 — entrada manual dos dados de negócio (CRM Elo ainda sem API de leitura)
+// ---------------------------------------------------------------------------
+
+export interface WhatsappFlow {
+  contacts_reached: number;
+  replied: number;
+  scheduled_discovery: number;
+  avg_first_response_min: number;
+}
+
+/**
+ * Valores-base do funil comercial preenchidos à mão. Tudo o que é derivável
+ * (receita, ticket, conversão, ciclo, pipeline, projeção) é calculado a partir
+ * daqui — o usuário nunca digita uma métrica que o dashboard sabe calcular.
+ */
+export interface ManualFunnelInput {
+  /** Volume em cada etapa, na ordem de `crmStageNames[front]` (6 posições). */
+  stages: number[];
+  /** Dias médios de permanência nas 5 primeiras etapas. */
+  stage_days: number[];
+  /** Ticket médio do contrato fechado, em BRL. 0 quando a frente não tem taxa direta. */
+  avg_ticket: number;
+}
+
+/** Bloco único de dados de negócio manuais, persistido por cliente. */
+export interface ManualBusinessData {
+  goals: Goals;
+  funnel: Record<Front, ManualFunnelInput>;
+  delivery: DeliveryStatus;
+  whatsapp: WhatsappFlow;
+}
+
+export type ManualStorage = "supabase" | "local";

@@ -1,9 +1,11 @@
 import { AlertCircle, Eye } from "lucide-react";
 import { addDays, format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Skeleton } from "../components/ui/primitives";
+import { getLastSync } from "../lib/api";
 import { useDashboard } from "../lib/use-dashboard";
 import type { AppView, DateRange } from "../types";
 import { CrmView } from "../views/Crm";
@@ -36,7 +38,7 @@ export function DashboardPage() {
   const shareUrl = useMemo(() => { const u = new URL(window.location.href); u.searchParams.set("share", "1"); u.searchParams.delete("present"); u.searchParams.delete("view"); return u.toString(); }, []);
   const onShare = () => onViewChange("settings");
   useEffect(() => { document.title = presenting ? "Maria Gasolina | Apresentação" : "Maria Gasolina | Performance Center"; }, [presenting]);
-  const lastSync = useMemo(() => new Date(Date.now() - 1000 * 60 * 47).toISOString(), []);
+  const lastSync = useQuery({ queryKey: ["last-sync"], queryFn: getLastSync, retry: 1, staleTime: 5 * 60_000 });
 
   if (presenting) {
     if (data.isLoading) return <div className="screen-state"><div className="spinner" /><p>Preparando a apresentação...</p></div>;
@@ -45,7 +47,7 @@ export function DashboardPage() {
 
   return (
     <div className={comparisonEnabled ? "" : "comparison-hidden"}>
-      <Shell view={view} onViewChange={onViewChange} range={range} comparisonEnabled={comparisonEnabled} onPeriodApply={(r, c) => { setRange(r); setComparisonEnabled(c); }} lastSync={lastSync} readOnly={readOnly} onPresent={onPresent} onShare={onShare}>
+      <Shell view={view} onViewChange={onViewChange} range={range} comparisonEnabled={comparisonEnabled} onPeriodApply={(r, c) => { setRange(r); setComparisonEnabled(c); }} lastSync={lastSync.data ?? undefined} readOnly={readOnly} onPresent={onPresent} onShare={onShare}>
         {readOnly && <div className="readonly-banner"><Eye size={16} />Você está vendo uma versão somente leitura compartilhada pela GT+. Metas e configurações ficam ocultas.</div>}
         {data.isError ? (
           <div className="screen-state error" style={{ minHeight: "60vh" }}><AlertCircle size={30} /><h1>Não foi possível carregar os dados</h1><p>{data.error?.message ?? "Tente novamente em alguns instantes."}</p><button type="button" className="primary-button" onClick={data.refetch}>Tentar novamente</button></div>
@@ -57,7 +59,7 @@ export function DashboardPage() {
             {view === "franchise" && <FrontView front="franchise" data={data} range={range} onNavigate={onViewChange} />}
             {view === "condominium" && <FrontView front="condominium" data={data} range={range} onNavigate={onViewChange} />}
             {view === "organic" && <OrganicView data={data} range={range} />}
-            {view === "crm" && <CrmView data={data} />}
+            {view === "crm" && <CrmView data={data} readOnly={readOnly} />}
             {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} />}
           </>
         )}

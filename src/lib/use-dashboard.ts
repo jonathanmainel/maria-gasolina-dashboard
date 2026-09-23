@@ -1,14 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getDelivery, getFrontData, getOrganic } from "./api";
+import { getFrontData, getOrganic } from "./api";
+import { buildCrmSummary } from "./crm";
+import { useManualData } from "./manual-inputs";
 import { byFront, inRange, organicSummary, previousRange, totals } from "./metrics";
 import { useTheme } from "../theme";
 import type { DateRange, Front, FrontDaily, OrganicDaily } from "../types";
 
 export function useDashboard(range: DateRange) {
+  // A chave inclui o intervalo inteiro: trocar o período descarta o cache antigo
+  // em vez de reaproveitá-lo, então nenhum card fica exibindo o período anterior
+  // enquanto o novo carrega. Todas as telas leem deste mesmo hook, o que garante
+  // que card, gráfico e tabela estejam sempre no mesmo intervalo.
   const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range) });
   const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range) });
-  const delivery = useQuery({ queryKey: ["delivery"], queryFn: getDelivery });
+  const manual = useManualData();
   const prev = useMemo(() => previousRange(range), [range]);
 
   const computed = useMemo(() => {
@@ -19,6 +25,7 @@ export function useDashboard(range: DateRange) {
     const orgCur = org.filter((r) => r.date >= range.start && r.date <= range.end);
     const orgPrev = org.filter((r) => r.date >= prev.start && r.date <= prev.end);
     const front = (f: Front) => ({ current: totals(byFront(cur, f)), previous: totals(byFront(before, f)), rows: byFront(cur, f), prevRows: byFront(before, f) });
+    const crm = (f: Front) => buildCrmSummary(f, manual.data.funnel[f], { rows: byFront(cur, f) });
     return {
       current: cur,
       previous: before,
@@ -27,16 +34,31 @@ export function useDashboard(range: DateRange) {
       condominium: front("condominium"),
       campaigns: fronts.data?.campaigns ?? [],
       creatives: fronts.data?.creatives ?? [],
+      unclassified: fronts.data?.unclassified ?? { campaigns: [], spend: 0, leads: 0 },
+      paidOrigin: fronts.data?.origin ?? "demo",
       organicRows: orgCur,
       organicPrevRows: orgPrev,
+      organicOrigin: organic.data?.origin ?? "demo",
       instagram: { current: organicSummary(orgCur, "instagram"), previous: organicSummary(orgPrev, "instagram") },
       facebook: { current: organicSummary(orgCur, "facebook"), previous: organicSummary(orgPrev, "facebook") },
       posts: organic.data?.posts ?? [],
-      delivery: delivery.data,
+      // Funil comercial derivado da entrada manual + volume real de mídia.
+      crm: { franchise: crm("franchise"), condominium: crm("condominium") },
+      delivery: manual.data.delivery,
+      whatsapp: manual.data.whatsapp,
+      goals: manual.data.goals,
+      manualStorage: manual.storage,
     };
-  }, [fronts.data, organic.data, delivery.data, range, prev]);
+  }, [fronts.data, organic.data, manual.data, manual.storage, range, prev]);
 
-  return { ...computed, prevRange: prev, isLoading: fronts.isLoading || organic.isLoading, isError: fronts.isError || organic.isError, error: (fronts.error ?? organic.error) as Error | null, refetch: () => { void fronts.refetch(); void organic.refetch(); } };
+  return {
+    ...computed,
+    prevRange: prev,
+    isLoading: fronts.isLoading || organic.isLoading || manual.isLoading,
+    isError: fronts.isError || organic.isError,
+    error: (fronts.error ?? organic.error) as Error | null,
+    refetch: () => { void fronts.refetch(); void organic.refetch(); },
+  };
 }
 
 export type DashboardData = ReturnType<typeof useDashboard>;

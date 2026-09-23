@@ -1,11 +1,12 @@
 import { Building2, CalendarDays, ChevronDown, Download, Link2, LogOut, Menu, MonitorPlay, Moon, Rocket, Settings2, Sparkles, Sun, Users, X } from "lucide-react";
-import { lazy, Suspense, useState, type PropsWithChildren } from "react";
+import { lazy, Suspense, useCallback, useRef, useState, type PropsWithChildren } from "react";
 import { useAuth } from "../auth";
 import { brandLogoUrl } from "../lib/app-path";
-import { dateTime, longDate } from "../lib/format";
+import { dateTime, longDate, shortDate } from "../lib/format";
 import { useTheme } from "../theme";
 import type { AppView, DateRange } from "../types";
 import { PeriodPicker } from "./PeriodPicker";
+import { Popover } from "./ui/popover";
 import { LayoutDashboard, Heart as Instagram } from "lucide-react";
 
 const AmbientField = lazy(() => import("./three/AmbientField").then((m) => ({ default: m.AmbientField })));
@@ -35,6 +36,10 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
   const [periodOpen, setPeriodOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const periodAnchor = useRef<HTMLButtonElement>(null);
+  const menuAnchor = useRef<HTMLButtonElement>(null);
+  const closePeriod = useCallback(() => setPeriodOpen(false), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const { user, signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const initials = (user?.email ?? "gt")[0]?.toUpperCase() ?? "G";
@@ -83,18 +88,16 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         <button type="button" className="icon-button menu-button" onClick={() => setNavOpen(true)} aria-label="Abrir navegação"><Menu size={18} /></button>
         <div className="topbar-title"><small>{viewTitles[view].eyebrow}</small><strong>{viewTitles[view].title}</strong></div>
         <div className="topbar-actions">
-          <div className="sync-pill"><i />Atualizado {dateTime(lastSync).replace(/,/, " ·")}</div>
+          <div className="sync-pill"><i />{lastSync ? `Atualizado ${dateTime(lastSync).replace(/,/, " ·")}` : "Ainda não sincronizado"}</div>
           <div className="period-control">
-            <button type="button" className="period-button" onClick={() => setPeriodOpen((o) => !o)} aria-expanded={periodOpen}>
+            <button ref={periodAnchor} type="button" className="period-button" onClick={() => setPeriodOpen((o) => !o)} aria-expanded={periodOpen} aria-haspopup="dialog">
               <CalendarDays size={16} />
-              <span><small>Período</small><strong>{longDate(range.start)} — {longDate(range.end)}</strong></span>
+              <span><small>Período</small><strong className="period-long">{longDate(range.start)} — {longDate(range.end)}</strong><strong className="period-short">{shortDate(range.start)} — {shortDate(range.end)}</strong></span>
               <ChevronDown size={15} />
             </button>
-            {periodOpen && (
-              <div className="period-popover period-picker">
-                <PeriodPicker range={range} comparisonEnabled={comparisonEnabled} onApply={(r, c) => { onPeriodApply(r, c); setPeriodOpen(false); }} onClose={() => setPeriodOpen(false)} />
-              </div>
-            )}
+            <Popover open={periodOpen} onClose={closePeriod} anchorRef={periodAnchor} label="Escolher período" width={760}>
+              <PeriodPicker range={range} comparisonEnabled={comparisonEnabled} onApply={(r, c) => { onPeriodApply(r, c); setPeriodOpen(false); }} onClose={closePeriod} />
+            </Popover>
           </div>
           <button type="button" className="icon-button" onClick={toggle} aria-label="Alternar tema" title={theme === "dark" ? "Modo claro" : "Modo escuro"}>{theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button>
           <button type="button" className="icon-button" onClick={() => window.print()} aria-label="Exportar PDF" title="Exportar relatório em PDF"><Download size={17} /></button>
@@ -102,13 +105,13 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
           <button type="button" className="icon-button accent" onClick={onPresent} aria-label="Modo apresentação" title="Apresentar em tela cheia"><MonitorPlay size={17} /></button>
           {!readOnly && (
             <div className="user-menu-wrap">
-              <button type="button" className="avatar-button" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu do usuário">{initials}</button>
-              {menuOpen && (
+              <button ref={menuAnchor} type="button" className="avatar-button" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu do usuário" aria-expanded={menuOpen} aria-haspopup="dialog">{initials}</button>
+              <Popover open={menuOpen} onClose={closeMenu} anchorRef={menuAnchor} label="Menu do usuário" width={230}>
                 <div className="user-menu">
                   <p>{user?.email ?? "Demonstração local"}</p>
                   <button type="button" onClick={() => void signOut()}><LogOut size={15} />Sair da conta</button>
                 </div>
-              )}
+              </Popover>
             </div>
           )}
         </div>

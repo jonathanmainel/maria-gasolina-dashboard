@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { lazy, Suspense } from "react";
 const BrazilMap = lazy(() => import("../components/three/BrazilMap").then((m) => ({ default: m.BrazilMap })));
 import { AnimatedNumber, Funnel, Kpi, Pacing, Ring } from "../components/ui/primitives";
-import { demoCrm } from "../data/demo";
 import { brandLogoUrl } from "../lib/app-path";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
@@ -18,7 +17,7 @@ const SLIDE_MS = 14000;
 export function Presentation({ data, range, onExit }: { data: DashboardData; range: DateRange; onExit: () => void }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [goals] = useGoals();
+  const goals = useGoals();
   const slides = useMemo(() => ["executive", "franchise", "condominium", "organic", "crm"] as const, []);
   const next = () => setIndex((i) => (i + 1) % slides.length);
   const prev = () => setIndex((i) => (i - 1 + slides.length) % slides.length);
@@ -76,7 +75,7 @@ export function Presentation({ data, range, onExit }: { data: DashboardData; ran
 const titles = { executive: <>O crescimento da rede, <em>em uma tela</em></>, franchise: <>Expansão de <em>franquias</em></>, condominium: <>Captação de <em>condomínios</em></>, organic: <>Presença <em>orgânica</em></>, crm: <>Funil comercial e <em>receita</em></> };
 
 function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange }) {
-  const [goals] = useGoals();
+  const goals = useGoals();
   const month = monthProgress(range);
   const monthRows = data.current.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7));
   const spend = monthRows.reduce((s, r) => s + r.spend, 0);
@@ -96,21 +95,21 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
           <Pacing label="Verba de mídia" actual={spend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />
           <Pacing label="Leads · Franquias" actual={monthRows.filter((r) => r.front === "franchise").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_franchise} ratio={month.ratio} color="var(--red)" format={integer} />
           <Pacing label="Leads · Condomínios" actual={monthRows.filter((r) => r.front === "condominium").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_condominium} ratio={month.ratio} color="var(--gold)" format={integer} />
-          <Pacing label="Posts publicados" actual={data.delivery?.posts_published ?? 0} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />
-          <Pacing label="Stories publicados" actual={data.delivery?.stories_published ?? 0} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />
+          <Pacing label="Posts publicados" actual={data.delivery.posts_published} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />
+          <Pacing label="Stories publicados" actual={data.delivery.stories_published} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />
         </div>
       </section>
     </div>
   );
 }
 
-function FrontSlide({ data, front, goals, range }: { data: DashboardData; front: Front; goals: ReturnType<typeof useGoals>[0]; range: DateRange }) {
+function FrontSlide({ data, front, goals, range }: { data: DashboardData; front: Front; goals: ReturnType<typeof useGoals>; range: DateRange }) {
   const b = data[front];
   const meta = frontMeta[front];
   const month = monthProgress(range);
   const monthLeads = b.rows.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7)).reduce((s, r) => s + r.leads, 0);
   const creatives = data.creatives.filter((c) => c.front === front).sort((x, y) => y.leads - x.leads).slice(0, 4);
-  const crm = demoCrm(front, b.current.leads);
+  const crm = data.crm[front];
   return (
     <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 18, minHeight: 0 }}>
       <div className="grid grid-4">
@@ -124,13 +123,13 @@ function FrontSlide({ data, front, goals, range }: { data: DashboardData; front:
           <div className="ring-row" style={{ marginTop: 18 }}><Ring value={((b.current.cpl ?? 0) * 100) / (front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} label="CPL em relação ao alvo" sub={`${money(b.current.cpl)} de ${money(front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} · abaixo é melhor`} color="var(--green)" /></div>
         </section>
         <section className="panel"><div className="panel-head"><div><h3>Criativos campeões</h3></div></div><div className="creative-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>{creatives.map((c, i) => <CreativeCard key={c.id} c={c} rank={i + 1} />)}</div></section>
-        <section className="panel"><div className="panel-head"><div><h3>Funil comercial</h3><p>CRM Elo · ilustrativo</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Funil comercial</h3><p>CRM Elo · entrada manual</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
       </div>
     </div>
   );
 }
 
-function OrganicSlide({ data, goals }: { data: DashboardData; goals: ReturnType<typeof useGoals>[0] }) {
+function OrganicSlide({ data, goals }: { data: DashboardData; goals: ReturnType<typeof useGoals> }) {
   const ig = data.instagram;
   const posts = [...data.posts].sort((a, b) => b.engagement_rate * b.reach - a.engagement_rate * a.reach).slice(0, 3);
   return (
@@ -145,15 +144,15 @@ function OrganicSlide({ data, goals }: { data: DashboardData; goals: ReturnType<
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr", gap: 18, minHeight: 0 }}>
         <div className="post-grid">{posts.map((p, i) => <PostCard key={p.id} p={p} rank={i + 1} />)}</div>
-        <section className="panel"><div className="panel-head"><div><h3>Entrega do mês</h3><p>20 posts + 20 stories</p></div></div><div className="ring-row" style={{ gridTemplateColumns: "1fr" }}><Ring value={((data.delivery?.posts_published ?? 0) * 100) / goals.posts} label="Posts" sub={`${data.delivery?.posts_published ?? 0} de ${goals.posts}`} color="var(--violet)" /><Ring value={((data.delivery?.stories_published ?? 0) * 100) / goals.stories} label="Stories" sub={`${data.delivery?.stories_published ?? 0} de ${goals.stories}`} color="var(--gold)" /></div></section>
+        <section className="panel"><div className="panel-head"><div><h3>Entrega do mês</h3><p>20 posts + 20 stories</p></div></div><div className="ring-row" style={{ gridTemplateColumns: "1fr" }}><Ring value={((data.delivery.posts_published) * 100) / goals.posts} label="Posts" sub={`${data.delivery.posts_published} de ${goals.posts}`} color="var(--violet)" /><Ring value={((data.delivery.stories_published) * 100) / goals.stories} label="Stories" sub={`${data.delivery.stories_published} de ${goals.stories}`} color="var(--gold)" /></div></section>
       </div>
     </div>
   );
 }
 
 function CrmSlide({ data }: { data: DashboardData }) {
-  const f = demoCrm("franchise", data.franchise.current.leads);
-  const c = demoCrm("condominium", data.condominium.current.leads);
+  const f = data.crm.franchise;
+  const c = data.crm.condominium;
   return (
     <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 18, minHeight: 0 }}>
       <div className="grid grid-4">
@@ -163,8 +162,8 @@ function CrmSlide({ data }: { data: DashboardData }) {
         <Kpi label="Pipeline em proposta" value={f.pipeline_value} format={money} accent="sky" hideDelta />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <section className="panel"><div className="panel-head"><div><h3>Funil · Franquias</h3></div><span className="badge sky">CRM Elo · ilustrativo</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
-        <section className="panel"><div className="panel-head"><div><h3>Funil · Condomínios</h3></div><span className="badge sky">CRM Elo · ilustrativo</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Funil · Franquias</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Funil · Condomínios</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
       </div>
     </div>
   );

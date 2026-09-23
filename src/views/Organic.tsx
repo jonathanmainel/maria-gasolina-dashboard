@@ -1,4 +1,4 @@
-import { Bookmark, Eye, Heart, MessageCircle, MessagesSquare, Send, TrendingUp, UserPlus, Users } from "lucide-react";
+import { Bookmark, Info, Eye, Heart, MessageCircle, MessagesSquare, Send, TrendingUp, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BarList, ChartTip, Kpi, Panel, Ring, Segmented, useTilt } from "../components/ui/primitives";
@@ -12,7 +12,7 @@ type Scope = Platform | "both";
 
 export function OrganicView({ data, range }: { data: DashboardData; range: DateRange }) {
   const colors = useChartColors();
-  const [goals] = useGoals();
+  const goals = useGoals();
   const [scope, setScope] = useState<Scope>("instagram");
   const [metric, setMetric] = useState<"followers" | "reach" | "interactions">("followers");
   const cur = useMemo(() => scope === "both" ? merge(organicSummary(data.organicRows, "instagram"), organicSummary(data.organicRows, "facebook")) : organicSummary(data.organicRows, scope), [data.organicRows, scope]);
@@ -54,6 +54,17 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
         </div>
         <Segmented value={scope} onChange={setScope} options={[{ id: "instagram", label: "Instagram" }, { id: "facebook", label: "Facebook" }, { id: "both", label: "Ambos" }]} />
       </div>
+
+      {data.organicOrigin === "demo" && (
+        <div className="demo-note">
+          <Info size={16} />
+          <span>
+            <b>Dados de demonstração.</b> A ingestão do Instagram e do Facebook orgânicos (Meta Graph API) ainda não existe no backend —
+            não há tabela nem RPC para esses números. A tela fica de pé com uma série ilustrativa até a integração ser ligada;
+            nenhum número desta seção deve ser usado em relatório.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-6">
         <Kpi label="Seguidores" value={cur.followers} previous={prev.followers} format={integer} accent="violet" icon={<Users size={16} />} spark={series.map((d) => d.followers)} />

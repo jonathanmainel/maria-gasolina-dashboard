@@ -2,12 +2,12 @@ import { ArrowRight, Eye, MousePointerClick, Percent, Target, Wallet, Zap } from
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AnimatedNumber, BarList, ChartTip, Delta, Funnel, Kpi, Pacing, Panel, Segmented, useTilt } from "../components/ui/primitives";
-import { demoCrm } from "../data/demo";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CampaignRow, Creative, DateRange, Front } from "../types";
+import { EntityExplorer } from "./EntityExplorer";
 import { MiniStat } from "./Executive";
 
 type SortKey = keyof Pick<CampaignRow, "spend" | "leads" | "cpl" | "ctr" | "clicks" | "impressions" | "name">;
@@ -15,7 +15,7 @@ type SortKey = keyof Pick<CampaignRow, "spend" | "leads" | "cpl" | "ctr" | "clic
 export function FrontView({ front, data, range, onNavigate }: { front: Front; data: DashboardData; range: DateRange; onNavigate: (v: AppView) => void }) {
   const meta = frontMeta[front];
   const colors = useChartColors();
-  const [goals] = useGoals();
+  const goals = useGoals();
   const bundle = data[front];
   const { current, rows, prevRows } = bundle;
   const [chartMode, setChartMode] = useState<"daily" | "weekly">("daily");
@@ -76,7 +76,7 @@ const weeks = useMemo(
     });
   }, [data.campaigns, front, channelFilter, sort]);
   const creatives = useMemo(() => data.creatives.filter((c) => c.front === front).sort((a, b) => b.leads - a.leads), [data.creatives, front]);
-  const crm = useMemo(() => demoCrm(front, current.leads), [front, current.leads]);
+  const crm = data.crm[front];
   const accentHex = front === "franchise" ? colors.red : colors.gold;
   const chartData = chartMode === "daily"
     ? series.map((d) => ({ label: shortDate(d.date), Leads: d.leads, CPL: d.cpl, Investimento: d.spend }))
@@ -184,7 +184,7 @@ const weeks = useMemo(
                 <tr key={c.id}>
                   <td className="name-cell"><div className="entity-name"><span><strong>{c.name}</strong><small>{c.objective}</small></span></div></td>
                   <td><span className={`chip ${c.channel === "meta_ads" ? "meta" : "google"}`}>{c.channel === "meta_ads" ? "Meta" : "Google"}</span></td>
-                  <td><span className={`status ${c.status}`}><i />{c.status === "ACTIVE" ? "Ativa" : c.status === "LEARNING" ? "Aprendizado" : "Pausada"}</span></td>
+                  <td><span className={`status ${c.status}`}><i />{c.status === "ACTIVE" ? "Ativa" : c.status === "LEARNING" ? "Aprendizado" : c.status === "REMOVED" ? "Removida" : "Pausada"}</span></td>
                   <td>{money(c.spend)}</td><td>{integer(c.impressions)}</td><td>{integer(c.clicks)}</td><td>{percent(c.ctr)}</td><td><b style={{ color: "var(--text)" }}>{integer(c.leads)}</b></td><td>{money(c.cpl)}</td>
                 </tr>
               ))}
@@ -202,13 +202,16 @@ const weeks = useMemo(
         <p className="table-count">{campaigns.length} campanhas · {integer(campaigns.reduce((s, c) => s + c.leads, 0))} leads</p>
       </div>
 
+      <div className="section-title"><div><h2>Detalhamento por nível</h2><p>Conjuntos de anúncios (Meta), grupos de anúncios, anúncios, palavras-chave e Performance Max (Google).</p></div></div>
+      <EntityExplorer front={front} range={range} />
+
       <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
       <div className="creative-grid">
         {creatives.slice(0, 8).map((c, i) => <CreativeCard key={c.id} c={c} rank={i + 1} />)}
       </div>
 
       <div className="grid grid-wide" style={{ marginTop: 28 }}>
-        <Panel title={`Funil comercial · ${meta.short}`} description="Do lead ao contrato, com as taxas entre etapas" badge={<span className="badge sky">CRM Elo · ilustrativo</span>}>
+        <Panel title={`Funil comercial · ${meta.short}`} description="Do lead ao contrato, com as taxas entre etapas" badge={<span className="badge sky">CRM Elo · entrada manual</span>}>
           <Funnel stages={crm.stages} color={meta.color} format={integer} dense />
         </Panel>
         <Panel title="Onde os leads entram" description="Participação de cada origem no funil">
