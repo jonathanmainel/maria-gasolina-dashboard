@@ -403,6 +403,41 @@ export default {
           );
         }
 
+        const { data: sourceAccount, error: sourceAccountError } =
+          await ctx.supabaseAdmin
+            .from("dashboard_source_accounts")
+            .select("id, account_id, account_name")
+            .eq("client_id", client.id)
+            .eq("source", "meta_ads")
+            .eq("account_id", metaAdAccountId)
+            .eq("active", true)
+            .maybeSingle();
+
+        if (sourceAccountError) {
+          return Response.json(
+            {
+              ok: false,
+              error: "Failed to validate dashboard source account.",
+              details: sourceAccountError.message,
+            },
+            { status: 500 },
+          );
+        }
+
+        if (!sourceAccount) {
+          return Response.json(
+            {
+              ok: false,
+              error: "Meta Ads account is not authorized for this dashboard client.",
+              client_slug,
+              account_id: metaAdAccountId,
+              meta_api_called: false,
+              database_write_performed: false,
+            },
+            { status: 403 },
+          );
+        }
+
         const insights = await fetchMetaCampaignInsights(
           metaApiVersion,
           metaAccessToken,
