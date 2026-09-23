@@ -9,7 +9,7 @@ export type ValidatedIngestionRequest = {
   clientSlug: string;
   startDate: string;
   endDate: string;
-  dryRun: true;
+  dryRun: boolean;
 };
 
 export type IngestionValidationResult =
@@ -78,12 +78,11 @@ export function validateIngestionRequest(
     };
   }
 
-  if (dry_run !== true) {
+  if (typeof dry_run !== "boolean") {
     return {
       ok: false,
       status: 400,
-      error:
-        "For now, dry_run must be true. Database writes are disabled.",
+      error: "dry_run must be a boolean.",
     };
   }
 
@@ -93,7 +92,7 @@ export function validateIngestionRequest(
       clientSlug: client_slug,
       startDate: start_date,
       endDate: end_date,
-      dryRun: true,
+      dryRun: dry_run,
     },
   };
 }

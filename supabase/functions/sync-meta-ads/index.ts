@@ -179,6 +179,76 @@ async function fetchMetaCampaignInsights(
   return results;
 }
 
+async function fetchMetaDailyInsights(
+  apiVersion: string,
+  accessToken: string,
+  accountId: string,
+  startDate: string,
+  endDate: string,
+): Promise<MetaCampaignInsight[]> {
+  const results: MetaCampaignInsight[] = [];
+
+  const url = new URL(
+    `https://graph.facebook.com/${apiVersion}/act_${accountId}/insights`,
+  );
+
+  url.searchParams.set("level", "account");
+
+  url.searchParams.set(
+    "time_range",
+    JSON.stringify({
+      since: startDate,
+      until: endDate,
+    }),
+  );
+
+  url.searchParams.set("time_increment", "1");
+
+  url.searchParams.set(
+    "fields",
+    [
+      "account_id",
+      "date_start",
+      "date_stop",
+      "impressions",
+      "reach",
+      "clicks",
+      "inline_link_clicks",
+      "spend",
+      "actions",
+    ].join(","),
+  );
+
+  url.searchParams.set("limit", "100");
+
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const payload =
+      (await response.json()) as MetaCampaignInsightsResponse;
+
+    if (!response.ok || payload.error) {
+      throw new Error(
+        payload.error?.message ??
+          `Meta Daily Insights API request failed with HTTP ${response.status}`,
+      );
+    }
+
+    results.push(...(payload.data ?? []));
+
+    nextUrl = payload.paging?.next ?? null;
+  }
+
+  return results;
+}
+
 function getActionValue(
   actions: MetaAction[] | undefined,
   actionType: string,
@@ -238,6 +308,33 @@ function normalizeMetaCampaignInsight(
       actions: row.actions ?? [],
       action_values: row.action_values ?? [],
     },
+  };
+}
+
+function normalizeMetaDailyInsight(
+  row: MetaCampaignInsight,
+) {
+  return {
+    account_id: row.account_id ?? null,
+    metric_date: row.date_start ?? null,
+
+    impressions: Number(row.impressions ?? 0),
+    reach: Number(row.reach ?? 0),
+    clicks: Number(row.clicks ?? 0),
+    link_clicks: Number(row.inline_link_clicks ?? 0),
+
+    conversions: getActionValue(
+      row.actions,
+      "lead",
+    ),
+
+    all_conversions: null,
+
+    spend: Number(row.spend ?? 0),
+    conversion_value: 0,
+
+    extra_metrics: {},
+    source_updated_at: null,
   };
 }
 
@@ -366,22 +463,38 @@ export default {
           );
         }
 
-        const insights: MetaCampaignInsight[] = [];
+        const campaignInsights: MetaCampaignInsight[] = [];
+        const dailyInsights: MetaCampaignInsight[] = [];
 
         for (const sourceAccount of sourceAccounts) {
-          const accountInsights = await fetchMetaCampaignInsights(
-            metaApiVersion,
-            metaAccessToken,
-            sourceAccount.account_id,
-            start_date,
-            end_date,
-          );
+          const [accountCampaignInsights, accountDailyInsights] =
+            await Promise.all([
+              fetchMetaCampaignInsights(
+                metaApiVersion,
+                metaAccessToken,
+                sourceAccount.account_id,
+                start_date,
+                end_date,
+              ),
+              fetchMetaDailyInsights(
+                metaApiVersion,
+                metaAccessToken,
+                sourceAccount.account_id,
+                start_date,
+                end_date,
+              ),
+            ]);
 
-          insights.push(...accountInsights);
+          campaignInsights.push(...accountCampaignInsights);
+          dailyInsights.push(...accountDailyInsights);
         }
 
-        const normalizedRows = insights.map(
+        const normalizedCampaignRows = campaignInsights.map(
           normalizeMetaCampaignInsight,
+        );
+
+        const normalizedDailyRows = dailyInsights.map(
+          normalizeMetaDailyInsight,
         );
 
         return Response.json({
@@ -417,13 +530,15 @@ export default {
           meta_api_called: true,
 
           campaign_insights: {
-            count: insights.length,
-            rows: insights,
+            count: campaignInsights.length,
+            rows: campaignInsights,
           },
 
           normalized_preview: {
-            count: normalizedRows.length,
-            rows: normalizedRows,
+            campaign_count: normalizedCampaignRows.length,
+            campaign_rows: normalizedCampaignRows,
+            daily_count: normalizedDailyRows.length,
+            daily_rows: normalizedDailyRows,
           },
 
           database_write_performed: false,
