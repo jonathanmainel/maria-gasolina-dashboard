@@ -430,3 +430,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-google-ads/deno.json"
 entrypoint = "./functions/sync-google-ads/index.ts"
+
+[functions.sync-dashboard-daily]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sync-dashboard-daily/deno.json"
+entrypoint = "./functions/sync-dashboard-daily/index.ts"
