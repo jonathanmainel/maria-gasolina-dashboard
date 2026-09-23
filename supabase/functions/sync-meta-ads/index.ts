@@ -8,11 +8,12 @@ import {
   type IngestionRequest,
   validateIngestionRequest,
 } from "../_shared/ingestion.ts";
-
-type MetaAction = {
-  action_type: string;
-  value: string;
-};
+import {
+  getActionValue,
+  getMetaAccountStatusLabel,
+  type MetaAction,
+  summarizeActionTypes,
+} from "./meta-ads.ts";
 
 type MetaInsightLevel = "account" | "campaign" | "adset" | "ad";
 
@@ -51,6 +52,43 @@ type MetaInsightsResponse = {
     error_subcode?: number;
   };
 };
+
+type MetaAccountMetadata = {
+  id?: string;
+  account_id?: string;
+  name?: string;
+  account_status?: number;
+  currency?: string;
+  timezone_name?: string;
+  timezone_offset_hours_utc?: number;
+  business_country_code?: string;
+};
+
+type ResolvedMetaAccountMetadata = MetaAccountMetadata & {
+  requested_account_id: string;
+  account_status_label: string | null;
+};
+
+type MetaApiErrorPayload = {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: number;
+    error_subcode?: number;
+  };
+};
+
+class MetaApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly upstreamHttpStatus: number,
+    readonly code?: number,
+    readonly subcode?: number,
+    readonly errorType?: string,
+  ) {
+    super(message);
+  }
+}
 
 const META_COMMON_INSIGHT_FIELDS = [
   "account_id",
@@ -136,9 +174,13 @@ async function fetchMetaInsights(
     const payload = (await response.json()) as MetaInsightsResponse;
 
     if (!response.ok || payload.error) {
-      throw new Error(
+      throw new MetaApiRequestError(
         payload.error?.message ??
           `Meta ${level} insights request failed with HTTP ${response.status}`,
+        response.status,
+        payload.error?.code,
+        payload.error?.error_subcode,
+        payload.error?.type,
       );
     }
 
@@ -150,15 +192,48 @@ async function fetchMetaInsights(
   return results;
 }
 
-function getActionValue(
-  actions: MetaAction[] | undefined,
-  actionType: string,
-): number {
-  const action = actions?.find(
-    (item) => item.action_type === actionType,
+async function fetchMetaAccountMetadata(
+  apiVersion: string,
+  accessToken: string,
+  accountId: string,
+): Promise<MetaAccountMetadata> {
+  const url = new URL(
+    `https://graph.facebook.com/${apiVersion}/act_${accountId}`,
+  );
+  url.searchParams.set(
+    "fields",
+    [
+      "id",
+      "account_id",
+      "name",
+      "account_status",
+      "currency",
+      "timezone_name",
+      "timezone_offset_hours_utc",
+      "business_country_code",
+    ].join(","),
   );
 
-  return action ? Number(action.value) || 0 : 0;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = (await response.json()) as
+    & MetaAccountMetadata
+    & MetaApiErrorPayload;
+
+  if (!response.ok || payload.error) {
+    throw new MetaApiRequestError(
+      payload.error?.message ??
+        `Meta account request failed with HTTP ${response.status}`,
+      response.status,
+      payload.error?.code,
+      payload.error?.error_subcode,
+      payload.error?.type,
+    );
+  }
+
+  return payload;
 }
 
 function buildMetaExtraMetrics(row: MetaInsight) {
@@ -437,15 +512,22 @@ export default {
         const campaignInsights: MetaInsight[] = [];
         const adSetInsights: MetaInsight[] = [];
         const adInsights: MetaInsight[] = [];
+        const accountMetadata: ResolvedMetaAccountMetadata[] = [];
 
         for (const sourceAccount of sourceAccounts) {
           const [
+            metadata,
             accountDailyInsights,
             accountCampaignInsights,
             accountAdSetInsights,
             accountAdInsights,
           ] =
             await Promise.all([
+              fetchMetaAccountMetadata(
+                metaApiVersion,
+                metaAccessToken,
+                sourceAccount.account_id,
+              ),
               fetchMetaInsights(
                 metaApiVersion,
                 metaAccessToken,
@@ -480,6 +562,13 @@ export default {
               ),
             ]);
 
+          accountMetadata.push({
+            ...metadata,
+            requested_account_id: sourceAccount.account_id,
+            account_status_label: getMetaAccountStatusLabel(
+              metadata.account_status,
+            ),
+          });
           dailyInsights.push(...accountDailyInsights);
           campaignInsights.push(...accountCampaignInsights);
           adSetInsights.push(...accountAdSetInsights);
@@ -672,6 +761,16 @@ export default {
 
           meta_api_called: true,
 
+          meta_accounts: accountMetadata,
+
+          action_type_summary: {
+            account: summarizeActionTypes(dailyInsights),
+            campaign: summarizeActionTypes(campaignInsights),
+            ad_set: summarizeActionTypes(adSetInsights),
+            ad: summarizeActionTypes(adInsights),
+            conversions_action_type: "lead",
+          },
+
           campaign_insights: {
             count: campaignInsights.length,
             rows: campaignInsights.slice(0, RESPONSE_PREVIEW_LIMIT),
@@ -718,6 +817,26 @@ export default {
               : "Meta Ads daily, campaign, ad set, and ad data written successfully.",
         });
       } catch (error) {
+        if (error instanceof MetaApiRequestError) {
+          return Response.json(
+            {
+              ok: false,
+              mode: dry_run ? "dry_run" : "write",
+              meta_api_called: true,
+              database_write_performed: false,
+              error: "Meta API request failed.",
+              meta_error: {
+                http_status: error.upstreamHttpStatus,
+                code: error.code ?? null,
+                subcode: error.subcode ?? null,
+                type: error.errorType ?? null,
+                message: error.message,
+              },
+            },
+            { status: 502 },
+          );
+        }
+
         return Response.json(
           {
             ok: false,
