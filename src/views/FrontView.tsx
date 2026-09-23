@@ -92,7 +92,7 @@ const weeks = useMemo(
           <h1>{front === "franchise" ? <>Candidatos a franqueado, <em>do clique ao contrato</em></> : <>Indicações de condomínios, <em>do síndico à loja</em></>}</h1>
           <p>{front === "franchise" ? "Meta Ads e Google Ads trabalhando os 6 avatares e o lookalike de condomínios mapeados. Resultado abaixo é lead registrado no formulário com UTM." : "Campanhas para síndicos, administradoras e moradores das capitais prioritárias. Resultado abaixo é indicação registrada no formulário com UTM."}</p>
         </div>
-        <Segmented value={channelFilter} onChange={setChannelFilter} options={[{ id: "all", label: "Meta + Google" }, { id: "meta_ads", label: "Meta Ads" }, { id: "google_ads", label: "Google Ads" }]} />
+        <Segmented value={channelFilter} onChange={setChannelFilter} options={[{ id: "all", label: "Visão geral" }, { id: "meta_ads", label: "Meta Ads" }, { id: "google_ads", label: "Google Ads" }]} />
       </div>
 
       <div className="grid grid-6">
