@@ -11,7 +11,7 @@ import type { AppView, DateRange } from "../types";
 import { CrmView } from "../views/Crm";
 import { ExecutiveView } from "../views/Executive";
 import { FrontView } from "../views/FrontView";
-import { OrganicView } from "../views/Organic";
+import { OrganicView, type OrganicScope } from "../views/Organic";
 import { Presentation } from "../views/Presentation";
 import { SettingsView } from "../views/Settings";
 
@@ -27,6 +27,7 @@ export function DashboardPage() {
   const presenting = searchParams.get("present") === "1";
   const [range, setRange] = useState<DateRange>(initialRange);
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
+  const [organicScope, setOrganicScope] = useState<OrganicScope>("overview");
   const data = useDashboard(range);
 
   const setParam = useCallback((key: string, value: string | null) => {
@@ -58,7 +59,7 @@ export function DashboardPage() {
             {view === "executive" && <ExecutiveView data={data} range={range} onNavigate={onViewChange} />}
             {view === "franchise" && <FrontView front="franchise" data={data} range={range} onNavigate={onViewChange} />}
             {view === "condominium" && <FrontView front="condominium" data={data} range={range} onNavigate={onViewChange} />}
-            {view === "organic" && <OrganicView data={data} range={range} />}
+            {view === "organic" && <OrganicView data={data} range={range} scope={organicScope} onScopeChange={setOrganicScope} />}
             {view === "crm" && <CrmView data={data} readOnly={readOnly} />}
             {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} />}
           </>

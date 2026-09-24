@@ -5,27 +5,28 @@ import { AnimatedNumber, BarList, ChartTip, Kpi, Panel, Segmented, useTilt } fro
 import { compact, integer, percent, shortDate } from "../lib/format";
 import { organicSummary } from "../lib/metrics";
 import { useChartColors, type DashboardData } from "../lib/use-dashboard";
-import type { DateRange, OrganicPost, Platform } from "../types";
+import type { DateRange, OrganicPost } from "../types";
+import { Ga4Section } from "./Ga4Section";
 
-type Scope = Platform | "both";
+export type OrganicScope = "overview" | "instagram" | "facebook" | "site";
 
-export function OrganicView({ data, range }: { data: DashboardData; range: DateRange }) {
+export function OrganicView({ data, range, scope, onScopeChange }: { data: DashboardData; range: DateRange; scope: OrganicScope; onScopeChange: (scope: OrganicScope) => void }) {
   const colors = useChartColors();
-  const [scope, setScope] = useState<Scope>("instagram");
   const [metric, setMetric] = useState<"followers" | "reach" | "interactions">("followers");
-  const cur = useMemo(() => scope === "both" ? merge(organicSummary(data.organicRows, "instagram"), organicSummary(data.organicRows, "facebook")) : organicSummary(data.organicRows, scope), [data.organicRows, scope]);
-  const prev = useMemo(() => scope === "both" ? merge(organicSummary(data.organicPrevRows, "instagram"), organicSummary(data.organicPrevRows, "facebook")) : organicSummary(data.organicPrevRows, scope), [data.organicPrevRows, scope]);
+  const socialScope = scope === "site" ? "overview" : scope;
+  const cur = useMemo(() => socialScope === "overview" ? merge(organicSummary(data.organicRows, "instagram"), organicSummary(data.organicRows, "facebook")) : organicSummary(data.organicRows, socialScope), [data.organicRows, socialScope]);
+  const prev = useMemo(() => socialScope === "overview" ? merge(organicSummary(data.organicPrevRows, "instagram"), organicSummary(data.organicPrevRows, "facebook")) : organicSummary(data.organicPrevRows, socialScope), [data.organicPrevRows, socialScope]);
   const series = useMemo(() => {
     const map = new Map<string, { date: string; followers: number; reach: number; interactions: number; new_followers: number }>();
-    data.organicRows.filter((r) => scope === "both" || r.platform === scope).forEach((r) => {
+    data.organicRows.filter((r) => socialScope === "overview" || r.platform === socialScope).forEach((r) => {
       const e = map.get(r.date) ?? { date: r.date, followers: 0, reach: 0, interactions: 0, new_followers: 0 };
       e.followers += r.followers; e.reach += r.reach; e.interactions += r.likes + r.comments + r.shares + r.saves; e.new_followers += r.new_followers;
       map.set(r.date, e);
     });
     return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
-  }, [data.organicRows, scope]);
-  const posts = useMemo(() => data.posts.filter((p) => scope === "both" || p.platform === scope).sort((a, b) => b.engagement_rate * b.reach - a.engagement_rate * a.reach), [data.posts, scope]);
-  const accent = scope === "facebook" ? colors.facebook : scope === "both" ? colors.violet : colors.instagram;
+  }, [data.organicRows, socialScope]);
+  const posts = useMemo(() => data.posts.filter((p) => socialScope === "overview" || p.platform === socialScope).sort((a, b) => b.engagement_rate * b.reach - a.engagement_rate * a.reach), [data.posts, socialScope]);
+  const accent = socialScope === "facebook" ? colors.facebook : socialScope === "overview" ? colors.violet : colors.instagram;
   const interactionMix = [
     { name: "Curtidas", value: cur.likes, color: colors.instagram },
     { name: "Comentários", value: cur.comments, color: colors.gold },
@@ -45,13 +46,24 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
     <div className="view-enter">
       <div className="view-head">
         <div>
-          <span className="eyebrow"><i style={{ background: "var(--violet)" }} />Presença orgânica · Meta Graph API</span>
-          <h1>A marca crescendo <em>sem pagar por clique</em></h1>
-          <p>Seguidores, alcance, interações e as publicações que mais converteram atenção em conversa. Números vêm direto da conta oficial via Graph API.</p>
+          {scope === "site" ? (
+            <>
+              <span className="eyebrow"><i style={{ background: "var(--sky)" }} />Site · Google Analytics 4</span>
+              <h1>O comportamento dos usuários <em>no site</em></h1>
+              <p>Sessões, usuários, aquisição e eventos registrados no período selecionado.</p>
+            </>
+          ) : (
+            <>
+              <span className="eyebrow"><i style={{ background: "var(--violet)" }} />Presença orgânica · Meta Graph API</span>
+              <h1>A marca crescendo <em>sem pagar por clique</em></h1>
+              <p>Seguidores, alcance, interações e as publicações que mais converteram atenção em conversa. Números vêm direto da conta oficial via Graph API.</p>
+            </>
+          )}
         </div>
-        <Segmented value={scope} onChange={setScope} options={[{ id: "instagram", label: "Instagram" }, { id: "facebook", label: "Facebook" }, { id: "both", label: "Ambos" }]} />
+        <div className="organic-scope"><Segmented value={scope} onChange={onScopeChange} options={[{ id: "overview", label: "Visão Geral" }, { id: "instagram", label: "Instagram" }, { id: "facebook", label: "Facebook" }, { id: "site", label: "Site" }]} /></div>
       </div>
 
+      {scope === "site" ? <Ga4Section range={range} /> : <>
       {data.organicOrigin === "demo" && (
         <div className="demo-note">
           <Info size={16} />
@@ -118,6 +130,7 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
           <BarList items={formatMix} format={percent} />
         </Panel>
       </div>
+      </>}
     </div>
   );
 }

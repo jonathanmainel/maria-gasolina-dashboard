@@ -10,7 +10,6 @@ import { useGoals } from "../lib/goals";
 import { dailySeries, monthProgress } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, DateRange, GeoCity } from "../types";
-import { Ga4Section } from "./Ga4Section";
 
 const cities = geo.cities as GeoCity[];
 const unitCount = cities.filter((c) => c.kind !== "lead").reduce((s, c) => s + c.units, 0);
@@ -222,7 +221,6 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         </div>
       </div>
 
-      <Ga4Section range={range} />
     </div>
   );
 }

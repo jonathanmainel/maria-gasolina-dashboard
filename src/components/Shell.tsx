@@ -27,7 +27,7 @@ const viewTitles: Record<AppView, { eyebrow: string; title: string }> = {
   executive: { eyebrow: "Visão executiva", title: "Resultado consolidado das três frentes" },
   franchise: { eyebrow: "Frente 1 · Tráfego pago", title: "Expansão de franquias" },
   condominium: { eyebrow: "Frente 2 · Tráfego pago", title: "Captação de condomínios" },
-  organic: { eyebrow: "Frente 3 · Orgânico", title: "Instagram e Facebook" },
+  organic: { eyebrow: "Frente 3 · Orgânico", title: "Instagram, Facebook e Site" },
   crm: { eyebrow: "CRM Elo · Vendas", title: "Funil comercial e receita" },
   settings: { eyebrow: "Configurações", title: "Metas, compartilhamento e exportação" },
 };
