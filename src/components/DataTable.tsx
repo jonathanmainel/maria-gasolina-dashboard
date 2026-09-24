@@ -2,6 +2,8 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, ImageOff, PlayCircle } from "lu
 import { useMemo, useState } from "react";
 import type { DetailRow } from "../lib/detail-rows";
 import { integer, money, percent } from "../lib/format";
+import { viewableImage } from "../lib/media";
+import { ImageLightbox } from "./ImageLightbox";
 
 type SortKey = "item_name" | "spend" | "impressions" | "clicks" | "results" | "ctr" | "cost_per_result";
 
@@ -32,6 +34,7 @@ export function DataTable({
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: defaultSortKey, direction: defaultSortDirection });
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [zoomed, setZoomed] = useState<DetailRow | null>(null);
   const sorted = useMemo(() => [...items].sort((a, b) => {
     const av = a[sort.key];
     const bv = b[sort.key];
@@ -82,7 +85,7 @@ export function DataTable({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} />)}
+            {sorted.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} onZoom={setZoomed} />)}
           </tbody>
         </table>
       </div>
@@ -98,6 +101,7 @@ export function DataTable({
                 </span>
                 <span className="mobile-primary"><strong>{money(item.spend)}</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </button>
+              {open && hasPreview(item) && <div className="mobile-preview"><AssetPreview item={item} onZoom={setZoomed} /><span>{item.field_type ? assetType(item.field_type) : "Recurso"}</span></div>}
               {open && <div className="mobile-details">
                 {showChannel && <Metric label="Canal" value={item.channel === "meta_ads" ? "Meta" : "Google"} />}
                 <Metric label="Impressões" value={integer(item.impressions)} />
@@ -113,16 +117,25 @@ export function DataTable({
         })}
       </div>
       <p className="table-count">Exibindo {items.length} de {totalCount ?? items.length}</p>
+      {zoomed?.image_url && <ImageLightbox src={zoomed.image_url} label={zoomed.item_name} onClose={() => setZoomed(null)} />}
     </div>
   );
 }
 
-function DataRow({ item, showChannel, showAssetType }: { item: DetailRow; showChannel: boolean; showAssetType: boolean }) {
+/**
+ * Miniatura só para recursos PMax, que vivem na aba Anúncios. Grupos de recursos
+ * PMax continuam marcados pelo selo, mas não ganham caixa de imagem.
+ */
+export function hasPreview(item: DetailRow) {
+  return item.pmax && item.level === "ad";
+}
+
+function DataRow({ item, showChannel, showAssetType, onZoom }: { item: DetailRow; showChannel: boolean; showAssetType: boolean; onZoom: (item: DetailRow) => void }) {
   return (
     <tr>
       <td className="name-cell">
         <div className="entity-name">
-          {item.pmax && <AssetPreview item={item} />}
+          {hasPreview(item) && <AssetPreview item={item} onZoom={onZoom} />}
           <span>
             <strong>{item.item_name}{item.pmax && <span className="chip pmax">PMax</span>}</strong>
             <small>{item.subtitle ?? "—"}</small>
@@ -146,8 +159,16 @@ function DataRow({ item, showChannel, showAssetType }: { item: DetailRow; showCh
   );
 }
 
-function AssetPreview({ item }: { item: DetailRow }) {
-  if (item.image_url) return <img className="asset-preview" src={item.image_url} alt="" />;
+function AssetPreview({ item, onZoom }: { item: DetailRow; onZoom: (item: DetailRow) => void }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : viewableImage(item.image_url);
+  if (src) {
+    return (
+      <button type="button" className="asset-preview asset-zoom" aria-label={`Ampliar imagem: ${item.item_name}`} onClick={() => onZoom({ ...item, image_url: src })}>
+        <img src={src} alt="" onError={() => setBroken(true)} />
+      </button>
+    );
+  }
   if (item.youtube_video_id) return <div className="asset-preview asset-placeholder"><PlayCircle size={19} /></div>;
   if (item.text_content) return <div className="asset-preview asset-text">Aa</div>;
   return <div className="asset-preview asset-placeholder"><ImageOff size={17} /></div>;
