@@ -7,10 +7,8 @@ import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CampaignRow, Creative, DateRange, Front } from "../types";
-import { EntityExplorer } from "./EntityExplorer";
+import { DetailExplorer } from "./DetailExplorer";
 import { MiniStat } from "./Executive";
-
-type SortKey = keyof Pick<CampaignRow, "spend" | "leads" | "cpl" | "ctr" | "clicks" | "impressions" | "name">;
 
 export function FrontView({ front, data, range, onNavigate }: { front: Front; data: DashboardData; range: DateRange; onNavigate: (v: AppView) => void }) {
   const meta = frontMeta[front];
@@ -54,7 +52,6 @@ const weeks = useMemo(
   () => weeklySeries(filteredRows),
   [filteredRows],
 );
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "leads", dir: "desc" });
   const month = monthProgress(range);
   const monthRows = filteredRows.filter(
     (r) => r.date.slice(0, 7) === range.end.slice(0, 7),
@@ -66,23 +63,16 @@ const weeks = useMemo(
   const googleT = totals(byChannel(rows, "google_ads"));
   const metaP = totals(byChannel(prevRows, "meta_ads"));
   const googleP = totals(byChannel(prevRows, "google_ads"));
-  const campaigns = useMemo(() => {
-    const list = data.campaigns.filter((c) => c.front === front && (channelFilter === "all" || c.channel === channelFilter));
-    return [...list].sort((a, b) => {
-      const av = a[sort.key]; const bv = b[sort.key];
-      if (av == null) return 1; if (bv == null) return -1;
-      const r = typeof av === "string" ? av.localeCompare(String(bv)) : Number(av) - Number(bv);
-      return sort.dir === "asc" ? r : -r;
-    });
-  }, [data.campaigns, front, channelFilter, sort]);
+  const campaigns = useMemo(
+    () => data.campaigns.filter((c) => c.front === front && (channelFilter === "all" || c.channel === channelFilter)),
+    [data.campaigns, front, channelFilter],
+  );
   const creatives = useMemo(() => data.creatives.filter((c) => c.front === front).sort((a, b) => b.leads - a.leads), [data.creatives, front]);
   const crm = data.crm[front];
   const accentHex = front === "franchise" ? colors.red : colors.gold;
   const chartData = chartMode === "daily"
     ? series.map((d) => ({ label: shortDate(d.date), Leads: d.leads, CPL: d.cpl, Investimento: d.spend }))
     : weeks.map((w) => ({ label: `sem. ${w.label}`, Leads: w.leads, CPL: w.cpl, Investimento: w.spend }));
-  const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
-  const th = (key: SortKey, label: string, wide = false) => <th className={wide ? "wide" : ""}><button type="button" className={sort.key === key ? "active-sort" : ""} onClick={() => toggleSort(key)}>{label}{sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}</button></th>;
 
   return (
     <div className="view-enter" key={front}>
@@ -174,36 +164,7 @@ const weeks = useMemo(
         </Panel>
       </div>
 
-      <div className="section-title"><div><h2>Campanhas</h2><p>Ordene por qualquer coluna. Nomes seguem o padrão MG | objetivo | segmentação.</p></div><span className="badge ghost">{campaigns.length} campanhas</span></div>
-      <div className="table-wrap">
-        <div className="desktop-table">
-          <table>
-            <thead><tr>{th("name", "Campanha", true)}<th>Canal</th><th>Status</th>{th("spend", "Investimento")}{th("impressions", "Impressões")}{th("clicks", "Cliques")}{th("ctr", "CTR")}{th("leads", "Leads")}{th("cpl", "CPL")}</tr></thead>
-            <tbody>
-              {campaigns.map((c) => (
-                <tr key={c.id}>
-                  <td className="name-cell"><div className="entity-name"><span><strong>{c.name}</strong><small>{c.objective}</small></span></div></td>
-                  <td><span className={`chip ${c.channel === "meta_ads" ? "meta" : "google"}`}>{c.channel === "meta_ads" ? "Meta" : "Google"}</span></td>
-                  <td><span className={`status ${c.status}`}><i />{c.status === "ACTIVE" ? "Ativa" : c.status === "LEARNING" ? "Aprendizado" : c.status === "REMOVED" ? "Removida" : "Pausada"}</span></td>
-                  <td>{money(c.spend)}</td><td>{integer(c.impressions)}</td><td>{integer(c.clicks)}</td><td>{percent(c.ctr)}</td><td><b style={{ color: "var(--text)" }}>{integer(c.leads)}</b></td><td>{money(c.cpl)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mobile-rows">
-          {campaigns.map((c) => (
-            <div className="mobile-row" key={c.id}>
-              <div className="mobile-primary"><strong>{c.name}</strong><b>{integer(c.leads)} leads</b></div>
-              <div className="mobile-details"><span>Invest. <b>{money(c.spend)}</b></span><span>CPL <b>{money(c.cpl)}</b></span><span>CTR <b>{percent(c.ctr)}</b></span><span>Cliques <b>{integer(c.clicks)}</b></span></div>
-            </div>
-          ))}
-        </div>
-        <p className="table-count">{campaigns.length} campanhas · {integer(campaigns.reduce((s, c) => s + c.leads, 0))} leads</p>
-      </div>
-
-      <div className="section-title"><div><h2>Detalhamento por nível</h2><p>Conjuntos de anúncios (Meta), grupos de anúncios, anúncios, palavras-chave e Performance Max (Google).</p></div></div>
-      <EntityExplorer front={front} range={range} />
+      <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={campaigns} />
 
       <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
       <div className="creative-grid">

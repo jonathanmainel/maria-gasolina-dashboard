@@ -1,15 +1,18 @@
 import { ChevronDown, ChevronsUpDown, ChevronUp, ImageOff, PlayCircle } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { DetailRow } from "../lib/detail-rows";
 import { integer, money, percent } from "../lib/format";
-import type { EntityItem, PmaxItem } from "../types";
 
-type SortKey = "item_name" | "spend" | "impressions" | "clicks" | "results" | "ctr" | "cpc" | "cost_per_result";
+type SortKey = "item_name" | "spend" | "impressions" | "clicks" | "results" | "ctr" | "cost_per_result";
 
 interface Props {
-  items: (EntityItem | PmaxItem)[];
-  kind?: "entity" | "pmax";
+  items: DetailRow[];
   totalCount?: number;
   emptyLabel?: string;
+  /** Coluna de canal: só faz sentido quando Meta e Google dividem a tabela. */
+  showChannel?: boolean;
+  /** Tipo do recurso (título, imagem, vídeo…): só existe no nível de anúncio. */
+  showAssetType?: boolean;
   defaultSortKey?: SortKey;
   defaultSortDirection?: "asc" | "desc";
 }
@@ -23,7 +26,10 @@ const sortOptions: Array<{ key: SortKey; label: string }> = [
   { key: "impressions", label: "Impressões" },
 ];
 
-export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Nenhum dado neste período.", defaultSortKey = "spend", defaultSortDirection = "desc" }: Props) {
+export function DataTable({
+  items, totalCount, emptyLabel = "Nenhum dado neste período.", showChannel = false, showAssetType = false,
+  defaultSortKey = "spend", defaultSortDirection = "desc",
+}: Props) {
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: defaultSortKey, direction: defaultSortDirection });
   const [expanded, setExpanded] = useState<string | null>(null);
   const sorted = useMemo(() => [...items].sort((a, b) => {
@@ -40,6 +46,9 @@ export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Ne
     key,
     direction: current.key === key && current.direction === "desc" ? "asc" : "desc",
   }));
+
+  // A coluna de tipo só aparece se houver de fato recurso PMax na lista.
+  const withAssetType = showAssetType && items.some((item) => item.pmax);
 
   if (!items.length) return <div className="empty-state">{emptyLabel}</div>;
 
@@ -61,8 +70,9 @@ export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Ne
         <table>
           <thead>
             <tr>
-              <SortHead label={kind === "pmax" ? "Recurso" : "Nome"} field="item_name" current={sort} onClick={changeSort} wide />
-              {kind === "pmax" && <th>Tipo / avaliação</th>}
+              <SortHead label="Nome" field="item_name" current={sort} onClick={changeSort} wide />
+              {showChannel && <th>Canal</th>}
+              {withAssetType && <th>Tipo</th>}
               <SortHead label="Investimento" field="spend" current={sort} onClick={changeSort} />
               <SortHead label="Impressões" field="impressions" current={sort} onClick={changeSort} />
               <SortHead label="Cliques" field="clicks" current={sort} onClick={changeSort} />
@@ -72,26 +82,31 @@ export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Ne
             </tr>
           </thead>
           <tbody>
-            {sorted.map((item) => <DataRow key={item.item_id} item={item} pmax={kind === "pmax"} />)}
+            {sorted.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} />)}
           </tbody>
         </table>
       </div>
       <div className="mobile-rows">
         {sorted.map((item) => {
-          const open = expanded === item.item_id;
+          const open = expanded === item.key;
           return (
-            <article className="mobile-row" key={item.item_id}>
-              <button onClick={() => setExpanded(open ? null : item.item_id)} aria-expanded={open}>
-                <span><strong>{item.item_name}</strong><small>{"parent_name" in item ? item.parent_name ?? item.item_status ?? "Ativo" : item.asset_group_name ?? item.item_status ?? "Ativo"}</small></span>
+            <article className="mobile-row" key={item.key}>
+              <button onClick={() => setExpanded(open ? null : item.key)} aria-expanded={open}>
+                <span>
+                  <strong>{item.item_name}{item.pmax && <span className="chip pmax">PMax</span>}</strong>
+                  <small>{item.subtitle ?? "—"}</small>
+                </span>
                 <span className="mobile-primary"><strong>{money(item.spend)}</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </button>
               {open && <div className="mobile-details">
+                {showChannel && <Metric label="Canal" value={item.channel === "meta_ads" ? "Meta" : "Google"} />}
                 <Metric label="Impressões" value={integer(item.impressions)} />
                 <Metric label="Cliques" value={integer(item.clicks)} />
                 <Metric label="Resultados" value={integer(item.results)} />
                 <Metric label="CTR" value={percent(item.ctr)} />
                 <Metric label="Custo / resultado" value={money(item.cost_per_result)} />
-                {kind === "pmax" && <Metric label="Avaliação" value={labelPerformance((item as PmaxItem).performance_label ?? (item as PmaxItem).ad_strength)} />}
+                {item.pmax && item.field_type && <Metric label="Tipo" value={assetType(item.field_type)} />}
+                {item.pmax && item.performance_label && <Metric label="Avaliação" value={labelPerformance(item.performance_label)} />}
               </div>}
             </article>
           );
@@ -102,17 +117,25 @@ export function DataTable({ items, kind = "entity", totalCount, emptyLabel = "Ne
   );
 }
 
-function DataRow({ item, pmax }: { item: EntityItem | PmaxItem; pmax: boolean }) {
-  const asset = pmax ? item as PmaxItem : null;
+function DataRow({ item, showChannel, showAssetType }: { item: DetailRow; showChannel: boolean; showAssetType: boolean }) {
   return (
     <tr>
       <td className="name-cell">
         <div className="entity-name">
-          {asset && <AssetPreview item={asset} />}
-          <span><strong>{item.item_name}</strong><small>{("parent_name" in item ? item.parent_name : asset?.asset_group_name) ?? item.item_status ?? "Ativo"}</small></span>
+          {item.pmax && <AssetPreview item={item} />}
+          <span>
+            <strong>{item.item_name}{item.pmax && <span className="chip pmax">PMax</span>}</strong>
+            <small>{item.subtitle ?? "—"}</small>
+          </span>
         </div>
       </td>
-      {asset && <td><span className={`performance-chip perf-${(asset.performance_label ?? asset.ad_strength ?? "unknown").toLowerCase()}`}>{asset.field_type ? asset.field_type.replaceAll("_", " ") : "GRUPO"}</span><small className="performance-label">{labelPerformance(asset.performance_label ?? asset.ad_strength)}</small></td>}
+      {showChannel && <td><span className={`chip ${item.channel === "meta_ads" ? "meta" : "google"}`}>{item.channel === "meta_ads" ? "Meta" : "Google"}</span></td>}
+      {showAssetType && (
+        <td>
+          {item.field_type ? <span className="asset-type">{assetType(item.field_type)}</span> : <span className="asset-type muted">—</span>}
+          {item.performance_label && <small className="performance-label">{labelPerformance(item.performance_label)}</small>}
+        </td>
+      )}
       <td>{money(item.spend)}</td>
       <td>{integer(item.impressions)}</td>
       <td>{integer(item.clicks)}</td>
@@ -123,7 +146,7 @@ function DataRow({ item, pmax }: { item: EntityItem | PmaxItem; pmax: boolean })
   );
 }
 
-function AssetPreview({ item }: { item: PmaxItem }) {
+function AssetPreview({ item }: { item: DetailRow }) {
   if (item.image_url) return <img className="asset-preview" src={item.image_url} alt="" />;
   if (item.youtube_video_id) return <div className="asset-preview asset-placeholder"><PlayCircle size={19} /></div>;
   if (item.text_content) return <div className="asset-preview asset-text">Aa</div>;
@@ -136,6 +159,24 @@ function SortHead({ label, field, current, onClick, wide }: { label: string; fie
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+/** Tipos reais vindos do backend (HEADLINE, SQUARE_MARKETING_IMAGE…) em rótulo legível. */
+function assetType(value: string) {
+  const labels: Record<string, string> = {
+    HEADLINE: "Título",
+    LONG_HEADLINE: "Título longo",
+    DESCRIPTION: "Descrição",
+    YOUTUBE_VIDEO: "Vídeo",
+    MARKETING_IMAGE: "Imagem",
+    SQUARE_MARKETING_IMAGE: "Imagem quadrada",
+    PORTRAIT_MARKETING_IMAGE: "Imagem retrato",
+    LOGO: "Logo",
+    LANDSCAPE_LOGO: "Logo horizontal",
+    BUSINESS_NAME: "Nome do negócio",
+    CALL_TO_ACTION_SELECTION: "Call to action",
+  };
+  return labels[value] ?? value.replaceAll("_", " ").toLowerCase();
 }
 
 function labelPerformance(value?: string | null) {
