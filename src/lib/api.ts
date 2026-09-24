@@ -1,6 +1,7 @@
 import type { AnalyticsAcquisitionItem, AnalyticsEventItem, AnalyticsKpis, CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
 import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockEntities, mockOverview, mockPmax } from "../data/mock";
 import { supabase } from "./supabase";
+import { getMetaCreativePreviews } from "./creative-previews";
 
 export const CLIENT_SLUG = "maria-gasolina";
 
@@ -391,11 +392,28 @@ export async function getFrontData(range: DateRange): Promise<FrontBundle> {
     creativeMap.set(row.ad_id, entry);
   });
 
-  const creatives = [...creativeMap.values()].map((creative) => ({
+  const creatives: Creative[] = [...creativeMap.values()].map((creative) => ({
     ...creative,
     cpl: creative.leads > 0 ? creative.spend / creative.leads : null,
     ctr: creative.impressions > 0 ? (creative.clicks * 100) / creative.impressions : null,
   }));
+
+  // Artwork is optional. Select only the cards actually rendered in each front;
+  // ranking and every metric above are already final before this enrichment.
+  const cardIds = (["franchise", "condominium"] as const).flatMap((front) => creatives
+    .filter((creative) => creative.front === front)
+    .sort((a, b) => b.leads - a.leads)
+    .slice(0, 8)
+    .filter((creative) => creative.channel === "meta_ads")
+    .map((creative) => creative.id));
+  const previews = await getMetaCreativePreviews(cardIds, clientId).catch(() => new Map());
+  for (const creative of creatives) {
+    if (creative.channel !== "meta_ads") continue;
+    const preview = previews.get(creative.id);
+    if (!preview) continue;
+    creative.creative_type = preview.creative_type;
+    creative.preview_url = preview.preview_url;
+  }
 
   return {
     daily: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),

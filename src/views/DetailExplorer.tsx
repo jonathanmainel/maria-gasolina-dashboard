@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { CampaignTable } from "../components/CampaignTable";
 import { DataTable } from "../components/DataTable";
 import { Panel, Skeleton } from "../components/ui/primitives";
-import { getAllEntities, getAllPmax } from "../lib/api";
+import { getAllEntities, getAllPmax, getClientId } from "../lib/api";
+import { getMetaCreativePreviews } from "../lib/creative-previews";
 import {
   buildAncestry, buildDetailRows, levelsFor, lookupsFor, planFor, resolveLevel, sliceByFront,
   type ChannelFilter, type DetailLevel, type DetailRow,
@@ -41,6 +42,7 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
   const query = useQuery<LevelData>({
     queryKey: ["detail", channelFilter, level, range.start, range.end],
     enabled: !isCampaign,
+    refetchInterval: level === "ad" ? 5 * 60 * 1000 : false,
     queryFn: async () => {
       const detailLevel = level as Exclude<DetailLevel, "campaign">;
       const plan = planFor(detailLevel, channelFilter);
@@ -54,8 +56,20 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
       ]);
       const pick = (lvl: "group" | "campaign"): EntityItem[] => ancestors.filter((a) => a.level === lvl).flatMap((a) => a.page.items);
       const ancestry = buildAncestry(pick("group"), pick("campaign"));
+      const rows = buildDetailRows(entities.map((page) => page.items), pmax?.items ?? [], ancestry);
+      if (detailLevel === "ad" && plan.entitySources.includes("meta_ads")) {
+        const metaIds = rows.filter((row) => row.level === "ad" && row.channel === "meta_ads" && !row.pmax).map((row) => row.item_id);
+        if (metaIds.length) {
+          const previews = await getClientId().then((id) => getMetaCreativePreviews(metaIds, id)).catch(() => new Map());
+          for (const row of rows) {
+            if (row.level === "ad" && row.channel === "meta_ads" && !row.pmax) {
+              row.image_url = previews.get(row.item_id)?.preview_url ?? null;
+            }
+          }
+        }
+      }
       return {
-        rows: buildDetailRows(entities.map((page) => page.items), pmax?.items ?? [], ancestry),
+        rows,
         truncated: [...entities, ...(pmax ? [pmax] : []), ...ancestors.map((a) => a.page)].some((page) => page.truncated),
       };
     },

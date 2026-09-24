@@ -1,5 +1,5 @@
 import { ArrowRight, Eye, MousePointerClick, Percent, Target, Wallet, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AnimatedNumber, BarList, ChartTip, Delta, Funnel, Kpi, Pacing, Panel, Segmented, useTilt } from "../components/ui/primitives";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
@@ -8,6 +8,8 @@ import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CampaignRow, Creative, DateRange, Front } from "../types";
 import { DetailExplorer } from "./DetailExplorer";
+import { ImageLightbox } from "../components/ImageLightbox";
+import { viewableImage } from "../lib/media";
 import { MiniStat } from "./Executive";
 
 export function FrontView({ front, data, range, onNavigate }: { front: Front; data: DashboardData; range: DateRange; onNavigate: (v: AppView) => void }) {
@@ -199,10 +201,24 @@ function ChannelCard({ name, chip, color, t, p }: { name: string; chip: string; 
 
 export function CreativeCard({ c, rank }: { c: Creative; rank: number }) {
   const tilt = useTilt<HTMLElement>(7);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  useEffect(() => { setImageFailed(false); }, [c.preview_url]);
+  const image = c.channel === "meta_ads" && !imageFailed ? viewableImage(c.preview_url ?? null) : null;
+  const format = c.channel === "meta_ads" ? c.creative_type : null;
+  const formatLabel = format === "dynamic" ? "Dinâmico"
+    : format === "video" ? "Vídeo"
+    : format === "carousel" ? "Carrossel"
+    : format === "image" ? "Estático"
+    : c.format === "video" ? "Vídeo" : c.format === "carousel" ? "Carrossel" : "Estático";
   return (
+    <>
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="creative tilt" style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
       <div className="creative-art">
-        <span className="format">{c.format === "video" ? "Vídeo" : c.format === "carousel" ? "Carrossel" : "Estático"}</span>
+        {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
+          <img src={image} alt="" onError={() => { setImageFailed(true); setZoomed(false); }} />
+        </button>}
+        <span className="format">{formatLabel}</span>
         {rank <= 3 && <span className="rank">{rank}</span>}
         <h4>{c.headline}</h4>
       </div>
@@ -215,5 +231,7 @@ export function CreativeCard({ c, rank }: { c: Creative; rank: number }) {
         </div>
       </div>
     </article>
+    {zoomed && image && <ImageLightbox src={image} label={c.name} onClose={() => setZoomed(false)} />}
+    </>
   );
 }

@@ -111,13 +111,19 @@ export function lookupsFor(level: Exclude<DetailLevel, "campaign">, plan: LevelP
 
 const PMAX_CAMPAIGN = /performance ?max|pmax/i;
 
+export function formatKeywordName(text: string, matchType?: string | null): string {
+  if (matchType === "PHRASE") return `"${text}"`;
+  if (matchType === "EXACT") return `[${text}]`;
+  return text;
+}
+
 export function entityToRow(item: EntityItem): DetailRow {
   return {
     // Palavra-chave do Google só é única dentro do grupo; o pai entra na chave.
     key: `${item.source}:${item.level}:${item.parent_id ?? ""}:${item.item_id}`,
     level: item.level,
     item_id: item.item_id,
-    item_name: item.item_name,
+    item_name: item.level === "keyword" ? formatKeywordName(item.item_name, item.keyword_match_type) : item.item_name,
     subtitle: item.parent_name ?? item.item_status,
     channel: item.source,
     pmax: false,

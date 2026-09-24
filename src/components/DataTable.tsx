@@ -101,7 +101,7 @@ export function DataTable({
                 </span>
                 <span className="mobile-primary"><strong>{money(item.spend)}</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </button>
-              {open && hasPreview(item) && <div className="mobile-preview"><AssetPreview item={item} onZoom={setZoomed} /><span>{item.field_type ? assetType(item.field_type) : "Recurso"}</span></div>}
+              {open && hasPreview(item) && <div className="mobile-preview"><AssetPreview key={item.image_url ?? item.key} item={item} onZoom={setZoomed} /><span>{item.channel === "meta_ads" ? "Criativo" : item.field_type ? assetType(item.field_type) : "Recurso"}</span></div>}
               {open && <div className="mobile-details">
                 {showChannel && <Metric label="Canal" value={item.channel === "meta_ads" ? "Meta" : "Google"} />}
                 <Metric label="Impressões" value={integer(item.impressions)} />
@@ -123,11 +123,11 @@ export function DataTable({
 }
 
 /**
- * Miniatura só para recursos PMax, que vivem na aba Anúncios. Grupos de recursos
- * PMax continuam marcados pelo selo, mas não ganham caixa de imagem.
+ * Miniaturas de criativos Meta e recursos PMax só no nível de Anúncios.
+ * Grupos permanecem sem imagem.
  */
 export function hasPreview(item: DetailRow) {
-  return item.pmax && item.level === "ad";
+  return item.level === "ad" && (item.pmax || item.channel === "meta_ads");
 }
 
 function DataRow({ item, showChannel, showAssetType, onZoom }: { item: DetailRow; showChannel: boolean; showAssetType: boolean; onZoom: (item: DetailRow) => void }) {
@@ -135,7 +135,7 @@ function DataRow({ item, showChannel, showAssetType, onZoom }: { item: DetailRow
     <tr>
       <td className="name-cell">
         <div className="entity-name">
-          {hasPreview(item) && <AssetPreview item={item} onZoom={onZoom} />}
+          {hasPreview(item) && <AssetPreview key={item.image_url ?? item.key} item={item} onZoom={onZoom} />}
           <span>
             <strong>{item.item_name}{item.pmax && <span className="chip pmax">PMax</span>}</strong>
             <small>{item.subtitle ?? "—"}</small>

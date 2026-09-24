@@ -252,6 +252,22 @@ describe("16. nenhum vazamento entre Franquias e Condomínios", () => {
 });
 
 describe("chaves e dupla contagem", () => {
+  it("formata apenas a apresentação da keyword sem mudar identidade, métricas ou frente", () => {
+    const raw = e({ level: "keyword", item_id: "k1", item_name: "mercado autônomo", parent_id: "g-franq", keyword_match_type: "BROAD" });
+    const broad = entityToRow(raw);
+    expect(broad.item_name).toBe("mercado autônomo");
+    expect(entityToRow({ ...raw, keyword_match_type: "PHRASE" }).item_name).toBe('"mercado autônomo"');
+    expect(entityToRow({ ...raw, keyword_match_type: "EXACT" }).item_name).toBe("[mercado autônomo]");
+    for (const matchType of [null, "UNKNOWN", "UNSPECIFIED", "SOMETHING_ELSE"]) {
+      const row = entityToRow({ ...raw, keyword_match_type: matchType });
+      expect(row.item_name).toBe("mercado autônomo");
+      expect(row.key).toBe(broad.key);
+      expect(row.spend).toBe(broad.spend);
+      expect(row.results).toBe(broad.results);
+      expect(frontOf({ ...row, campaign_name: FRANQ_CAMPAIGN })).toBe("franchise");
+    }
+    expect(raw.item_name).toBe("mercado autônomo");
+  });
   it("o mesmo recurso em dois grupos de recursos vira duas linhas distintas", () => {
     const a = pmaxToRow(pmax({ item_id: "same", asset_group_id: "ag1" }));
     const b = pmaxToRow(pmax({ item_id: "same", asset_group_id: "ag2" }));

@@ -12,7 +12,7 @@ export function useDashboard(range: DateRange) {
   // em vez de reaproveitá-lo, então nenhum card fica exibindo o período anterior
   // enquanto o novo carrega. Todas as telas leem deste mesmo hook, o que garante
   // que card, gráfico e tabela estejam sempre no mesmo intervalo.
-  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range) });
+  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range), refetchInterval: 5 * 60 * 1000 });
   const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range) });
   const manual = useManualData();
   const prev = useMemo(() => previousRange(range), [range]);

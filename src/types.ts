@@ -109,6 +109,7 @@ export interface EntityItem extends Kpis {
   item_id: string;
   item_name: string;
   item_status: string | null;
+  keyword_match_type?: string | null;
   parent_id: string | null;
   parent_name: string | null;
 }
@@ -197,6 +198,8 @@ export interface Creative {
   front: Front;
   channel: Channel;
   format: "video" | "image" | "carousel";
+  creative_type?: "image" | "video" | "carousel" | "dynamic" | "unknown";
+  preview_url?: string | null;
   headline: string;
   palette: [string, string];
   spend: number;

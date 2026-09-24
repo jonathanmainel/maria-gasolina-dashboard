@@ -27,8 +27,8 @@ const entities: Record<string, EntityItem[]> = {
     e({ item_id: "g-c", item_name: "Loja no prédio", parent_id: "c-c", parent_name: COND }),
   ],
   "google_ads:keyword": [
-    e({ level: "keyword", item_id: "k1", item_name: "[mercado 24 horas]", parent_id: "g-f", parent_name: "Mercado autônomo" }),
-    e({ level: "keyword", item_id: "k2", item_name: "\"minimercado\"", parent_id: "g-c", parent_name: "Loja no prédio" }),
+    e({ level: "keyword", item_id: "k1", item_name: "mercado 24 horas", keyword_match_type: "EXACT", parent_id: "g-f", parent_name: "Mercado autônomo" }),
+    e({ level: "keyword", item_id: "k2", item_name: "minimercado", keyword_match_type: "PHRASE", parent_id: "g-c", parent_name: "Loja no prédio" }),
   ],
   "meta_ads:group": [e({ source: "meta_ads", item_id: "m-f", item_name: "Lookalike 2%", parent_id: "mc-f", parent_name: "MG | LEADS | FRANQUIA" })],
   "meta_ads:campaign": [e({ source: "meta_ads", level: "campaign", item_id: "mc-f", item_name: "MG | LEADS | FRANQUIA" })],
@@ -53,6 +53,13 @@ vi.mock("../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/api")>()),
   getAllEntities: vi.fn(async (source: string, level: string) => ({ items: entities[`${source}:${level}`] ?? [], truncated: false })),
   getAllPmax: vi.fn(async (level: string) => ({ items: pmax[level] ?? [], truncated: false })),
+  getClientId: vi.fn(async () => 42),
+}));
+
+vi.mock("../lib/creative-previews", () => ({
+  getMetaCreativePreviews: vi.fn(async () => new Map([
+    ["ma1", { ad_id: "ma1", creative_type: "video", preview_url: "https://storage.example/meta-video.jpg" }],
+  ])),
 }));
 
 beforeAll(() => {
