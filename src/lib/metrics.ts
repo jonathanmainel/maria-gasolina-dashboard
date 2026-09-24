@@ -55,6 +55,36 @@ export function weeklySeries(rows: FrontDaily[]) {
   return weeks;
 }
 
+// Mapeamento fixo em vez de Intl: o `month: "short"` do pt-BR varia entre
+// ambientes ("set." com ponto, às vezes maiúsculo) e o eixo precisa ser estável.
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/** Rótulo compacto de um mês de calendário: "2026-09" → "set/26". */
+export function monthLabel(key: string) {
+  const [year, month] = key.split("-");
+  return `${MONTHS_PT[Number(month) - 1]}/${year.slice(2)}`;
+}
+
+/**
+ * Agrega por mês de calendário (chave YYYY-MM). As linhas já chegam recortadas
+ * pelo período e pelo canal, então um mês na borda do período soma só os dias
+ * que estão dentro dele. O CPL é investimento do mês / leads do mês — nunca a
+ * média dos CPLs diários, que daria o mesmo peso a um dia de 2 leads e a um de 200.
+ */
+export function monthlySeries(rows: FrontDaily[]) {
+  const months = new Map<string, { key: string; spend: number; leads: number }>();
+  rows.forEach((r) => {
+    const key = r.date.slice(0, 7);
+    const m = months.get(key) ?? { key, spend: 0, leads: 0 };
+    m.spend += r.spend; m.leads += r.leads;
+    months.set(key, m);
+  });
+  // Ordena pela chave YYYY-MM, não pelo rótulo: "ago/26" viria antes de "jul/26".
+  return [...months.values()]
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map((m) => ({ key: m.key, label: monthLabel(m.key), spend: m.spend, leads: m.leads, cpl: m.leads ? m.spend / m.leads : null }));
+}
+
 export function organicSummary(rows: OrganicDaily[], platform: Platform): OrganicSummary {
   const list = rows.filter((r) => r.platform === platform).sort((a, b) => a.date.localeCompare(b.date));
   const first = list[0];

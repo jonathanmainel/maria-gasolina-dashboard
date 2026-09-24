@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer,
 import { AnimatedNumber, BarList, ChartTip, Delta, Funnel, Kpi, Pacing, Panel, Segmented, useTilt } from "../components/ui/primitives";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
-import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
+import { byChannel, dailySeries, monthlySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CampaignRow, Creative, DateRange, Front } from "../types";
 import { DetailExplorer } from "./DetailExplorer";
@@ -18,7 +18,7 @@ export function FrontView({ front, data, range, onNavigate }: { front: Front; da
   const goals = useGoals();
   const bundle = data[front];
   const { current, rows, prevRows } = bundle;
-  const [chartMode, setChartMode] = useState<"daily" | "weekly">("daily");
+  const [chartMode, setChartMode] = useState<"daily" | "weekly" | "monthly">("daily");
   const [channelFilter, setChannelFilter] = useState<"all" | "meta_ads" | "google_ads">("all");
   const filteredRows = useMemo(
   () =>
@@ -54,6 +54,11 @@ const weeks = useMemo(
   () => weeklySeries(filteredRows),
   [filteredRows],
 );
+
+const months = useMemo(
+  () => monthlySeries(filteredRows),
+  [filteredRows],
+);
   const month = monthProgress(range);
   const monthRows = filteredRows.filter(
     (r) => r.date.slice(0, 7) === range.end.slice(0, 7),
@@ -74,7 +79,10 @@ const weeks = useMemo(
   const accentHex = front === "franchise" ? colors.red : colors.gold;
   const chartData = chartMode === "daily"
     ? series.map((d) => ({ label: shortDate(d.date), Leads: d.leads, CPL: d.cpl, Investimento: d.spend }))
-    : weeks.map((w) => ({ label: `sem. ${w.label}`, Leads: w.leads, CPL: w.cpl, Investimento: w.spend }));
+    : chartMode === "weekly"
+      ? weeks.map((w) => ({ label: `sem. ${w.label}`, Leads: w.leads, CPL: w.cpl, Investimento: w.spend }))
+      : months.map((m) => ({ label: m.label, Leads: m.leads, CPL: m.cpl, Investimento: m.spend }));
+  const cplPeriod = { daily: "do dia", weekly: "da semana", monthly: "do mês" }[chartMode];
 
   return (
     <div className="view-enter" key={front}>
@@ -97,7 +105,7 @@ const weeks = useMemo(
 </div>
 
       <div className="grid grid-hero" style={{ marginTop: 14 }}>
-        <Panel title="Leads e custo por lead ao longo do tempo" description="Barras são leads, a linha é o CPL do dia" actions={<Segmented value={chartMode} onChange={setChartMode} options={[{ id: "daily", label: "Diário" }, { id: "weekly", label: "Semanal" }]} />}>
+        <Panel title="Leads e custo por lead ao longo do tempo" description={`Barras são leads, a linha é o CPL ${cplPeriod}`} actions={<Segmented value={chartMode} onChange={setChartMode} options={[{ id: "daily", label: "Diário" }, { id: "weekly", label: "Semanal" }, { id: "monthly", label: "Mensal" }]} />}>
           <div className="chart-box h-320">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
