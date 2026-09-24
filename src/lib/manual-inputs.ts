@@ -49,8 +49,8 @@ export interface ManualDataResult {
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/** Normaliza o payload vindo do banco/localStorage contra os padrões, campo a campo. */
-function normalize(raw: unknown): ManualBusinessData {
+/** Normaliza o payload vindo do banco/localStorage contra os padrões, campo a campo. Exportada para teste. */
+export function normalize(raw: unknown): ManualBusinessData {
   const source = (raw ?? {}) as Partial<ManualBusinessData>;
   // Copia apenas as chaves conhecidas do padrão, descartando NaN, negativos e
   // campos estranhos vindos de um payload antigo ou corrompido.

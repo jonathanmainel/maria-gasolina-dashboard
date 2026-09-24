@@ -314,10 +314,17 @@ export interface Goals {
   contracts_condominium: number;
 }
 
-/** Publicações do Instagram no mês, preenchidas à mão (alimentam os anéis de entrega e o ritmo do mês). */
+/**
+ * Conteúdos publicados no Instagram no mês, preenchidos à mão — sem origem
+ * automática ainda. `posts_published`/`stories_published` também alimentam o
+ * "Ritmo do mês" (Visão executiva e Apresentação), por isso mantêm o nome.
+ */
 export interface DeliveryStatus {
   posts_published: number;
   stories_published: number;
+  reels_published: number;
+  carousel_published: number;
+  instant_published: number;
 }
 
 export interface GeoCity {

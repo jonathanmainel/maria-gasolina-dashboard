@@ -18,11 +18,16 @@ export const goalFields: NumberFieldSpec[] = [
   { key: "contracts_condominium", label: "Lojas em condomínio por mês", hint: "Meta comercial (CRM)" },
 ];
 
-// Guardados na chave `delivery` do payload manual — mantida para não perder os
-// valores já salvos. Alimentam os anéis de entrega do Orgânico e o ritmo do mês.
+// Guardados na chave `delivery` do payload manual. `posts_published` e
+// `stories_published` também alimentam o "Ritmo do mês" (Visão executiva e
+// Apresentação), por isso os nomes das chaves não mudam — só o rótulo, aqui,
+// reflete o tipo de conteúdo.
 export const publicationFields: NumberFieldSpec[] = [
-  { key: "posts_published", label: "Posts publicados", hint: "Feed do Instagram no mês" },
-  { key: "stories_published", label: "Stories publicados", hint: "Instagram no mês" },
+  { key: "posts_published", label: "Feed", hint: "Publicações no feed do Instagram no mês" },
+  { key: "stories_published", label: "Stories", hint: "Stories publicados no mês" },
+  { key: "reels_published", label: "Reels", hint: "Reels publicados no mês" },
+  { key: "carousel_published", label: "Carrossel", hint: "Carrosséis publicados no mês" },
+  { key: "instant_published", label: "Instant", hint: "Publicações Instant no mês" },
 ];
 
 const stageKey = (index: number) => `stage_${index}`;

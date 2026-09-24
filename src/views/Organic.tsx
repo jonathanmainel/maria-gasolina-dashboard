@@ -1,9 +1,8 @@
-import { Bookmark, Info, Eye, Heart, MessageCircle, MessagesSquare, Send, TrendingUp, UserPlus, Users } from "lucide-react";
+import { Bookmark, Clapperboard, Film, GalleryHorizontalEnd, Images, Info, Eye, Heart, MessageCircle, MessagesSquare, Send, TrendingUp, UserPlus, Users, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarList, ChartTip, Kpi, Panel, Ring, Segmented, useTilt } from "../components/ui/primitives";
+import { AnimatedNumber, BarList, ChartTip, Kpi, Panel, Segmented, useTilt } from "../components/ui/primitives";
 import { compact, integer, percent, shortDate } from "../lib/format";
-import { useGoals } from "../lib/goals";
 import { organicSummary } from "../lib/metrics";
 import { useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { DateRange, OrganicPost, Platform } from "../types";
@@ -12,7 +11,6 @@ type Scope = Platform | "both";
 
 export function OrganicView({ data, range }: { data: DashboardData; range: DateRange }) {
   const colors = useChartColors();
-  const goals = useGoals();
   const [scope, setScope] = useState<Scope>("instagram");
   const [metric, setMetric] = useState<"followers" | "reach" | "interactions">("followers");
   const cur = useMemo(() => scope === "both" ? merge(organicSummary(data.organicRows, "instagram"), organicSummary(data.organicRows, "facebook")) : organicSummary(data.organicRows, scope), [data.organicRows, scope]);
@@ -42,7 +40,6 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
   });
   const chartData = series.map((d) => ({ label: shortDate(d.date), Seguidores: d.followers, Alcance: d.reach, Interações: d.interactions }));
   const key = metric === "followers" ? "Seguidores" : metric === "reach" ? "Alcance" : "Interações";
-  const followersGoalPct = goals.followers_growth ? (cur.new_followers * 100) / goals.followers_growth : 0;
 
   return (
     <div className="view-enter">
@@ -96,11 +93,13 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
             </ResponsiveContainer>
           </div>
         </Panel>
-        <Panel title="Entrega do mês" description="O contratado: 20 posts + 20 stories no Instagram">
-          <div className="ring-row">
-            <Ring value={((data.delivery?.posts_published ?? 0) * 100) / goals.posts} label="Posts no feed" sub={`${data.delivery?.posts_published ?? 0} de ${goals.posts}`} color="var(--violet)" />
-            <Ring value={((data.delivery?.stories_published ?? 0) * 100) / goals.stories} label="Stories" sub={`${data.delivery?.stories_published ?? 0} de ${goals.stories}`} color="var(--gold)" />
-            <Ring value={followersGoalPct} label="Meta de seguidores" sub={`${integer(cur.new_followers)} de ${integer(goals.followers_growth)}`} color="var(--green)" />
+        <Panel title="Conteúdos postados no mês" description="Quantidade de conteúdos publicados no período selecionado">
+          <div className="content-type-list">
+            <ContentTypeRow icon={<Images size={16} />} label="Feed" value={data.delivery?.posts_published ?? 0} color={colors.violet} />
+            <ContentTypeRow icon={<Clapperboard size={16} />} label="Stories" value={data.delivery?.stories_published ?? 0} color={colors.gold} />
+            <ContentTypeRow icon={<Film size={16} />} label="Reels" value={data.delivery?.reels_published ?? 0} color={colors.instagram} />
+            <ContentTypeRow icon={<GalleryHorizontalEnd size={16} />} label="Carrossel" value={data.delivery?.carousel_published ?? 0} color={colors.sky} />
+            <ContentTypeRow icon={<Zap size={16} />} label="Instant" value={data.delivery?.instant_published ?? 0} color={colors.green} />
           </div>
           <p style={{ margin: "14px 0 0", color: "var(--muted)", fontSize: 11.5, lineHeight: 1.5 }}>Visitas ao perfil no período: <b style={{ color: "var(--text)" }}>{integer(cur.profile_visits)}</b>. Cada visita é alguém que saiu do conteúdo e foi olhar a marca.</p>
         </Panel>
@@ -119,6 +118,16 @@ export function OrganicView({ data, range }: { data: DashboardData; range: DateR
           <BarList items={formatMix} format={percent} />
         </Panel>
       </div>
+    </div>
+  );
+}
+
+function ContentTypeRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+  return (
+    <div className="content-type-row">
+      <span className="ic" style={{ color, background: `color-mix(in srgb, ${color} 16%, transparent)` }}>{icon}</span>
+      <strong>{label}</strong>
+      <span className="n"><AnimatedNumber value={value} format={integer} /></span>
     </div>
   );
 }

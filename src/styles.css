@@ -305,6 +305,15 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .ring small { color: var(--muted); font-size: 10.5px; font-weight: 650; line-height: 1.35; }
 .ring b { font-size: 11px; color: var(--text-2); font-weight: 650; }
 
+/* -------------------------------------------------------- content-type rows */
+/* Lista (não grid de cards) de propósito: preenche a altura do painel, que no
+   grid-hero é esticado para acompanhar o gráfico ao lado (~460px). */
+.content-type-list { display: grid; gap: 10px; }
+.content-type-row { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--bg) 40%, transparent); border: 1px solid var(--line); }
+.content-type-row .ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; }
+.content-type-row strong { font-size: 13px; font-weight: 700; }
+.content-type-row .n { font-size: 17px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
 /* ------------------------------------------------------------- funnel 3D */
 .funnel3d { display: grid; grid-template-columns: 220px 1fr; gap: 22px; align-items: start; }
 .funnel3d-shape { position: relative; }

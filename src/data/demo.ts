@@ -272,4 +272,7 @@ export const demoGoals: Goals = {
 export const demoDelivery: DeliveryStatus = {
   posts_published: 14,
   stories_published: 17,
+  reels_published: 9,
+  carousel_published: 6,
+  instant_published: 4,
 };

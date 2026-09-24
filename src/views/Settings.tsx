@@ -96,12 +96,12 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
         </div>
       </div>
       <ManualNumbersPanel
-        title="Publicações do mês"
-        description="Posts e stories publicados no Instagram. Alimentam os anéis de entrega e o ritmo do mês."
+        title="Conteúdos postados no mês"
+        description="Quantidade por formato no Instagram. Feed e Stories também alimentam o ritmo do mês."
         fields={publicationFields}
         values={deliveryToValues(data.delivery)}
         onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
-        saveLabel="Salvar publicações"
+        saveLabel="Salvar conteúdos"
       />
     </div>
   );
