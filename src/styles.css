@@ -420,6 +420,8 @@ tbody tr:hover { background: var(--surface-2); }
 .asset-placeholder, .asset-text { display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--muted-2); }
 .asset-text { font-size: 12px; font-weight: 750; }
 .performance-chip { display: none; }
+/* Mesmo respiro que separa os demais grids da página (marginTop 14). */
+.detail-panel { margin-top: 14px; }
 /* As abas do detalhamento rolam em vez de estourar a largura em telas estreitas. */
 .seg.seg-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
 

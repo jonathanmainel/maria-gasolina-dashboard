@@ -28,7 +28,37 @@ export async function getOverview(range: DateRange): Promise<OverviewResponse> {
   return data as OverviewResponse;
 }
 
-export async function getEntities(source: Source, level: EntityLevel, range: DateRange): Promise<CursorPage<EntityItem>> {
+type Cursor = Record<string, string | number> | null;
+
+// As RPCs de leitura limitam cada página a 100 itens.
+const RPC_PAGE_SIZE = 100;
+// Teto de segurança contra cursor que nunca termina: 200 páginas = 20 mil itens.
+const MAX_PAGES = 200;
+
+export interface AllItems<T> {
+  items: T[];
+  /** Verdadeiro só se o teto de páginas foi atingido — nunca corta em silêncio. */
+  truncated: boolean;
+}
+
+/**
+ * Percorre o cursor até o fim. O recorte por frente acontece depois da leitura,
+ * então buscar só a primeira página descartaria entidades válidas que estão nas
+ * páginas seguintes (ordenadas por investimento).
+ */
+export async function readAllPages<T>(fetchPage: (cursor: Cursor) => Promise<CursorPage<T>>): Promise<AllItems<T>> {
+  const items: T[] = [];
+  let cursor: Cursor = null;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const result = await fetchPage(cursor);
+    items.push(...result.items);
+    if (!result.next_cursor) return { items, truncated: false };
+    cursor = result.next_cursor;
+  }
+  return { items, truncated: true };
+}
+
+export async function getEntities(source: Source, level: EntityLevel, range: DateRange, cursor: Cursor = null): Promise<CursorPage<EntityItem>> {
   if (isDemoMode) {
     await delay();
     return mockEntities[`${source === "google_ads" ? "google" : "meta"}_${level}`] ?? { items: [], total_count: 0, next_cursor: null };
@@ -40,14 +70,14 @@ export async function getEntities(source: Source, level: EntityLevel, range: Dat
     p_level: level,
     p_start_date: range.start,
     p_end_date: range.end,
-    p_limit: 50,
-    p_cursor: null,
+    p_limit: RPC_PAGE_SIZE,
+    p_cursor: cursor,
   });
   if (error) throw error;
   return data as CursorPage<EntityItem>;
 }
 
-export async function getPmax(level: PmaxLevel, range: DateRange): Promise<CursorPage<PmaxItem>> {
+export async function getPmax(level: PmaxLevel, range: DateRange, cursor: Cursor = null): Promise<CursorPage<PmaxItem>> {
   if (isDemoMode) {
     await delay();
     return mockPmax[level];
@@ -58,12 +88,18 @@ export async function getPmax(level: PmaxLevel, range: DateRange): Promise<Curso
     p_start_date: range.start,
     p_end_date: range.end,
     p_level: level,
-    p_limit: 50,
-    p_cursor: null,
+    p_limit: RPC_PAGE_SIZE,
+    p_cursor: cursor,
   });
   if (error) throw error;
   return data as CursorPage<PmaxItem>;
 }
+
+export const getAllEntities = (source: Source, level: EntityLevel, range: DateRange) =>
+  readAllPages((cursor) => getEntities(source, level, range, cursor));
+
+export const getAllPmax = (level: PmaxLevel, range: DateRange) =>
+  readAllPages((cursor) => getPmax(level, range, cursor));
 
 function mockPage<T>(items: T[], cursor: Record<string, string | number> | null, limit: number): CursorPage<T> {
   const offset = Number(cursor?.offset ?? 0);
