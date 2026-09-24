@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, BadgeDollarSign, Clapperboard, FileBarChart2, FileSignature, Images, MessageCircle, Palette, PiggyBank, Rocket, Target, UserPlus, Wallet, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, BadgeDollarSign, FileSignature, PiggyBank, Target, UserPlus, Wallet, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { lazy, Suspense } from "react";
@@ -22,7 +22,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const colors = useChartColors();
   const [metric, setMetric] = useState<"leads" | "spend" | "cpl">("leads");
   const organicTilt = useTilt<HTMLElement>(6);
-  const { all, franchise, condominium, instagram, facebook, delivery, whatsapp } = data;
+  const { all, franchise, condominium, instagram, facebook, delivery } = data;
   const series = useMemo(() => dailySeries(data.current), [data.current]);
   const month = monthProgress(range);
   const monthRows = useMemo(() => data.current.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7)), [data.current, range.end]);
@@ -187,7 +187,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       </div>
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        <Panel title="Evolução diária por frente" description="Como cada frente respondeu ao longo do período" actions={<Segmented value={metric} onChange={setMetric} options={[{ id: "leads", label: "Leads" }, { id: "spend", label: "Investimento" }, { id: "cpl", label: "CPL" }]} />}>
+        <Panel className="fill-chart" title="Evolução diária por frente" description="Como cada frente respondeu ao longo do período" actions={<Segmented value={metric} onChange={setMetric} options={[{ id: "leads", label: "Leads" }, { id: "spend", label: "Investimento" }, { id: "cpl", label: "CPL" }]} />}>
           <div className="chart-box h-320">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
@@ -206,38 +206,20 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           </div>
           <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: colors.red }} />Franquias</span><span><i style={{ background: colors.gold }} />Condomínios</span></div>
         </Panel>
-        <Panel title="Entregas GT+ no mês" description="O combinado em contrato, item a item" badge={<span className="badge gold">Contrato</span>}>
-          <div className="delivery">
-            <DeliveryItem icon={<Images size={16} />} label="Posts no feed" hint="Instagram institucional" value={delivery.posts_published} goal={goals.posts} />
-            <DeliveryItem icon={<Clapperboard size={16} />} label="Stories" hint="Instagram institucional" value={delivery.stories_published} goal={goals.stories} />
-            <DeliveryItem icon={<Palette size={16} />} label="Criativos de mídia" hint="ciclo de 12 a cada 15 dias" value={delivery.creatives_delivered} goal={delivery.creatives_goal} />
-            <DeliveryItem icon={<Rocket size={16} />} label="Vídeos editados" hint="SLA de 7 dias corridos" value={delivery.videos_delivered} goal={delivery.videos_goal} />
-            <DeliveryItem icon={<FileBarChart2 size={16} />} label="Relatórios semanais" hint="enviados ao time comercial" value={delivery.weekly_reports} goal={delivery.weekly_reports_goal} />
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid grid-3" style={{ marginTop: 14 }}>
-        <Panel title="Origem dos leads" description="Volume por canal no período">
-          <BarList items={channelMix} format={integer} />
-        </Panel>
-        <Panel title="Automação WhatsApp" description="Régua de relacionamento após o cadastro" badge={<span className="badge green">Ativa</span>}>
-          <div className="grid grid-2" style={{ gap: 10 }}>
-            <MiniStat label="Contatos alcançados" value={whatsapp.contacts_reached} format={integer} />
-            <MiniStat label="Responderam" value={whatsapp.replied} format={integer} />
-            <MiniStat label="Discovery Day agendados" value={whatsapp.scheduled_discovery} format={integer} />
-            <MiniStat label="1ª resposta (min)" value={whatsapp.avg_first_response_min} format={(n) => n.toFixed(1).replace(".", ",")} />
-          </div>
-          <p style={{ margin: "12px 0 0", color: "var(--muted)", fontSize: 11 }}><MessageCircle size={12} style={{ verticalAlign: -2 }} /> Resposta imediata a todo cadastro, sem depender do consultor.</p>
-        </Panel>
-        <Panel title="Eficiência por frente" description="CPL e taxa de conversão de clique em lead">
-          <div className="grid grid-2" style={{ gap: 10 }}>
-            <MiniStat label="CPL franquias" value={franchise.current.cpl ?? 0} format={money} accent="var(--red)" delta={<Delta current={franchise.current.cpl} previous={franchise.previous.cpl} lowerIsBetter />} />
-            <MiniStat label="CPL condomínios" value={condominium.current.cpl ?? 0} format={money} accent="var(--gold)" delta={<Delta current={condominium.current.cpl} previous={condominium.previous.cpl} lowerIsBetter />} />
-            <MiniStat label="Conversão franquias" value={franchise.current.conv_rate ?? 0} format={percent} accent="var(--red)" />
-            <MiniStat label="Conversão condomínios" value={condominium.current.conv_rate ?? 0} format={percent} accent="var(--gold)" />
-          </div>
-        </Panel>
+        {/* Coluna lateral: os dois painéis se esticam para fechar com a altura do gráfico. */}
+        <div className="panel-stack">
+          <Panel title="Origem dos leads" description="Volume por canal no período">
+            <BarList items={channelMix} format={integer} />
+          </Panel>
+          <Panel title="Eficiência por frente" description="CPL e taxa de conversão de clique em lead">
+            <div className="grid grid-2" style={{ gap: 10 }}>
+              <MiniStat label="CPL franquias" value={franchise.current.cpl ?? 0} format={money} accent="var(--red)" delta={<Delta current={franchise.current.cpl} previous={franchise.previous.cpl} lowerIsBetter />} />
+              <MiniStat label="CPL condomínios" value={condominium.current.cpl ?? 0} format={money} accent="var(--gold)" delta={<Delta current={condominium.current.cpl} previous={condominium.previous.cpl} lowerIsBetter />} />
+              <MiniStat label="Conversão franquias" value={franchise.current.conv_rate ?? 0} format={percent} accent="var(--red)" />
+              <MiniStat label="Conversão condomínios" value={condominium.current.conv_rate ?? 0} format={percent} accent="var(--gold)" />
+            </div>
+          </Panel>
+        </div>
       </div>
 
       <Ga4Section range={range} />
@@ -260,10 +242,6 @@ function FrontCard({ front, totals, previous, spark, onClick }: { front: "franch
       </div>
     </article>
   );
-}
-
-function DeliveryItem({ icon, label, hint, value, goal }: { icon: React.ReactNode; label: string; hint: string; value: number; goal: number }) {
-  return <div className="delivery-item"><span className="ic">{icon}</span><div><strong>{label}</strong><small>{hint}</small></div><div className="n"><AnimatedNumber value={value} format={integer} /><span> / {goal}</span></div></div>;
 }
 
 export function MiniStat({ label, value, format, accent, delta }: { label: string; value: number; format: (n: number) => string; accent?: string; delta?: React.ReactNode }) {

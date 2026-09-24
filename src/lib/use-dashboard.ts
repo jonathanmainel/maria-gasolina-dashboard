@@ -45,7 +45,6 @@ export function useDashboard(range: DateRange) {
       // Funil comercial derivado da entrada manual + volume real de mídia.
       crm: { franchise: crm("franchise"), condominium: crm("condominium") },
       delivery: manual.data.delivery,
-      whatsapp: manual.data.whatsapp,
       goals: manual.data.goals,
       manualStorage: manual.storage,
     };

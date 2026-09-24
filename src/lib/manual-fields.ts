@@ -1,6 +1,6 @@
 import type { NumberFieldSpec } from "../components/ui/editable";
 import { crmStageNames } from "./crm";
-import type { DeliveryStatus, Front, Goals, ManualFunnelInput, WhatsappFlow } from "../types";
+import type { DeliveryStatus, Front, Goals, ManualFunnelInput } from "../types";
 
 // Descrição dos campos manuais em um só lugar: os mesmos rótulos valem para o
 // editor em Metas e ajustes e para o editor do funil dentro de CRM e vendas.
@@ -18,22 +18,11 @@ export const goalFields: NumberFieldSpec[] = [
   { key: "contracts_condominium", label: "Lojas em condomínio por mês", hint: "Meta comercial (CRM)" },
 ];
 
-export const deliveryFields: NumberFieldSpec[] = [
+// Guardados na chave `delivery` do payload manual — mantida para não perder os
+// valores já salvos. Alimentam os anéis de entrega do Orgânico e o ritmo do mês.
+export const publicationFields: NumberFieldSpec[] = [
   { key: "posts_published", label: "Posts publicados", hint: "Feed do Instagram no mês" },
   { key: "stories_published", label: "Stories publicados", hint: "Instagram no mês" },
-  { key: "creatives_delivered", label: "Criativos entregues", hint: "Ciclo de 12 a cada 15 dias" },
-  { key: "creatives_goal", label: "Criativos contratados", hint: "Total previsto no mês" },
-  { key: "videos_delivered", label: "Vídeos editados entregues", hint: "SLA de 7 dias corridos" },
-  { key: "videos_goal", label: "Vídeos contratados", hint: "Total previsto no mês" },
-  { key: "weekly_reports", label: "Relatórios semanais enviados", hint: "Ao time comercial" },
-  { key: "weekly_reports_goal", label: "Relatórios semanais contratados", hint: "Total previsto no mês" },
-];
-
-export const whatsappFields: NumberFieldSpec[] = [
-  { key: "contacts_reached", label: "Contatos alcançados", hint: "Cadastros que entraram na régua" },
-  { key: "replied", label: "Responderam", hint: "Contatos que interagiram" },
-  { key: "scheduled_discovery", label: "Discovery Day agendados", hint: "Via automação" },
-  { key: "avg_first_response_min", label: "1ª resposta (minutos)", hint: "Tempo médio até o primeiro retorno", kind: "decimal" },
 ];
 
 const stageKey = (index: number) => `stage_${index}`;
@@ -72,5 +61,3 @@ export const goalsToValues = (goals: Goals) => ({ ...goals }) as unknown as Reco
 export const valuesToGoals = (values: Record<string, number>) => ({ ...values }) as unknown as Goals;
 export const deliveryToValues = (delivery: DeliveryStatus) => ({ ...delivery }) as unknown as Record<string, number>;
 export const valuesToDelivery = (values: Record<string, number>) => ({ ...values }) as unknown as DeliveryStatus;
-export const whatsappToValues = (flow: WhatsappFlow) => ({ ...flow }) as unknown as Record<string, number>;
-export const valuesToWhatsapp = (values: Record<string, number>) => ({ ...values }) as unknown as WhatsappFlow;

@@ -179,6 +179,12 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .grid-hero { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 .grid-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .grid-wide { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+/* Coluna lateral de painéis empilhados que se esticam até a altura do vizinho. */
+.panel-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel-stack > .panel { flex: 1 1 auto; }
+/* Painel de gráfico que cresce para fechar com a coluna ao lado, sem sobra embaixo. */
+.panel.fill-chart { display: flex; flex-direction: column; }
+.panel.fill-chart .chart-box { flex: 1 1 auto; height: auto; min-height: 320px; }
 .grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .span-2 { grid-column: span 2; }
 
@@ -460,13 +466,6 @@ tbody tr:hover { background: var(--surface-2); }
 .post-stats svg { margin-bottom: 3px; }
 
 /* ------------------------------------------------------------ delivery */
-.delivery { display: grid; gap: 10px; }
-.delivery-item { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--bg) 40%, transparent); border: 1px solid var(--line); }
-.delivery-item .ic { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
-.delivery-item strong { display: block; font-size: 12px; font-weight: 700; }
-.delivery-item small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
-.delivery-item .n { font-size: 14px; font-weight: 750; font-variant-numeric: tabular-nums; }
-.delivery-item .n span { color: var(--muted-2); font-size: 11px; font-weight: 600; }
 
 /* ------------------------------------------------------------ CRM */
 .crm-note { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 18px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--sky) 55%, transparent); background: color-mix(in srgb, var(--sky) 8%, transparent); color: var(--text-2); font-size: 12px; line-height: 1.5; }

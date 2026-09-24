@@ -314,15 +314,10 @@ export interface Goals {
   contracts_condominium: number;
 }
 
+/** Publicações do Instagram no mês, preenchidas à mão (alimentam os anéis de entrega e o ritmo do mês). */
 export interface DeliveryStatus {
   posts_published: number;
   stories_published: number;
-  creatives_delivered: number;
-  creatives_goal: number;
-  videos_delivered: number;
-  videos_goal: number;
-  weekly_reports: number;
-  weekly_reports_goal: number;
 }
 
 export interface GeoCity {
@@ -338,13 +333,6 @@ export interface GeoCity {
 // ---------------------------------------------------------------------------
 // v3 — entrada manual dos dados de negócio (CRM Elo ainda sem API de leitura)
 // ---------------------------------------------------------------------------
-
-export interface WhatsappFlow {
-  contacts_reached: number;
-  replied: number;
-  scheduled_discovery: number;
-  avg_first_response_min: number;
-}
 
 /**
  * Valores-base do funil comercial preenchidos à mão. Tudo o que é derivável
@@ -365,7 +353,6 @@ export interface ManualBusinessData {
   goals: Goals;
   funnel: Record<Front, ManualFunnelInput>;
   delivery: DeliveryStatus;
-  whatsapp: WhatsappFlow;
 }
 
 export type ManualStorage = "supabase" | "local";

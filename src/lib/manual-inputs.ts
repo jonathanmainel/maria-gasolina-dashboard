@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { demoDelivery, demoGoals, demoWhatsappFlow } from "../data/demo";
+import { demoDelivery, demoGoals } from "../data/demo";
 import { CLIENT_SLUG, isDemoMode } from "./api";
 import { supabase } from "./supabase";
 import type { Front, ManualBusinessData, ManualFunnelInput, ManualStorage } from "../types";
@@ -8,8 +8,8 @@ import type { Front, ManualBusinessData, ManualFunnelInput, ManualStorage } from
 // Onde os dados de negócio manuais ficam guardados
 //
 // O CRM Elo ainda não expõe API de leitura, então os valores-base do funil
-// comercial, as entregas do contrato e a régua de WhatsApp são digitados no
-// próprio dashboard. Persistência:
+// comercial e as publicações do Instagram no mês são digitados no próprio
+// dashboard. Persistência:
 //
 //   1. `public.dashboard_manual_inputs` no Supabase (uma linha por cliente e
 //      escopo, payload em jsonb) — ver a migration de mesmo nome. É a fonte
@@ -38,7 +38,6 @@ export const defaultManualData: ManualBusinessData = {
   goals: demoGoals,
   funnel: defaultFunnel,
   delivery: demoDelivery,
-  whatsapp: demoWhatsappFlow,
 };
 
 export interface ManualDataResult {
@@ -80,8 +79,9 @@ function normalize(raw: unknown): ManualBusinessData {
   return {
     goals: numbers(defaultManualData.goals, source.goals),
     funnel: { franchise: funnel("franchise"), condominium: funnel("condominium") },
+    // Só as chaves do padrão sobrevivem: campos de módulos removidos (entregas
+    // do contrato, régua de WhatsApp) em payloads antigos são descartados aqui.
     delivery: numbers(defaultManualData.delivery, source.delivery),
-    whatsapp: numbers(defaultManualData.whatsapp, source.whatsapp),
   };
 }
 

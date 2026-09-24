@@ -3,8 +3,7 @@ import { useState } from "react";
 import { ManualNumbersPanel } from "../components/ui/editable";
 import { Panel } from "../components/ui/primitives";
 import {
-  deliveryFields, deliveryToValues, goalFields, goalsToValues, valuesToDelivery, valuesToGoals,
-  valuesToWhatsapp, whatsappFields, whatsappToValues,
+  deliveryToValues, goalFields, goalsToValues, publicationFields, valuesToDelivery, valuesToGoals,
 } from "../lib/manual-fields";
 import { useManualData, useSaveManualData } from "../lib/manual-inputs";
 import { useTheme } from "../theme";
@@ -93,29 +92,17 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
       <div className="section-title" style={{ marginTop: 22 }}>
         <div>
           <h2>Dados de negócio sem origem automática</h2>
-          <p>Entregas do contrato e régua de WhatsApp não vêm de nenhuma API hoje. Preencha aqui e as telas usam estes números. O funil comercial é editado dentro de CRM e vendas.</p>
+          <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O funil comercial é editado dentro de CRM e vendas.</p>
         </div>
       </div>
-      <div className="grid grid-wide">
-        <ManualNumbersPanel
-          title="Entregas GT+ no mês"
-          description="O combinado em contrato, item a item"
-          badge={<span className="badge gold">Contrato</span>}
-          fields={deliveryFields}
-          values={deliveryToValues(data.delivery)}
-          onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
-          saveLabel="Salvar entregas"
-        />
-        <ManualNumbersPanel
-          title="Automação WhatsApp"
-          description="Régua de relacionamento após o cadastro"
-          badge={<span className="badge green">Ativa</span>}
-          fields={whatsappFields}
-          values={whatsappToValues(data.whatsapp)}
-          onSave={(next) => persist({ whatsapp: valuesToWhatsapp(next) })}
-          saveLabel="Salvar automação"
-        />
-      </div>
+      <ManualNumbersPanel
+        title="Publicações do mês"
+        description="Posts e stories publicados no Instagram. Alimentam os anéis de entrega e o ritmo do mês."
+        fields={publicationFields}
+        values={deliveryToValues(data.delivery)}
+        onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
+        saveLabel="Salvar publicações"
+      />
     </div>
   );
 }

@@ -272,17 +272,4 @@ export const demoGoals: Goals = {
 export const demoDelivery: DeliveryStatus = {
   posts_published: 14,
   stories_published: 17,
-  creatives_delivered: 19,
-  creatives_goal: 24,
-  videos_delivered: 5,
-  videos_goal: 8,
-  weekly_reports: 2,
-  weekly_reports_goal: 4,
-};
-
-export const demoWhatsappFlow = {
-  contacts_reached: 611,
-  replied: 402,
-  scheduled_discovery: 138,
-  avg_first_response_min: 1.4,
 };
