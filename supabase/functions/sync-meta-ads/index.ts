@@ -14,6 +14,10 @@ import {
   type MetaAction,
   summarizeActionTypes,
 } from "./meta-ads.ts";
+import {
+  type CreativeEnrichmentStats,
+  enrichMetaCreativePreviews,
+} from "./meta-creative.ts";
 
 type MetaInsightLevel = "account" | "campaign" | "adset" | "ad";
 
@@ -729,6 +733,53 @@ export default {
           };
         }
 
+        let creativeEnrichment:
+          | ({ status: "success" } & CreativeEnrichmentStats)
+          | {
+            status: "failed";
+            inspected: number;
+            inserted: number;
+            updated: number;
+            reused: number;
+            preview_downloaded: number;
+            failed: number;
+            would_insert: number;
+            would_update: number;
+            failures: Array<{ ad_id: string; code: string }>;
+            error: string;
+          };
+
+        try {
+          creativeEnrichment = {
+            status: "success",
+            ...await enrichMetaCreativePreviews({
+              supabase: ctx.supabaseAdmin,
+              clientId: dashboardClient.id,
+              apiVersion: metaApiVersion,
+              accessToken: metaAccessToken,
+              accountIds: sourceAccounts.map((account) => account.account_id),
+              startDate: start_date,
+              endDate: end_date,
+              adRows: normalizedAdRows,
+              dryRun: dry_run,
+            }),
+          };
+        } catch {
+          creativeEnrichment = {
+            status: "failed",
+            inspected: 0,
+            inserted: 0,
+            updated: 0,
+            reused: 0,
+            preview_downloaded: 0,
+            failed: 0,
+            would_insert: 0,
+            would_update: 0,
+            failures: [],
+            error: "creative_enrichment_failed",
+          };
+        }
+
         return Response.json({
           ok: true,
           mode: dry_run ? "dry_run" : "write",
@@ -809,12 +860,13 @@ export default {
           database_write_performed: databaseWritePerformed,
           database_write_status: databaseWriteStatus,
           database_write_result: databaseWriteResult,
+          creative_enrichment: creativeEnrichment,
 
           message: dry_run
-            ? "Meta Ads daily, campaign, ad set, and ad insights fetched successfully. No database write was performed."
+            ? "Meta Ads metrics and creative previews inspected successfully. No database write was performed."
             : databaseWriteStatus === "already_processed"
-              ? "Meta Ads payload was already processed. No database write was performed."
-              : "Meta Ads daily, campaign, ad set, and ad data written successfully.",
+              ? "Meta Ads metrics were already processed. Creative previews were refreshed independently."
+              : "Meta Ads metrics and creative previews processed successfully.",
         });
       } catch (error) {
         if (error instanceof MetaApiRequestError) {
