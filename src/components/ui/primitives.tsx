@@ -182,12 +182,15 @@ export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBette
 
 export interface FunnelStage { id?: string; name: string; kind?: "commercial" | "close" | "post_sale"; count: number; avg_days?: number; previous_count?: number }
 
-// Funil de vendas de verdade: cada etapa é um trapézio que afunila proporcionalmente
-// à queda real de volume (não apenas barras do mesmo formato encolhendo). Partículas
-// escoam continuamente pelo centro (a "dimensão temporal" do funil) e o card inteiro
-// reage à posição do mouse com um leve tilt 3D.
+// Perfil do pipeline: cada etapa é um trapézio cuja largura acompanha quantas
+// oportunidades estão NAQUELA coluna agora. É um estoque, não uma progressão —
+// uma etapa posterior pode ser mais larga que a anterior, e o desenho mostra
+// isso em vez de forçar um afunilamento que não existe nos dados. Partículas
+// escoam pelo centro e o card reage à posição do mouse com um leve tilt 3D.
 export function Funnel({ stages, color, format, dense = false }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean }) {
-  const max = stages[0]?.count || 1;
+  const max = Math.max(...stages.map((s) => s.count), 1);
+  // Base da participação: só as colunas ainda em negociação.
+  const openTotal = stages.filter((s) => s.kind === "commercial").reduce((sum, s) => sum + s.count, 0);
   const [ready, setReady] = useState(false);
   const tilt = useTilt<HTMLDivElement>(5);
   useEffect(() => { const t = window.setTimeout(() => setReady(true), 90); return () => window.clearTimeout(t); }, []);
@@ -214,7 +217,9 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
           {stages.map((s, i) => {
             const topW = Math.max(shapeW * 0.1, (s.count / max) * shapeW);
             const nextCount = stages[i + 1]?.count ?? s.count * 0.93;
-            const botW = Math.max(shapeW * 0.08, Math.min(topW, (nextCount / max) * shapeW));
+            // Sem `Math.min(topW, ...)`: o estoque pode crescer de uma coluna
+            // para a outra e o desenho precisa alargar em vez de mentir.
+            const botW = Math.max(shapeW * 0.08, (nextCount / max) * shapeW);
             const y = i * rowH;
             const rest = shapeW / 2;
             const [tx0, tx1] = ready ? [rest - topW / 2, rest + topW / 2] : [rest - 6, rest + 6];
@@ -229,11 +234,12 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
         </svg>
       </div>
       <div className="funnel3d-rows">
-        {stages.map((s, i) => {
-          const prevStage = i ? stages[i - 1].count : null;
-          const rate = prevStage ? (s.count * 100) / prevStage : null;
-          const lostHere = prevStage != null ? prevStage - s.count : 0;
+        {stages.map((s) => {
           const postSale = s.kind === "post_sale";
+          // Participação no pipeline aberto. A taxa de passagem entre colunas
+          // vizinhas não existe aqui: são estoques independentes, e a diferença
+          // entre duas colunas não é "quantos se perderam".
+          const share = openTotal > 0 && s.kind === "commercial" ? (s.count * 100) / openTotal : null;
           return (
             // `--w` desenha a barra proporcional que substitui o trapézio no
             // mobile, onde a coluna do desenho é escondida para não empilhar
@@ -250,7 +256,11 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
               </div>
               <div className="funnel3d-row-bottom">
                 <b><AnimatedNumber value={s.count} format={format} /></b>
-                {postSale ? <em>lojas em implantação</em> : rate != null ? <em>{rate.toFixed(0)}% seguiu · {format(lostHere)} saíram</em> : <em>topo do funil</em>}
+                {postSale
+                  ? <em>pós-venda, fora do pipeline</em>
+                  : s.kind === "close"
+                    ? <em>parados na coluna de fechamento</em>
+                    : share != null ? <em>{share > 0 && share < 1 ? "<1" : share.toFixed(0)}% do pipeline aberto</em> : null}
                 {s.previous_count != null && <Delta current={s.count} previous={s.previous_count} />}
               </div>
             </div>

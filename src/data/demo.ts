@@ -1,7 +1,6 @@
 import { addDays, format, subDays } from "date-fns";
-import { closeStage, crmStages, cycleStages, preCloseStage, visitStage } from "../lib/crm-stages";
 import type {
-  CampaignRow, Channel, Creative, CrmStage, CrmSummary, DeliveryStatus, Front, FrontDaily, Goals,
+  CampaignRow, Channel, Creative, DeliveryStatus, Front, FrontDaily, Goals,
   OrganicDaily, OrganicPost, Platform,
 } from "../types";
 
@@ -193,96 +192,6 @@ export const demoOrganicPosts: OrganicPost[] = (() => {
     };
   });
 })();
-
-// --- CRM (Elo) — fictício até a API existir ---------------------------------------
-
-// Dias médios que um lead permanece em cada etapa antes de avançar (ou ser perdido),
-// por id de etapa. Só o modo demonstração usa estes números: o funil real vem da
-// entrada manual. "Contrato" não tem tempo (é o fechamento) e "Implantação" tem o
-// seu, que aparece no funil mas fica fora do ciclo comercial.
-const demoStageDays: Record<Front, Record<string, number>> = {
-  franchise: { lead: 2, contact: 3, recall: 4, fqc: 5, visit_call: 6, cof: 7, pre_contract: 6, waiting: 8, implementation: 21 },
-  condominium: { lead: 4, contact: 6, recall: 6, fqa: 8, visit_proposal: 10, assembly: 18, implementation: 30 },
-};
-
-/** Volume relativo ao topo em cada etapa. Curva fictícia, exclusiva da demonstração. */
-const demoStageRates: Record<Front, Record<string, number>> = {
-  franchise: { lead: 1, contact: 0.62, recall: 0.46, fqc: 0.31, visit_call: 0.22, cof: 0.16, pre_contract: 0.11, waiting: 0.07, contract: 0.042, implementation: 0.034 },
-  condominium: { lead: 1, contact: 0.7, recall: 0.55, fqa: 0.44, visit_proposal: 0.3, assembly: 0.18, contract: 0.09, implementation: 0.07 },
-};
-
-function crm(front: Front, leads: number, seed: number): CrmSummary {
-  const random = rng(seed);
-  const isFranchise = front === "franchise";
-  const rates = demoStageRates[front];
-  const days = demoStageDays[front];
-  const definitions = crmStages(front);
-  const stages: CrmStage[] = definitions.map((definition) => ({
-    id: definition.id,
-    name: definition.name,
-    kind: definition.kind,
-    role: definition.role,
-    count: Math.round(leads * (rates[definition.id] ?? 0)),
-    avg_days: definition.tracksDays ? (days[definition.id] ?? 0) : 0,
-  }));
-
-  const close = closeStage(stages);
-  const visit = visitStage(stages);
-  const pipeline = preCloseStage(stages);
-  const contracts = close?.count ?? 0;
-  const avgTicket = isFranchise ? 84500 : 0;
-  const closeRate = leads ? contracts / leads : 0;
-  const visitRate = leads ? (visit?.count ?? 0) / leads : 0;
-
-  // Pipeline aberto: leads parados em cada etapa comercial, ponderados pela taxa
-  // observada daquela etapa virar contrato. Implantação fica de fora (pós-venda).
-  const commercial = stages.filter((stage) => stage.kind === "commercial");
-  const projectedRevenue = avgTicket
-    ? commercial.reduce((sum, stage, index) => {
-        const next = commercial[index + 1] ?? close;
-        const openHere = Math.max(0, stage.count - (next?.count ?? 0));
-        const probabilityToClose = stage.count ? contracts / stage.count : 0;
-        return sum + openHere * probabilityToClose * avgTicket;
-      }, 0)
-    : 0;
-  const months = ["Abr", "Mai", "Jun", "Jul", "Ago", "Set"];
-  const monthly = months.map((month, i) => {
-    const base = leads / 6;
-    const growth = 0.55 + i * 0.16;
-    const l = Math.round(base * growth * (0.9 + random() * 0.2));
-    const v = Math.round(l * visitRate * (0.9 + random() * 0.2));
-    const c = Math.max(0, Math.round(l * closeRate * (0.8 + random() * 0.4)));
-    return { month, leads: l, visits: v, contracts: c, revenue: c * avgTicket };
-  });
-  const sources = [
-    { name: "Meta Ads", leads: Math.round(leads * 0.57), contracts: Math.round(contracts * 0.52) },
-    { name: "Google Ads", leads: Math.round(leads * 0.27), contracts: Math.round(contracts * 0.33) },
-    { name: "Orgânico / Instagram", leads: Math.round(leads * 0.09), contracts: Math.round(contracts * 0.08) },
-    { name: "Indicação da rede", leads: Math.round(leads * 0.07), contracts: Math.round(contracts * 0.07) },
-  ];
-  const people = isFranchise
-    ? [["Marcelo Andrade", "Sorocaba, SP"], ["Patrícia Lemos", "Curitiba, PR"], ["Rafael Nogueira", "Ribeirão Preto, SP"], ["Juliana Farias", "Belo Horizonte, MG"], ["Eduardo Tavares", "Campinas, SP"], ["Camila Rezende", "Florianópolis, SC"]]
-    : [["Cond. Reserva Jardim", "Campinas, SP"], ["Residencial Alto da Mata", "Jundiaí, SP"], ["Cond. Villaggio Verde", "São Paulo, SP"], ["Ed. Torres do Parque", "Rio de Janeiro, RJ"], ["Cond. Bosque das Palmeiras", "Indaiatuba, SP"], ["Res. Portal de Goiânia", "Goiânia, GO"]];
-  // Negociação demonstrativa parada em alguma etapa comercial (nunca na pós-venda).
-  const openStages = stages.filter((stage) => stage.kind === "commercial").slice(1);
-  const recent = people.map(([name, city], i) => ({
-    id: `r${i}`, name, city, stage: openStages[Math.floor(random() * openStages.length)]?.name ?? stages[0].name,
-    source: sources[Math.floor(random() * 3)].name,
-    value: isFranchise ? avgTicket : 0, updated_at: iso(subDays(demoEnd, Math.floor(random() * 6))),
-  }));
-  return {
-    front, stages, contracts, revenue: contracts * avgTicket, avg_ticket: avgTicket,
-    conversion_rate: leads ? (contracts * 100) / leads : null,
-    avg_cycle_days: cycleStages(stages).reduce((sum, stage) => sum + stage.avg_days, 0),
-    pipeline_value: isFranchise ? (pipeline?.count ?? 0) * avgTicket : 0, projected_revenue: Math.round(projectedRevenue),
-    monthly, sources, recent,
-    close_stage: close, pipeline_stage: pipeline, visit_stage: visit,
-  };
-}
-
-export function demoCrm(front: Front, leads: number): CrmSummary {
-  return crm(front, leads, front === "franchise" ? 501 : 502);
-}
 
 export const demoGoals: Goals = {
   media_budget: 50000,

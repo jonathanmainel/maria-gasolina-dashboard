@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { demoDelivery, demoGoals } from "../data/demo";
 import { CLIENT_SLUG, isDemoMode } from "./api";
-import { defaultFunnel, normalizeFunnel } from "./manual-funnel";
+import { defaultFunnel, defaultResults, normalizeFunnel, normalizeResults } from "./manual-funnel";
 import { supabase } from "./supabase";
 import type { Front, ManualBusinessData, ManualStorage } from "../types";
 
@@ -32,11 +32,12 @@ const MISSING_TABLE = new Set(["PGRST205", "PGRST202", "42P01"]);
 
 // Padrões e migração do funil moram em `manual-funnel.ts`, junto do mapa de
 // etapas legadas; re-exportado aqui porque as telas leem o padrão por este módulo.
-export { defaultFunnel } from "./manual-funnel";
+export { defaultFunnel, defaultResults } from "./manual-funnel";
 
 export const defaultManualData: ManualBusinessData = {
   goals: demoGoals,
   funnel: defaultFunnel,
+  results: defaultResults,
   delivery: demoDelivery,
 };
 
@@ -66,9 +67,14 @@ export function normalize(raw: unknown): ManualBusinessData {
   // O funil tem regra própria (ids de etapa + migração do modelo antigo de 6
   // posições), então a normalização dele vive em `manual-funnel.ts`.
   const funnel = (front: Front) => normalizeFunnel(front, source.funnel?.[front]);
+  // O resultado do período recebe o funil bruto junto porque, num payload do
+  // modelo antigo, o total de contratos assinados morava na última posição do
+  // array de etapas — é o único caminho de migração; fora dele, nada é inferido.
+  const results = (front: Front) => normalizeResults(front, source.results?.[front], source.funnel?.[front]);
   return {
     goals: numbers(defaultManualData.goals, source.goals),
     funnel: { franchise: funnel("franchise"), condominium: funnel("condominium") },
+    results: { franchise: results("franchise"), condominium: results("condominium") },
     // Só as chaves do padrão sobrevivem: campos de módulos removidos (entregas
     // do contrato, régua de WhatsApp) em payloads antigos são descartados aqui.
     delivery: numbers(defaultManualData.delivery, source.delivery),

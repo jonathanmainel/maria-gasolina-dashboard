@@ -294,46 +294,66 @@ export interface CrmStage {
   /** Semântica da etapa: comercial, fechamento ou pós-venda. Nunca a posição. */
   kind: CrmStageKind;
   role?: CrmStageRole;
+  /**
+   * ESTOQUE ATUAL: quantas oportunidades estão HOJE nesta coluna do kanban.
+   * Não é volume acumulado de passagem no período — uma etapa posterior pode
+   * ter mais cards que uma anterior, e a diferença entre duas colunas não
+   * significa "quantos se perderam".
+   */
   count: number;
   avg_days: number;
 }
 
+/** Só leads reais de mídia. Contratos e receita mensais não são inferíveis. */
 export interface CrmMonthly {
   month: string;
   leads: number;
-  /** Volume na etapa de visita/call da frente — não existe "reunião" nos dois funis. */
-  visits: number;
-  contracts: number;
-  revenue: number;
 }
 
+/** Origem dos LEADS de mídia. A origem dos contratos não é conhecida sem atribuição no CRM. */
 export interface CrmSource {
   name: string;
   leads: number;
-  contracts: number;
 }
 
+/**
+ * Duas origens que NÃO se misturam:
+ *
+ *   A) SNAPSHOT  — `stages`, `open_opportunities`, `pipeline_stage`, `visit_stage`
+ *      e os tempos por etapa. Foto do kanban hoje.
+ *   B) RESULTADO — `contracts` e `revenue`. Digitados à mão para o período de
+ *      referência. Nunca derivados do snapshot.
+ *
+ * Não existe aqui conversão lead → contrato, projeção de receita, contratos por
+ * mês nem origem dos contratos: nenhum deles é calculável a partir de um
+ * estoque instantâneo, e inventá-los seria pior do que declarar a ausência.
+ */
 export interface CrmSummary {
   front: Front;
-  /** Todas as etapas do funil na ordem visual, incluindo a pós-venda. */
+  /** [SNAPSHOT] Todas as etapas na ordem visual, incluindo a pós-venda. */
   stages: CrmStage[];
-  /** Volume da etapa de fechamento comercial ("Contrato"). Implantação nunca entra aqui. */
+  /** [SNAPSHOT] Oportunidades abertas hoje: soma das etapas comerciais antes do fechamento. */
+  open_opportunities: number;
+  /** [RESULTADO] Contratos fechados no período, informados à mão. */
   contracts: number;
+  /** [RESULTADO] Receita do período, informada à mão. */
   revenue: number;
+  /** Ticket: realizado (receita ÷ contratos) quando há resultado, senão a referência digitada. */
   avg_ticket: number;
-  conversion_rate: number | null;
+  /** true quando `avg_ticket` veio do resultado do período, não da referência manual. */
+  avg_ticket_realized: boolean;
+  /** [SNAPSHOT] Soma do tempo médio das etapas até o fechamento. */
   avg_cycle_days: number;
-  pipeline_value: number;
-  /** Previsão ponderada de receita adicional a partir do pipeline aberto (probabilidade histórica de fechamento por etapa × ticket médio). */
-  projected_revenue: number;
+  /** Leads reais de mídia por mês. Sem contratos nem receita inferidos. */
   monthly: CrmMonthly[];
+  /** Leads reais por canal de mídia. Não é origem de contrato. */
   sources: CrmSource[];
   recent: Array<{ id: string; name: string; city: string; stage: string; source: string; value: number; updated_at: string }>;
   /** Etapa de fechamento comercial já resolvida, para as telas não procurarem por índice. */
   close_stage: CrmStage | null;
-  /** Última etapa comercial antes do fechamento — base do card de pipeline. */
+  /** [SNAPSHOT] Última etapa comercial antes do fechamento. */
   pipeline_stage: CrmStage | null;
-  /** Etapa de visita/call da frente, quando existir. */
+  /** [SNAPSHOT] Etapa de visita/call da frente, quando existir. */
   visit_stage: CrmStage | null;
 }
 
@@ -378,9 +398,11 @@ export interface GeoCity {
 // ---------------------------------------------------------------------------
 
 /**
- * Valores-base do funil comercial preenchidos à mão. Tudo o que é derivável
- * (receita, ticket, conversão, ciclo, pipeline, projeção) é calculado a partir
- * daqui — o usuário nunca digita uma métrica que o dashboard sabe calcular.
+ * Foto do kanban do CRM preenchida à mão: quantas oportunidades estão HOJE em
+ * cada etapa, e quanto tempo em média elas ficam em cada uma.
+ *
+ * NÃO é um funil cumulativo. Nada de resultado comercial sai daqui — contratos
+ * fechados e receita do período vêm de `ManualPeriodResults`.
  */
 export interface ManualFunnelInput {
   /**
@@ -391,14 +413,36 @@ export interface ManualFunnelInput {
   stages: Record<string, number>;
   /** Dias médios de permanência, por id de etapa (só etapas com `tracksDays`). */
   stage_days: Record<string, number>;
-  /** Ticket médio do contrato fechado, em BRL. 0 quando a frente não tem taxa direta. */
+  /**
+   * Ticket de referência do contrato, em BRL. 0 quando a frente não tem taxa
+   * direta. Serve de referência quando não há resultado informado no período —
+   * o ticket exibido passa a ser receita ÷ contratos assim que houver.
+   */
   avg_ticket: number;
+}
+
+/**
+ * RESULTADO COMERCIAL do período de referência, digitado à mão.
+ *
+ * Existe separado do funil de propósito: a coluna "Contrato" do kanban mostra
+ * quantos cards estão parados nela agora, não quantos negócios foram fechados —
+ * um negócio fechado normalmente já saiu dela para "Implantação". Sem API do
+ * CRM, o número de fechamentos e o faturamento só podem ser informados.
+ */
+export interface ManualPeriodResults {
+  /** Contratos fechados no período. Ausente = 0, nunca inferido do snapshot. */
+  contracts_closed: number;
+  /** Receita do período, em BRL. Ausente = 0, nunca inferida. */
+  revenue: number;
 }
 
 /** Bloco único de dados de negócio manuais, persistido por cliente. */
 export interface ManualBusinessData {
   goals: Goals;
+  /** [SNAPSHOT] Foto do kanban por frente. */
   funnel: Record<Front, ManualFunnelInput>;
+  /** [RESULTADO] Fechamentos e receita do período por frente. */
+  results: Record<Front, ManualPeriodResults>;
   delivery: DeliveryStatus;
 }
 

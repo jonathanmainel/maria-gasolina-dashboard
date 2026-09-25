@@ -25,7 +25,7 @@ export function useDashboard(range: DateRange) {
     const orgCur = org.filter((r) => r.date >= range.start && r.date <= range.end);
     const orgPrev = org.filter((r) => r.date >= prev.start && r.date <= prev.end);
     const front = (f: Front) => ({ current: totals(byFront(cur, f)), previous: totals(byFront(before, f)), rows: byFront(cur, f), prevRows: byFront(before, f) });
-    const crm = (f: Front) => buildCrmSummary(f, manual.data.funnel[f], { rows: byFront(cur, f) });
+    const crm = (f: Front) => buildCrmSummary(f, manual.data.funnel[f], manual.data.results[f], { rows: byFront(cur, f) });
     return {
       current: cur,
       previous: before,
@@ -42,7 +42,7 @@ export function useDashboard(range: DateRange) {
       instagram: { current: organicSummary(orgCur, "instagram"), previous: organicSummary(orgPrev, "instagram") },
       facebook: { current: organicSummary(orgCur, "facebook"), previous: organicSummary(orgPrev, "facebook") },
       posts: organic.data?.posts ?? [],
-      // Funil comercial derivado da entrada manual + volume real de mídia.
+      // Snapshot do kanban + resultado do período, ambos manuais; leads mensais reais de mídia.
       crm: { franchise: crm("franchise"), condominium: crm("condominium") },
       delivery: manual.data.delivery,
       goals: manual.data.goals,

@@ -1,6 +1,6 @@
 import type { NumberFieldSpec } from "../components/ui/editable";
 import { closeStage, crmStages, isCommercialClose, isPostSale } from "./crm-stages";
-import type { DeliveryStatus, Front, Goals, ManualFunnelInput } from "../types";
+import type { DeliveryStatus, Front, Goals, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // Descrição dos campos manuais em um só lugar: os mesmos rótulos valem para o
 // editor em Metas e ajustes e para o editor do funil dentro de CRM e vendas.
@@ -30,9 +30,13 @@ export const publicationFields: NumberFieldSpec[] = [
   { key: "instant_published", label: "Instant", hint: "Publicações Instant no mês" },
 ];
 
-// Campos do funil: um por etapa (volume), um por etapa com tempo (dias) e o
-// ticket. As chaves carregam o id da etapa, não a posição — assim Franquias
-// (10 etapas) e Condomínios (8) usam o mesmo editor sem números mágicos.
+// Campos do funil: um por etapa (quantos cards estão nela AGORA), um por etapa
+// com tempo (dias) e o ticket de referência. As chaves carregam o id da etapa,
+// não a posição — assim Franquias (10 etapas) e Condomínios (8) usam o mesmo
+// editor sem números mágicos.
+//
+// Contratos fechados e receita NÃO estão aqui: são resultado do período e têm
+// bloco próprio (`resultFields`), porque não saem do estoque do kanban.
 const stageKey = (id: string) => `stage_${id}`;
 const dayKey = (id: string) => `days_${id}`;
 
@@ -44,14 +48,12 @@ export function funnelFields(front: Front): NumberFieldSpec[] {
     ...stages.map((stage, index) => ({
       key: stageKey(stage.id),
       label: stage.name,
-      hint: stage.role === "top"
-        ? "Topo do funil"
-        : isCommercialClose(stage)
-          ? "Fechamento comercial: base de contratos, receita e conversão"
-          : isPostSale(stage)
-            ? `Pós-venda, depois de "${close?.name ?? "Contrato"}" — não conta como contrato`
-            : `Volume que chegou em "${stage.name}"`,
-      group: index === 0 ? "Volume por etapa" : undefined,
+      hint: isCommercialClose(stage)
+        ? "Cards parados na coluna de fechamento agora — não é o total fechado no período"
+        : isPostSale(stage)
+          ? `Pós-venda, depois de "${close?.name ?? "Contrato"}" — não conta como contrato`
+          : `Oportunidades hoje em "${stage.name}"`,
+      group: index === 0 ? "Oportunidades hoje por etapa" : undefined,
     })),
     ...stages.filter((stage) => stage.tracksDays).map((stage, index) => ({
       key: dayKey(stage.id),
@@ -59,9 +61,28 @@ export function funnelFields(front: Front): NumberFieldSpec[] {
       hint: isPostSale(stage) ? "Tempo de implantação — fora do ciclo comercial" : "Tempo médio de permanência na etapa",
       group: index === 0 ? "Tempo médio por etapa (dias)" : undefined,
     })),
-    { key: "avg_ticket", label: "Ticket médio do contrato", hint: "Deixe 0 quando a frente não tem taxa direta", kind: "currency" as const, group: "Comercial" },
+    { key: "avg_ticket", label: "Ticket de referência do contrato", hint: "Usado enquanto não houver receita do período informada. 0 quando a frente não tem taxa direta", kind: "currency" as const, group: "Referência" },
   ];
 }
+
+/**
+ * Resultado comercial do período — bloco curto e separado do funil de
+ * propósito, para deixar explícito que estes números são digitados e não saem
+ * da foto do kanban.
+ */
+export function resultFields(front: Front): NumberFieldSpec[] {
+  const unit = front === "franchise" ? "franquia" : "condomínio";
+  return [
+    { key: "contracts_closed", label: "Contratos fechados no período", hint: `Negócios de ${unit} efetivamente fechados — não é a ocupação da coluna "Contrato"` },
+    { key: "revenue", label: "Receita do período", hint: "Faturamento reconhecido no período. Deixe 0 quando a frente não tem taxa direta", kind: "currency" as const },
+  ];
+}
+
+export const resultsToValues = (results: ManualPeriodResults) => ({ ...results }) as unknown as Record<string, number>;
+export const valuesToResults = (values: Record<string, number>): ManualPeriodResults => ({
+  contracts_closed: Math.max(0, Math.round(values.contracts_closed ?? 0)),
+  revenue: Math.max(0, values.revenue ?? 0),
+});
 
 export function funnelToValues(front: Front, input: ManualFunnelInput): Record<string, number> {
   const values: Record<string, number> = { avg_ticket: input.avg_ticket };

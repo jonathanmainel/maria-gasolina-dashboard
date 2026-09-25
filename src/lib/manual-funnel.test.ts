@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { crmStages } from "./crm-stages";
-import { defaultFunnel, legacyStageMap, normalizeFunnel } from "./manual-funnel";
+import { defaultFunnel, defaultResults, legacyStageMap, normalizeFunnel, normalizeResults } from "./manual-funnel";
 import { normalize } from "./manual-inputs";
 
 // O payload já salvo em `dashboard_manual_inputs` guarda o funil no modelo
@@ -12,11 +12,23 @@ const legacyFranchise = { stages: [420, 260, 130, 67, 36, 18], stage_days: [3, 6
 const legacyCondominium = { stages: [180, 126, 79, 49, 27, 16], stage_days: [5, 9, 12, 16, 20], avg_ticket: 0 };
 
 describe("migração do payload legado de 6 etapas", () => {
-  it("Franquias: Leads → Lead, Contato realizado → Contato, Contrato assinado → Contrato", () => {
+  it("Franquias: Leads → Lead e Contato realizado → Contato", () => {
     const funnel = normalizeFunnel("franchise", legacyFranchise);
     expect(funnel.stages.lead).toBe(420);
     expect(funnel.stages.contact).toBe(260);
-    expect(funnel.stages.contract).toBe(18);
+  });
+
+  it("\"Contrato assinado\" vai para o resultado do período, não para a coluna Contrato", () => {
+    // No modelo antigo a última posição era contagem de FECHAMENTO. A coluna
+    // "Contrato" do kanban (cards parados nela agora) não era medida.
+    expect(normalizeFunnel("franchise", legacyFranchise).stages.contract).toBe(0);
+    expect(normalizeResults("franchise", undefined, legacyFranchise).contracts_closed).toBe(18);
+    expect(normalizeFunnel("condominium", legacyCondominium).stages.contract).toBe(0);
+    expect(normalizeResults("condominium", undefined, legacyCondominium).contracts_closed).toBe(16);
+  });
+
+  it("a receita do período nunca é reconstruída a partir de contratos × ticket", () => {
+    expect(normalizeResults("franchise", undefined, legacyFranchise).revenue).toBe(0);
   });
 
   it("Franquias: etapas antigas sem equivalência clara entram em 0, não em um palpite", () => {
@@ -28,12 +40,11 @@ describe("migração do payload legado de 6 etapas", () => {
     });
   });
 
-  it("Condomínios: Indicações, Contato com síndico, Aprovação em assembleia e Loja contratada são mapeados", () => {
+  it("Condomínios: Indicações, Contato com síndico e Aprovação em assembleia são mapeados", () => {
     const funnel = normalizeFunnel("condominium", legacyCondominium);
     expect(funnel.stages.lead).toBe(180);
     expect(funnel.stages.contact).toBe(126);
     expect(funnel.stages.assembly).toBe(49);
-    expect(funnel.stages.contract).toBe(16);
     // "Visita técnica" (79) e "Proposta" (27) cairiam ambos em "Visita / Proposta".
     expect(funnel.stages.recall).toBe(0);
     expect(funnel.stages.fqa).toBe(0);
@@ -104,18 +115,52 @@ describe("payload no formato atual (registro por id)", () => {
 });
 
 describe("normalize() do bloco manual inteiro", () => {
-  it("um payload salvo com o modelo antigo continua carregando", () => {
+  it("um payload salvo com o modelo antigo continua carregando, em dois blocos", () => {
     const result = normalize({ funnel: { franchise: legacyFranchise, condominium: legacyCondominium } });
-    expect(result.funnel.franchise.stages.contract).toBe(18);
     expect(result.funnel.condominium.stages.assembly).toBe(49);
+    expect(result.results.franchise.contracts_closed).toBe(18);
+    expect(result.results.condominium.contracts_closed).toBe(16);
     expect(result.goals).toBeDefined();
     expect(result.delivery).toBeDefined();
   });
 
-  it("os padrões do funil não trazem volume inventado para as etapas novas", () => {
-    expect(defaultFunnel.franchise.stages.fqc).toBe(0);
-    expect(defaultFunnel.franchise.stages.cof).toBe(0);
-    expect(defaultFunnel.condominium.stages.fqa).toBe(0);
-    expect(defaultFunnel.franchise.stages.implementation).toBe(0);
+  it("um payload já no formato novo não passa pela migração do legado", () => {
+    const result = normalize({
+      funnel: { franchise: { stages: { lead: 9, contact: 1962, contract: 0 }, stage_days: {}, avg_ticket: 84500 } },
+      results: { franchise: { contracts_closed: 4, revenue: 338000 } },
+    });
+    expect(result.funnel.franchise.stages.contact).toBe(1962);
+    expect(result.funnel.franchise.stages.contract).toBe(0);
+    expect(result.results.franchise).toEqual({ contracts_closed: 4, revenue: 338000 });
+  });
+
+  it("o padrão de resultado é zero: fechamento e receita nunca são inventados", () => {
+    expect(defaultResults.franchise).toEqual({ contracts_closed: 0, revenue: 0 });
+    expect(defaultResults.condominium).toEqual({ contracts_closed: 0, revenue: 0 });
+    expect(normalize({}).results).toEqual(defaultResults);
+  });
+
+  it("o snapshot padrão é um estoque de kanban, não uma curva de funil", () => {
+    // Trava contra a volta do modelo cumulativo: "Contato" tem muito mais
+    // cards que "Lead", e "Implantação" tem mais que "Contrato".
+    expect(defaultFunnel.franchise.stages.contact).toBeGreaterThan(defaultFunnel.franchise.stages.lead);
+    expect(defaultFunnel.franchise.stages.implementation).toBeGreaterThan(defaultFunnel.franchise.stages.contract);
+    expect(defaultFunnel.condominium.stages.contact).toBeGreaterThan(defaultFunnel.condominium.stages.lead);
+  });
+});
+
+describe("normalizeResults()", () => {
+  it("payload no formato atual passa inteiro e trava negativos", () => {
+    expect(normalizeResults("franchise", { contracts_closed: 4, revenue: 338000 })).toEqual({ contracts_closed: 4, revenue: 338000 });
+    expect(normalizeResults("franchise", { contracts_closed: -4, revenue: -1 })).toEqual({ contracts_closed: 0, revenue: 0 });
+  });
+
+  it("um dos dois campos presente não faz o outro cair no legado nem no padrão", () => {
+    expect(normalizeResults("franchise", { revenue: 100 }, legacyFranchise)).toEqual({ contracts_closed: 0, revenue: 100 });
+  });
+
+  it("sem resultado e sem legado em array, devolve zero", () => {
+    expect(normalizeResults("franchise", undefined, { stages: { lead: 9 } })).toEqual({ contracts_closed: 0, revenue: 0 });
+    expect(normalizeResults("condominium", undefined, undefined)).toEqual({ contracts_closed: 0, revenue: 0 });
   });
 });

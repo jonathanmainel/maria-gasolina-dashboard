@@ -56,14 +56,18 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const [cplA, cplB] = split(sparkCpl.filter((v) => v > 0));
   const [followA, followB] = split(orgSpark);
 
-  // Vendas: funil comercial das duas frentes, direto do CRM (ilustrativo até a API do Elo).
+  // Vendas. Dois blocos de natureza diferente, que o dashboard não mistura:
+  // o resultado do período (contratos e receita, informados) e a foto do kanban
+  // (oportunidades paradas em cada etapa hoje). Não existe aqui conversão
+  // lead → contrato nem projeção de receita: o estoque do kanban não sustenta
+  // nenhuma das duas, e os leads de mídia do período não são o denominador dos
+  // contratos fechados nele (quem fechou hoje entrou meses atrás).
   const crmFranchise = data.crm.franchise;
   const crmCondominium = data.crm.condominium;
   const salesContracts = crmFranchise.contracts + crmCondominium.contracts;
-  const salesLeads = franchise.current.leads + condominium.current.leads;
-  const salesConvRate = salesLeads ? (salesContracts * 100) / salesLeads : null;
-  const salesProjected = crmFranchise.projected_revenue + crmCondominium.projected_revenue;
-  const contractsMonthly = crmFranchise.monthly.map((m, i) => ({ label: m.month, Franquias: m.contracts, Condomínios: crmCondominium.monthly[i]?.contracts ?? 0 }));
+  const salesRevenue = crmFranchise.revenue + crmCondominium.revenue;
+  const salesOpen = crmFranchise.open_opportunities + crmCondominium.open_opportunities;
+  const openByStage = crmFranchise.stages.filter((stage) => stage.kind === "commercial" && stage.count > 0);
 
   return (
     <div className="view-enter">
@@ -122,13 +126,14 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       <div className="section-title" style={{ marginTop: 22 }}>
         <div><h2>Tendências</h2><p>Metade recente do período contra a metade anterior — evolução ou regressão de cada indicador, sem esperar o fim do mês.</p></div>
       </div>
-      <div className="grid grid-6">
+      {/* Só indicadores com série diária real. Contratos e receita saíram daqui:
+          são um número único do período informado, sem histórico mensal no CRM
+          para comparar — a série anterior vinha de leads × taxa do funil. */}
+      <div className="grid grid-4">
         <Kpi label="Investimento" value={sum(spendB)} previous={sum(spendA)} format={money} accent="red" icon={<Wallet size={15} />} spark={sparkSpend} foot="metade recente vs. anterior" lowerIsBetter />
         <Kpi label="Leads" value={sum(leadsB)} previous={sum(leadsA)} format={integer} accent="gold" icon={<Target size={15} />} spark={sparkLeads} foot="metade recente vs. anterior" />
         <Kpi label="Custo por lead" value={avg(cplB)} previous={avg(cplA)} format={money} accent="green" icon={<Zap size={15} />} spark={sparkCpl} foot="média: recente vs. anterior" lowerIsBetter />
         <Kpi label="Novos seguidores" value={sum(followB)} previous={sum(followA)} format={integer} accent="violet" icon={<UserPlus size={15} />} spark={orgSpark} foot="metade recente vs. anterior" />
-        <Kpi label="Contratos assinados" value={crmFranchise.monthly.at(-1)?.contracts ?? 0} previous={crmFranchise.monthly.at(-2)?.contracts ?? 0} format={integer} accent="sky" icon={<FileSignature size={15} />} spark={crmFranchise.monthly.map((m) => m.contracts)} foot="franquias: mês atual vs. anterior" />
-        <Kpi label="Receita faturada" value={crmFranchise.monthly.at(-1)?.revenue ?? 0} previous={crmFranchise.monthly.at(-2)?.revenue ?? 0} format={money} accent="green" icon={<BadgeDollarSign size={15} />} spark={crmFranchise.monthly.map((m) => m.revenue)} foot="franquias: mês atual vs. anterior" />
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 14 }}>
@@ -147,41 +152,36 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       </div>
 
       <div className="section-title" style={{ marginTop: 22 }}>
-        <div><h2>Vendas</h2><p>Resultado comercial das duas frentes, direto do funil do CRM Elo.</p></div>
+        <div><h2>Vendas</h2><p>Resultado informado do período e pipeline parado hoje no CRM Elo — dois números de naturezas diferentes, lado a lado sem se misturarem.</p></div>
         <span className="badge sky">CRM Elo · entrada manual</span>
       </div>
       <div className="grid grid-4">
         <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={`${crmFranchise.contracts} franquias · ${crmCondominium.contracts} condomínios`} />
-        <Kpi label="Receita faturada" value={crmFranchise.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={`ticket médio ${money(crmFranchise.avg_ticket)}`} />
-        <Kpi label="Pipeline projetado" value={salesProjected} format={money} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="previsão ponderada do funil aberto" />
-        <Kpi label="Conversão lead → contrato" value={salesConvRate} format={percent} accent="red" icon={<Target size={16} />} hideDelta foot="das duas frentes somadas" />
+        <Kpi label="Receita no período" value={salesRevenue > 0 ? salesRevenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={salesRevenue > 0 ? "informada nas duas frentes" : "informe em CRM e vendas"} />
+        <Kpi label="Oportunidades abertas" value={salesOpen} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={`${crmFranchise.open_opportunities} franquias · ${crmCondominium.open_opportunities} condomínios`} />
+        <Kpi label="Ticket médio · franquias" value={crmFranchise.avg_ticket > 0 ? crmFranchise.avg_ticket : null} format={money} accent="red" icon={<Target size={16} />} hideDelta foot={crmFranchise.avg_ticket_realized ? "realizado: receita ÷ contratos" : "referência informada"} />
       </div>
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        <Panel title="Contratos por mês" description="Franquias e condomínios lado a lado, últimos 6 meses">
-          <div className="chart-box h-220">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={contractsMonthly} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="csF" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={colors.red} stopOpacity=".45" /><stop offset="100%" stopColor={colors.red} stopOpacity="0" /></linearGradient>
-                  <linearGradient id="csC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={colors.gold} stopOpacity=".45" /><stop offset="100%" stopColor={colors.gold} stopOpacity="0" /></linearGradient>
-                </defs>
-                <CartesianGrid stroke={colors.grid} vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: colors.tick, fontSize: 10.5 }} dy={8} />
-                <YAxis tickLine={false} axisLine={false} width={30} tick={{ fill: colors.tick, fontSize: 10 }} />
-                <Tooltip content={<ChartTip format={integer} />} cursor={{ stroke: colors.tick, strokeDasharray: "3 3" }} />
-                <Area type="monotone" dataKey="Franquias" stroke={colors.red} strokeWidth={2.5} fill="url(#csF)" isAnimationActive animationDuration={1200} />
-                <Area type="monotone" dataKey="Condomínios" stroke={colors.gold} strokeWidth={2.5} fill="url(#csC)" isAnimationActive animationDuration={1200} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: colors.red }} />Franquias</span><span><i style={{ background: colors.gold }} />Condomínios</span></div>
+        <Panel title="Pipeline aberto por etapa · Franquias" description="Oportunidades paradas em cada coluna do kanban hoje. É estoque: a diferença entre duas colunas não é perda de uma para a outra.">
+          {openByStage.length ? (
+            <BarList items={openByStage.map((stage) => ({ name: stage.name, value: stage.count, color: colors.red }))} format={integer} />
+          ) : (
+            <div className="empty-state">Nenhuma oportunidade aberta informada.</div>
+          )}
         </Panel>
-        <Panel className="fill-body" title="Projetado vs. faturado" description="Receita já fechada contra a previsão do pipeline aberto">
-          <div className="proj-compare">
-            <div className="proj-bar"><span>Faturado</span><div className="proj-track"><div className="proj-fill won" style={{ width: "100%" }} /></div><b>{money(crmFranchise.revenue)}</b></div>
-            <div className="proj-bar"><span>Projetado (pipeline aberto)</span><div className="proj-track"><div className="proj-fill forecast" style={{ width: `${Math.min(100, (salesProjected / Math.max(1, crmFranchise.revenue + salesProjected)) * 100)}%` }} /></div><b>{money(salesProjected)}</b></div>
-            <div className="proj-total"><span>Potencial total do período</span><strong>{money(crmFranchise.revenue + salesProjected)}</strong></div>
-          </div>
+        <Panel className="fill-body" title="Resultado do período" description="Contratos fechados e receita informados para o período de referência">
+          {salesContracts > 0 || salesRevenue > 0 ? (
+            <div className="proj-compare">
+              <div className="proj-bar"><span>Franquias</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, salesContracts > 0 ? (crmFranchise.contracts * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmFranchise.contracts)}</b></div>
+              <div className="proj-bar"><span>Condomínios</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, salesContracts > 0 ? (crmCondominium.contracts * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmCondominium.contracts)}</b></div>
+              <div className="proj-total"><span>Receita somada no período</span><strong>{money(salesRevenue)}</strong></div>
+            </div>
+          ) : (
+            <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
+              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Nenhum resultado informado</strong>
+              <span>Contratos fechados e receita são digitados em CRM e vendas: não saem da foto do kanban nem dos leads de mídia.</span>
+            </div>
+          )}
         </Panel>
       </div>
 

@@ -1,22 +1,39 @@
-import { closeStage, crmStages, cycleStages, isPostSale, preCloseStage, topStage, visitStage } from "./crm-stages";
-import type { CrmSource, CrmStage, CrmSummary, Front, FrontDaily, ManualFunnelInput } from "../types";
+import { closeStage, crmStages, cycleStages, isPostSale, preCloseStage, visitStage } from "./crm-stages";
+import type { CrmSource, CrmStage, CrmSummary, Front, FrontDaily, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // ---------------------------------------------------------------------------
-// Funil comercial
+// Funil comercial — duas origens que não se misturam
 //
-// O CRM Elo ainda não tem API de leitura, então os volumes por etapa, o tempo em
-// cada etapa e o ticket médio vêm da entrada manual (`lib/manual-inputs.ts`).
-// Tudo o que dá para calcular é calculado aqui e não é pedido ao usuário:
-// receita, conversão lead → contrato, ciclo médio, pipeline, projeção ponderada,
-// taxas de passagem, evolução mensal e origem dos contratos.
+// O CRM Elo ainda não tem API de leitura, então tudo aqui vem da entrada manual
+// (`lib/manual-inputs.ts`), em dois blocos com naturezas diferentes:
 //
-// Nenhum indicador aqui depende da posição de uma etapa no array: quem é o
-// fechamento comercial, quem é pós-venda e quem entra no ciclo vem da definição
-// central em `lib/crm-stages.ts`. "Contrato" fecha a venda; "Implantação" vem
-// depois dele, aparece no funil e não entra em contrato, receita nem conversão.
+//   A) SNAPSHOT do kanban (`ManualFunnelInput.stages`)
+//      Quantas oportunidades estão HOJE em cada coluna. É um estoque
+//      instantâneo, não uma progressão acumulada no período.
 //
-// A origem dos contratos e a série mensal usam o volume REAL de leads de mídia
-// (Meta Ads e Google Ads) — só a taxa de fechamento vem do bloco manual.
+//   B) RESULTADO do período (`ManualPeriodResults`)
+//      Contratos fechados e receita. Informados à mão, porque não existe jeito
+//      de extraí-los do estoque.
+//
+// O que NÃO pode voltar a existir aqui, porque o snapshot não sustenta:
+//
+//   - `contracts / leads` como taxa de fechamento. A coluna "Lead" tem os leads
+//     que ninguém tocou ainda, não os leads que entraram no período; a coluna
+//     "Contrato" tem os cards parados nela agora, não os negócios fechados
+//     (um negócio fechado já foi para "Implantação").
+//   - `stage.count - next.count` como "quantos ficaram parados". São duas
+//     colunas independentes: "Contato" pode ter 1962 cards com "Lead" em 9.
+//   - `contracts / stage.count` como probabilidade de avanço da etapa.
+//   - taxas de passagem sequenciais entre colunas.
+//   - contratos/receita mensais a partir dos leads de mídia × taxa do snapshot.
+//   - contratos distribuídos por Meta/Google na proporção dos leads: sem
+//     atribuição no CRM, não sabemos de onde veio quem fechou.
+//   - projeção de receita ponderada por etapa: não há probabilidade histórica.
+//
+// Os percentuais dos nomes do CRM de origem (FQC-50%, CONTRATO-100%, …)
+// continuam fora de tudo: não são probabilidade, são nomenclatura.
+//
+// Leads mensais e leads por canal continuam reais — vêm da série de mídia.
 // ---------------------------------------------------------------------------
 
 export { crmStageNames } from "./crm-stages";
@@ -26,10 +43,8 @@ export const crmCycleStageNames = (front: Front) => cycleStages(crmStages(front)
 
 const MONTH_LABELS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-const ratio = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
-
 /** Leads reais por mês, a partir da série diária de mídia já filtrada pela frente. */
-function monthlyLeads(rows: FrontDaily[]): Array<{ key: string; label: string; leads: number }> {
+function monthlyLeads(rows: FrontDaily[]): Array<{ month: string; leads: number }> {
   const map = new Map<string, number>();
   rows.forEach((row) => {
     const key = row.date.slice(0, 7);
@@ -37,11 +52,11 @@ function monthlyLeads(rows: FrontDaily[]): Array<{ key: string; label: string; l
   });
   return [...map.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, leads]) => ({ key, label: MONTH_LABELS[Number(key.slice(5, 7)) - 1] ?? key, leads }));
+    .map(([key, leads]) => ({ month: MONTH_LABELS[Number(key.slice(5, 7)) - 1] ?? key, leads }));
 }
 
-/** Leads reais por canal de mídia, usados para distribuir os contratos por origem. */
-function channelLeads(rows: FrontDaily[]): Array<{ name: string; leads: number }> {
+/** Leads reais por canal de mídia. Não vira origem de contrato. */
+function channelLeads(rows: FrontDaily[]): CrmSource[] {
   const meta = rows.filter((row) => row.channel === "meta_ads").reduce((sum, row) => sum + row.leads, 0);
   const google = rows.filter((row) => row.channel === "google_ads").reduce((sum, row) => sum + row.leads, 0);
   return [
@@ -51,13 +66,19 @@ function channelLeads(rows: FrontDaily[]): Array<{ name: string; leads: number }
 }
 
 export interface CrmContext {
-  /** Série diária de mídia da frente no período, para derivar mês a mês e origens. */
+  /** Série diária de mídia da frente no período, para derivar o volume mensal de leads. */
   rows: FrontDaily[];
 }
 
-export function buildCrmSummary(front: Front, input: ManualFunnelInput, context: CrmContext): CrmSummary {
+export function buildCrmSummary(
+  front: Front,
+  input: ManualFunnelInput,
+  results: ManualPeriodResults,
+  context: CrmContext,
+): CrmSummary {
   const definitions = crmStages(front);
-  const avgTicket = Math.max(0, input.avg_ticket);
+
+  // --- A) SNAPSHOT -------------------------------------------------------
   const stages: CrmStage[] = definitions.map((definition) => ({
     id: definition.id,
     name: definition.name,
@@ -67,74 +88,41 @@ export function buildCrmSummary(front: Front, input: ManualFunnelInput, context:
     avg_days: definition.tracksDays ? Math.max(0, input.stage_days?.[definition.id] ?? 0) : 0,
   }));
 
-  const top = topStage(stages);
-  const close = closeStage(stages);
-  const visit = visitStage(stages);
-  const pipeline = preCloseStage(stages);
-
-  const leads = top?.count ?? 0;
-  // Fechamento comercial: sempre a etapa marcada como `close`. Implantação vem
-  // depois dela no funil e, por ser pós-venda, nunca soma contrato nem receita.
-  const contracts = close?.count ?? 0;
-  const closeRate = ratio(contracts, leads);
-  const visitRate = ratio(visit?.count ?? 0, leads);
+  // Oportunidades abertas: cards nas colunas comerciais. O fechamento e a
+  // pós-venda ficam de fora — não estão mais em negociação.
+  const openOpportunities = stages
+    .filter((stage) => stage.kind === "commercial")
+    .reduce((sum, stage) => sum + stage.count, 0);
 
   // Ciclo comercial: só as etapas anteriores ao fechamento. O tempo de
   // Implantação continua visível etapa a etapa, mas fora do ciclo de venda.
-  const commercialCycle = cycleStages(stages);
-  const avgCycleDays = commercialCycle.reduce((sum, stage) => sum + stage.avg_days, 0);
+  const avgCycleDays = cycleStages(stages).reduce((sum, stage) => sum + stage.avg_days, 0);
 
-  // Projeção: leads parados em cada etapa comercial (não avançaram para a
-  // seguinte nem foram perdidos) ponderados pela taxa observada daquela etapa
-  // virar contrato no próprio período. Não usa nenhuma probabilidade fixa e,
-  // em especial, não usa os percentuais dos nomes do CRM de origem.
-  const openStages = stages.filter((stage) => stage.kind === "commercial");
-  const projectedRevenue = avgTicket
-    ? openStages.reduce((sum, stage, index) => {
-        const next = openStages[index + 1] ?? close;
-        const stillOpen = Math.max(0, stage.count - (next?.count ?? 0));
-        const probability = stage.count > 0 ? ratio(contracts, stage.count) : 0;
-        return sum + stillOpen * probability * avgTicket;
-      }, 0)
-    : 0;
-
-  const monthly = monthlyLeads(context.rows).map(({ label, leads: monthLeads }) => {
-    const monthContracts = Math.round(monthLeads * closeRate);
-    return {
-      month: label,
-      leads: monthLeads,
-      visits: Math.round(monthLeads * visitRate),
-      contracts: monthContracts,
-      revenue: monthContracts * avgTicket,
-    };
-  });
-
-  const byChannel = channelLeads(context.rows);
-  const totalChannelLeads = byChannel.reduce((sum, item) => sum + item.leads, 0);
-  const sources: CrmSource[] = byChannel.map((item) => ({
-    name: item.name,
-    leads: item.leads,
-    contracts: Math.round(contracts * ratio(item.leads, totalChannelLeads)),
-  }));
+  // --- B) RESULTADO DO PERÍODO -------------------------------------------
+  const contracts = Math.max(0, Math.round(results?.contracts_closed ?? 0));
+  const revenue = Math.max(0, results?.revenue ?? 0);
+  // Ticket realizado quando há resultado; senão a referência digitada no funil,
+  // deixando claro pela flag qual dos dois está em cena.
+  const realized = contracts > 0 && revenue > 0;
+  const avgTicket = realized ? revenue / contracts : Math.max(0, input.avg_ticket);
 
   return {
     front,
     stages,
+    open_opportunities: openOpportunities,
     contracts,
-    revenue: contracts * avgTicket,
+    revenue,
     avg_ticket: avgTicket,
-    conversion_rate: leads > 0 ? (contracts * 100) / leads : null,
+    avg_ticket_realized: realized,
     avg_cycle_days: avgCycleDays,
-    pipeline_value: (pipeline?.count ?? 0) * avgTicket,
-    projected_revenue: Math.round(projectedRevenue),
-    monthly,
-    sources,
+    monthly: monthlyLeads(context.rows),
+    sources: channelLeads(context.rows),
     // Negociações individuais só existem dentro do CRM: sem API de leitura não há
     // como listá-las, e inventar nomes seria pior do que declarar a ausência.
     recent: [],
-    close_stage: close,
-    pipeline_stage: pipeline,
-    visit_stage: visit,
+    close_stage: closeStage(stages),
+    pipeline_stage: preCloseStage(stages),
+    visit_stage: visitStage(stages),
   };
 }
 

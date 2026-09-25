@@ -3,13 +3,13 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildCrmSummary } from "../lib/crm";
 import { crmStageNames } from "../lib/crm-stages";
-import { defaultFunnel } from "../lib/manual-funnel";
+import { defaultFunnel, defaultResults } from "../lib/manual-funnel";
 import type { DashboardData } from "../lib/use-dashboard";
 import { CrmView } from "./Crm";
 
 vi.mock("../lib/goals", () => ({ useGoals: () => ({ contracts_franchise: 6, contracts_condominium: 8 }) }));
 vi.mock("../lib/manual-inputs", () => ({
-  useManualData: () => ({ data: { funnel: defaultFunnel }, storage: "local", fallbackReason: undefined }),
+  useManualData: () => ({ data: { funnel: defaultFunnel, results: defaultResults }, storage: "local", fallbackReason: undefined }),
   useSaveManualData: () => ({ mutateAsync: async () => undefined }),
 }));
 
@@ -22,28 +22,35 @@ beforeAll(() => {
 });
 afterEach(cleanup);
 
+// Estoque real do kanban: "Contato" com 1962 cards e "Lead" com 9, "COF" com
+// 194 e "Visita / Call" zerada, "Implantação" com 149 e "Contrato" vazio.
 const funnel = {
   franchise: {
-    stages: { lead: 400, contact: 240, recall: 180, fqc: 120, visit_call: 90, cof: 60, pre_contract: 40, waiting: 30, contract: 20, implementation: 12 },
-    stage_days: { lead: 3, contact: 6, recall: 4, fqc: 9, visit_call: 12, cof: 5, pre_contract: 3, waiting: 5, implementation: 40 },
-    avg_ticket: 80000,
+    stages: { lead: 9, contact: 1962, recall: 474, fqc: 72, visit_call: 0, cof: 194, pre_contract: 0, waiting: 0, contract: 0, implementation: 149 },
+    stage_days: { lead: 2, contact: 5, recall: 4, fqc: 9, visit_call: 12, cof: 7, pre_contract: 3, waiting: 6, implementation: 45 },
+    avg_ticket: 84500,
   },
   condominium: {
-    stages: { lead: 200, contact: 140, recall: 100, fqa: 70, visit_proposal: 50, assembly: 30, contract: 14, implementation: 9 },
-    stage_days: { lead: 5, contact: 9, recall: 6, fqa: 8, visit_proposal: 10, assembly: 16, implementation: 25 },
+    stages: { lead: 3, contact: 798, recall: 9, fqa: 11, visit_proposal: 547, assembly: 13, contract: 0, implementation: 22 },
+    stage_days: { lead: 4, contact: 6, recall: 5, fqa: 8, visit_proposal: 11, assembly: 20, implementation: 30 },
     avg_ticket: 0,
   },
+};
+const results = {
+  franchise: { contracts_closed: 4, revenue: 338000 },
+  condominium: { contracts_closed: 2, revenue: 0 },
 };
 
 const data = {
   crm: {
-    franchise: buildCrmSummary("franchise", funnel.franchise, { rows: [] }),
-    condominium: buildCrmSummary("condominium", funnel.condominium, { rows: [] }),
+    franchise: buildCrmSummary("franchise", funnel.franchise, results.franchise, { rows: [] }),
+    condominium: buildCrmSummary("condominium", funnel.condominium, results.condominium, { rows: [] }),
   },
 } as unknown as DashboardData;
 
-const funnelNames = () =>
-  [...document.querySelectorAll(".funnel3d-row-top strong")].map((node) => node.textContent);
+const funnelNames = () => [...document.querySelectorAll(".funnel3d-row-top strong")].map((node) => node.textContent);
+const kpi = (label: string) =>
+  [...document.querySelectorAll(".kpi")].find((node) => node.querySelector(".kpi-top p")?.textContent === label);
 
 describe("tela de CRM com os funis reais", () => {
   it("mostra as 10 etapas de Franquias na ordem exata", () => {
@@ -78,9 +85,8 @@ describe("tela de CRM com os funis reais", () => {
       .forEach((retired) => expect(screen.queryByText(retired)).toBeNull());
   });
 
-  it("a etapa mais demorada é comercial, não a Implantação de 40 dias", () => {
+  it("a etapa mais demorada é comercial, não a Implantação de 45 dias", () => {
     render(<CrmView data={data} readOnly />);
-    // "Visita / Call" tem 12 dias; "Implantação" tem 40 e é pós-venda.
     const slowest = [...document.querySelectorAll(".panel")].find((panel) => panel.textContent?.includes("Etapa mais demorada"));
     expect(slowest?.textContent).toContain("Visita / Call");
     expect(slowest?.textContent).not.toContain("Implantação");
@@ -89,16 +95,68 @@ describe("tela de CRM com os funis reais", () => {
 
   it("a barra de ciclo não inclui a Implantação", () => {
     render(<CrmView data={data} readOnly />);
-    const legend = document.querySelector(".cycle-bar-legend");
-    expect(legend?.textContent).not.toContain("Implantação");
+    expect(document.querySelector(".cycle-bar-legend")?.textContent).not.toContain("Implantação");
+  });
+});
+
+describe("snapshot e resultado não se misturam na tela", () => {
+  it("o card de contratos mostra o resultado informado, não a coluna Contrato", () => {
+    render(<CrmView data={data} readOnly />);
+    // A coluna "Contrato" está vazia; o período fechou 4.
+    expect(kpi("Contratos no período")?.textContent).toContain("4");
+    expect(data.crm.franchise.close_stage?.count).toBe(0);
   });
 
-  it("o editor manual expõe uma caixa para cada etapa das duas frentes", () => {
+  it("o card de oportunidades abertas soma o estoque comercial", () => {
+    render(<CrmView data={data} readOnly />);
+    expect(kpi("Oportunidades abertas")?.textContent).toContain("2.711");
+  });
+
+  it("nenhuma linha do funil exibe taxa de passagem entre colunas vizinhas", () => {
+    render(<CrmView data={data} readOnly />);
+    const captions = [...document.querySelectorAll(".funnel3d-row-bottom em")].map((node) => node.textContent ?? "");
+    captions.forEach((caption) => {
+      expect(caption).not.toMatch(/seguiu/);
+      expect(caption).not.toMatch(/saíram/);
+    });
+    // 1962 cards em "Contato" sobre 2711 abertos = 72% do pipeline aberto.
+    expect(captions.some((caption) => caption.includes("% do pipeline aberto"))).toBe(true);
+  });
+
+  it("a tela não promete conversão, projeção nem origem de contrato", () => {
+    render(<CrmView data={data} readOnly />);
+    const text = document.body.textContent ?? "";
+    expect(text).not.toContain("Conversão lead");
+    expect(text).not.toContain("Pipeline projetado");
+    expect(text).not.toContain("Projetado (pipeline aberto)");
+    expect(text).not.toContain("Origem dos contratos");
+    expect(text).toContain("Origem dos leads de mídia");
+  });
+
+  it("o gráfico mensal não anuncia contratos nem receita inferidos", () => {
+    render(<CrmView data={data} readOnly />);
+    const chart = [...document.querySelectorAll(".panel")].find((panel) => panel.textContent?.includes("Leads de mídia mês a mês"));
+    expect(chart).not.toBeUndefined();
+    expect(chart?.textContent).not.toContain("Reuniões");
+  });
+});
+
+describe("editor manual", () => {
+  it("expõe uma caixa para cada etapa do kanban", () => {
     render(<CrmView data={data} />);
     fireEvent.click(screen.getAllByRole("button", { name: /Editar dados/ })[0]);
     crmStageNames("franchise").forEach((name) => {
       expect(screen.getAllByLabelText(name).length).toBeGreaterThan(0);
     });
     expect(document.querySelectorAll('input[id^="manual-stage_"]')).toHaveLength(10);
+  });
+
+  it("tem um bloco separado para contratos fechados e receita do período", () => {
+    render(<CrmView data={data} />);
+    const panel = [...document.querySelectorAll(".panel")].find((node) => node.textContent?.includes("Resultado do período · Franquias"));
+    expect(panel).not.toBeUndefined();
+    fireEvent.click(within(panel as HTMLElement).getByRole("button", { name: /Editar dados/ }));
+    expect(screen.getByLabelText("Contratos fechados no período")).not.toBeNull();
+    expect(screen.getByLabelText("Receita do período")).not.toBeNull();
   });
 });

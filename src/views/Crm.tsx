@@ -1,18 +1,27 @@
-import { BadgeDollarSign, Clock3, FileSignature, Info, Percent, PiggyBank, Trophy } from "lucide-react";
+import { BadgeDollarSign, Clock3, FileSignature, Info, Layers, PiggyBank, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ManualNumbersPanel } from "../components/ui/editable";
 import { BarList, ChartTip, CycleBar, Funnel, Kpi, Panel, Segmented } from "../components/ui/primitives";
 import { slowestCommercialStage } from "../lib/crm";
 import { isPostSale } from "../lib/crm-stages";
-import { integer, money, percent } from "../lib/format";
+import { integer, money } from "../lib/format";
 import { useGoals } from "../lib/goals";
-import { funnelFields, funnelToValues, valuesToFunnel } from "../lib/manual-fields";
+import {
+  funnelFields, funnelToValues, resultFields, resultsToValues, valuesToFunnel, valuesToResults,
+} from "../lib/manual-fields";
 import { useManualData, useSaveManualData } from "../lib/manual-inputs";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import { ManualStorageNote } from "./Settings";
 import type { Front } from "../types";
 
+// Duas naturezas de dado convivem nesta tela sem se misturar:
+//
+//   Foto do kanban   — quantas oportunidades estão em cada coluna AGORA.
+//   Resultado        — quantos contratos fecharam e quanto faturou no período.
+//
+// Nenhum indicador de resultado é calculado a partir da foto, e nenhuma taxa de
+// passagem é lida entre colunas vizinhas: são estoques independentes.
 export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: boolean }) {
   const colors = useChartColors();
   const goals = useGoals();
@@ -21,90 +30,96 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
   const [front, setFront] = useState<Front>("franchise");
   const crm = data.crm[front];
   const meta = frontMeta[front];
-  const accent = front === "franchise" ? colors.red : colors.gold;
   const contractsGoal = front === "franchise" ? goals.contracts_franchise : goals.contracts_condominium;
-  const totalPotential = crm.revenue + crm.projected_revenue;
-  // Não existe "reunião" nos dois funis: cada frente tem a própria etapa de
-  // visita ("Visita / Call" e "Visita / Proposta"), localizada pelo papel.
-  const visitLabel = crm.visit_stage?.name ?? "Visitas";
-  const highlightStage = crm.visit_stage ?? crm.stages.find(isPostSale) ?? null;
-  // Implantação é pós-venda: não disputa "etapa mais demorada" nem "maior perda".
+  // Implantação é pós-venda: fica fora do ciclo e da etapa mais demorada.
   const commercialStages = useMemo(() => crm.stages.filter((stage) => !isPostSale(stage)), [crm.stages]);
   const slowestStage = useMemo(() => slowestCommercialStage(crm.stages), [crm.stages]);
-  const biggestDrop = useMemo(() => {
-    let worst = { name: "", pct: 0 };
-    commercialStages.forEach((stage, index) => {
-      if (!index) return;
-      const previous = commercialStages[index - 1].count;
-      const lostPct = previous ? ((previous - stage.count) * 100) / previous : 0;
-      if (lostPct > worst.pct) worst = { name: stage.name, pct: lostPct };
-    });
-    return worst;
-  }, [commercialStages]);
+  // Coluna com mais oportunidades paradas hoje. É concentração de estoque, não
+  // taxa de perda: a diferença entre duas colunas vizinhas não significa nada.
+  const busiest = useMemo(
+    () => crm.stages.filter((stage) => stage.kind === "commercial" && stage.count > 0).sort((a, b) => b.count - a.count)[0],
+    [crm.stages],
+  );
 
   return (
     <div className="view-enter" key={front}>
       <div className="view-head">
         <div>
           <span className="eyebrow"><i style={{ background: "var(--sky)" }} />CRM Elo · entrada manual</span>
-          <h1>Do lead ao contrato, <em>com receita no fim</em></h1>
-          <p>Etapas do funil comercial, taxas de passagem, tempo por etapa e receita gerada. A área já está pronta para receber os dados reais do Elo assim que a API deles for liberada.</p>
+          <h1>Pipeline de hoje e <em>resultado do período</em></h1>
+          <p>Onde estão as oportunidades agora, quanto tempo elas passam em cada etapa e quanto a frente fechou no período. A área já está pronta para receber os dados reais do Elo assim que a API deles for liberada.</p>
         </div>
         <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
       </div>
       <div className="crm-note">
         <Info size={18} />
         <span>
-          <b>Dados preenchidos à mão.</b> O CRM Elo ainda não expõe API de leitura; a integração está em desenvolvimento pelo fornecedor.
-          Até lá, os volumes por etapa, o tempo de cada etapa e o ticket médio são digitados aqui — receita, conversão, ciclo, pipeline e
-          projeção são calculados automaticamente a partir deles. O volume mensal de leads e a origem dos contratos já usam o dado real de mídia.
+          <b>Dois blocos diferentes, preenchidos à mão.</b> As etapas são uma <b>foto do kanban</b>: quantas oportunidades estão em cada
+          coluna agora — e não um funil acumulado, por isso uma etapa pode ter mais cards do que a anterior. Já <b>contratos fechados</b> e
+          <b> receita</b> são o <b>resultado do período</b> e têm campo próprio: um negócio fechado normalmente já saiu da coluna
+          &ldquo;Contrato&rdquo; para &ldquo;Implantação&rdquo;, então a ocupação dela não mede faturamento. Sem API do Elo, o dashboard não
+          deduz um a partir do outro.
         </span>
       </div>
 
       <div className="grid grid-6">
-        <Kpi label="Contratos" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={`meta do mês: ${integer(contractsGoal)}`} />
-        <Kpi label="Receita em taxa de franquia" value={crm.avg_ticket > 0 ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.avg_ticket > 0 ? `ticket médio ${money(crm.avg_ticket)}` : "modelo sem taxa direta"} />
-        <Kpi label="Conversão lead → contrato" value={crm.conversion_rate} format={percent} accent="sky" icon={<Percent size={16} />} hideDelta foot="Contrato sobre o topo do funil" />
-        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days > 0 ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="etapas até o contrato" />
-        <Kpi label={crm.pipeline_stage ? `Pipeline em ${crm.pipeline_stage.name.toLowerCase()}` : "Pipeline aberto"} value={crm.avg_ticket > 0 ? crm.pipeline_value : null} format={money} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={crm.pipeline_stage ? `${integer(crm.pipeline_stage.count)} em "${crm.pipeline_stage.name}"` : "sem etapa anterior ao contrato"} />
-        {/* Etapa de visita da frente, ou a pós-venda quando a frente não tiver visita — sempre por semântica, nunca por posição. */}
-        <Kpi label={highlightStage?.name ?? "—"} value={highlightStage?.count ?? 0} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot={highlightStage && isPostSale(highlightStage) ? "pós-venda · não conta como contrato" : "volume no período"} />
+        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={`informado · meta do mês: ${integer(contractsGoal)}`} />
+        <Kpi label="Receita no período" value={crm.revenue > 0 ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.revenue > 0 ? (crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : "informada") : "informe o resultado do período"} />
+        <Kpi label="Oportunidades abertas" value={crm.open_opportunities} format={integer} accent="sky" icon={<Layers size={16} />} hideDelta foot="cards nas etapas comerciais hoje" />
+        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days > 0 ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
+        {/* Pipeline em contagem de oportunidades: multiplicar estoque por ticket e
+            chamar de receita esperada suporia uma probabilidade que não existe. */}
+        <Kpi label={crm.pipeline_stage ? `Em ${crm.pipeline_stage.name.toLowerCase()}` : "Antes do contrato"} value={crm.pipeline_stage?.count ?? 0} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="oportunidades na última etapa antes do contrato" />
+        <Kpi label={crm.visit_stage?.name ?? "Visitas"} value={crm.visit_stage?.count ?? 0} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="oportunidades nesta etapa hoje" />
       </div>
 
       {!readOnly && (
-        <div style={{ marginTop: 14 }}>
-          <ManualStorageNote storage={manual.storage} reason={manual.fallbackReason} />
+        <div className="grid grid-wide" style={{ marginTop: 14 }}>
+          <div>
+            <ManualStorageNote storage={manual.storage} reason={manual.fallbackReason} />
+            <ManualNumbersPanel
+              title={`Pipeline atual · ${meta.short}`}
+              description="Quantas oportunidades estão em cada coluna do kanban agora, e quanto tempo em média ficam nela"
+              badge={<span className="badge sky">Foto do kanban</span>}
+              fields={funnelFields(front)}
+              values={funnelToValues(front, manual.data.funnel[front])}
+              onSave={(next) => saveManual.mutateAsync({
+                ...manual.data,
+                funnel: { ...manual.data.funnel, [front]: valuesToFunnel(front, next) },
+              })}
+              saveLabel="Salvar pipeline"
+              footNote="Estoque instantâneo: o dashboard não lê taxa de passagem nem fechamento a partir destes números."
+            />
+          </div>
           <ManualNumbersPanel
-            title={`Valores do funil · ${meta.short}`}
-            description="Só os valores-base: receita, conversão, ciclo, pipeline e projeção são calculados a partir daqui"
-            badge={<span className="badge sky">Entrada manual</span>}
-            fields={funnelFields(front)}
-            values={funnelToValues(front, manual.data.funnel[front])}
+            title={`Resultado do período · ${meta.short}`}
+            description="O que a frente efetivamente fechou e faturou no período de referência"
+            badge={<span className="badge green">Resultado</span>}
+            fields={resultFields(front)}
+            values={resultsToValues(manual.data.results[front])}
             onSave={(next) => saveManual.mutateAsync({
               ...manual.data,
-              funnel: { ...manual.data.funnel, [front]: valuesToFunnel(front, next) },
+              results: { ...manual.data.results, [front]: valuesToResults(next) },
             })}
-            saveLabel="Salvar funil"
-            footNote="Quando a API do Elo entrar, estes campos são substituídos pelo funil real sem mexer na tela."
+            saveLabel="Salvar resultado"
+            footNote="Digitado porque não é derivável do kanban: o card de um negócio fechado já saiu da coluna Contrato."
           />
         </div>
       )}
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        <Panel title={`Funil · ${meta.short}`} description="Todas as etapas do CRM na ordem real. Implantação aparece depois do contrato como pós-venda e não conta como fechamento.">
-          {biggestDrop.name && (
+        <Panel title={`Pipeline por etapa · ${meta.short}`} description="Todas as etapas do CRM na ordem real, com as oportunidades paradas em cada uma hoje. Implantação vem depois do contrato, como pós-venda.">
+          {busiest && (
             <div className="crm-note" style={{ marginBottom: 16 }}>
               <Info size={18} />
-              <span>Maior perda de volume está em <b>{biggestDrop.name}</b>, onde {biggestDrop.pct.toFixed(0)}% dos leads da etapa anterior não avançam.</span>
+              <span>A maior concentração de oportunidades abertas está em <b>{busiest.name}</b>, com {integer(busiest.count)} card(s). Como as colunas são estoques independentes, isso indica acúmulo — não uma taxa de perda para a etapa seguinte.</span>
             </div>
           )}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
-        {/* Coluna lateral: ciclo e receita dividem a altura do funil. Antes cada um
-            ocupava uma linha inteira ao lado de um vizinho bem mais alto e sobrava
-            quase metade do painel vazio. */}
+        {/* Coluna lateral: ciclo e resultado dividem a altura do pipeline. */}
         <div className="panel-stack">
-          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo total: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
+          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
             {crm.avg_cycle_days > 0 ? (
               <>
                 <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days} />
@@ -117,54 +132,50 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
               <div className="empty-state">Nenhum tempo de etapa informado ainda.</div>
             )}
           </Panel>
-          <Panel title="Projetado vs. faturado" description="Receita já fechada contra a previsão ponderada do pipeline em aberto">
-            {totalPotential > 0 ? (
+          <Panel title="Resultado do período" description="Fechamento e faturamento informados para o período de referência">
+            {crm.contracts > 0 || crm.revenue > 0 ? (
               <div className="proj-compare">
-                <div className="proj-bar"><span>Faturado</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${(crm.revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.revenue)}</b></div>
-                <div className="proj-bar"><span>Projetado (pipeline aberto)</span><div className="proj-track"><div className="proj-fill forecast" style={{ width: `${(crm.projected_revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.projected_revenue)}</b></div>
-                <div className="proj-total"><span>Potencial total do período</span><strong>{money(totalPotential)}</strong></div>
+                <div className="proj-bar"><span>Contratos fechados</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, contractsGoal > 0 ? (crm.contracts * 100) / contractsGoal : 100)}%` }} /></div><b>{integer(crm.contracts)}</b></div>
+                <div className="proj-bar"><span>Receita</span><div className="proj-track"><div className="proj-fill won" style={{ width: crm.revenue > 0 ? "100%" : "0%" }} /></div><b>{money(crm.revenue)}</b></div>
+                <div className="proj-total"><span>{crm.avg_ticket_realized ? "Ticket realizado" : "Ticket de referência"}</span><strong>{money(crm.avg_ticket)}</strong></div>
               </div>
             ) : (
-              <div className="empty-state">Esta frente não tem taxa direta: informe um ticket médio para projetar receita.</div>
+              <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
+                <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Nenhum resultado informado para o período</strong>
+                <span>Contratos fechados e receita não saem da foto do kanban: preencha o bloco de resultado do período.</span>
+              </div>
             )}
           </Panel>
         </div>
       </div>
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        {/* O gráfico passou para a coluna larga: seis meses em três séries não cabiam
-            bem em um terço da largura, e a comparação de receita, que é só três barras,
-            não precisava de dois terços. */}
-        <Panel className="fill-chart" title="Mês a mês" description="Leads reais de mídia, com visitas, contratos e receita projetados pela taxa informada">
+        <Panel className="fill-chart" title="Leads de mídia mês a mês" description="Volume real gerado por Meta Ads e Google Ads. Contratos e receita mensais não aparecem aqui: só existem para o período informado, sem série histórica no CRM.">
           {crm.monthly.length ? (
-            <>
-              <div className="chart-box h-320">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={crm.monthly.map((m) => ({ label: m.month, Leads: m.leads, [visitLabel]: m.visits, Contratos: m.contracts, Receita: m.revenue }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={colors.grid} vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: colors.tick, fontSize: 10.5 }} dy={8} />
-                    <YAxis yAxisId="l" tickLine={false} axisLine={false} width={40} tick={{ fill: colors.tick, fontSize: 10 }} />
-                    {crm.avg_ticket > 0 && <YAxis yAxisId="r" orientation="right" tickLine={false} axisLine={false} width={56} tick={{ fill: colors.tick, fontSize: 10 }} tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />}
-                    <Tooltip content={<ChartTip format={(n, k) => (k === "Receita" ? money(n) : integer(n))} />} cursor={{ fill: "rgba(255,255,255,.04)" }} />
-                    <Bar yAxisId="l" dataKey="Leads" fill={colors.grid === "#e6ebef" ? "#c9d2d9" : "rgba(255,255,255,.14)"} radius={[6, 6, 0, 0]} maxBarSize={22} />
-                    <Bar yAxisId="l" dataKey={visitLabel} fill={colors.sky} radius={[6, 6, 0, 0]} maxBarSize={22} />
-                    <Bar yAxisId="l" dataKey="Contratos" fill={accent} radius={[6, 6, 0, 0]} maxBarSize={22} />
-                    {crm.avg_ticket > 0 && <Line yAxisId="r" type="monotone" dataKey="Receita" stroke={colors.green} strokeWidth={2.5} dot={{ r: 3 }} />}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: "rgba(128,128,128,.4)" }} />Leads</span><span><i style={{ background: colors.sky }} />{visitLabel}</span><span><i style={{ background: accent }} />Contratos</span>{crm.avg_ticket > 0 && <span><i style={{ background: colors.green }} />Receita</span>}</div>
-            </>
+            <div className="chart-box h-320">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={crm.monthly.map((m) => ({ label: m.month, Leads: m.leads }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke={colors.grid} vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: colors.tick, fontSize: 10.5 }} dy={8} />
+                  <YAxis tickLine={false} axisLine={false} width={40} tick={{ fill: colors.tick, fontSize: 10 }} />
+                  <Tooltip content={<ChartTip format={integer} />} cursor={{ fill: "rgba(255,255,255,.04)" }} />
+                  <Bar dataKey="Leads" fill={meta.color} radius={[6, 6, 0, 0]} maxBarSize={38} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="empty-state">Nenhum lead de mídia no período selecionado.</div>
           )}
         </Panel>
         <div className="panel-stack">
-          <Panel title="Origem dos contratos" description="Qual canal trouxe quem realmente fechou">
+          <Panel title="Origem dos leads de mídia" description="Qual canal gerou os leads do período">
             {crm.sources.length ? (
-              <BarList items={crm.sources.map((source, index) => ({ name: source.name, value: source.contracts, color: [colors.meta, colors.google, colors.instagram, colors.gold][index], hint: `${integer(source.leads)} leads` }))} format={integer} />
+              <>
+                <BarList items={crm.sources.map((source, index) => ({ name: source.name, value: source.leads, color: [colors.meta, colors.google, colors.instagram, colors.gold][index] }))} format={integer} />
+                <p className="manual-foot">A origem dos <b>contratos</b> não aparece aqui: sem atribuição no CRM, não há como saber de qual canal veio quem fechou, e dividir os contratos na proporção dos leads seria inventar.</p>
+              </>
             ) : (
-              <div className="empty-state">Nenhum lead de mídia no período para distribuir os contratos.</div>
+              <div className="empty-state">Nenhum lead de mídia no período.</div>
             )}
           </Panel>
           <Panel title="Negociações recentes" description="Últimas movimentações no CRM">

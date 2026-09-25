@@ -1,5 +1,5 @@
 import { crmStages, cycleStages } from "./crm-stages";
-import type { Front, ManualFunnelInput } from "../types";
+import type { Front, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // ---------------------------------------------------------------------------
 // Persistência do funil manual: formato atual, padrões e migração do legado
@@ -25,7 +25,8 @@ import type { Front, ManualFunnelInput } from "../types";
  *   Condomínios: Indicações · Contato com síndico · Visita técnica ·
  *                Aprovação em assembleia · Proposta · Loja contratada
  *
- * Mapa índice legado → id da etapa atual. O que não está aqui é descartado:
+ * Mapa índice legado → id da etapa atual do SNAPSHOT. O que não está aqui é
+ * descartado:
  *
  *   Franquias   · "Perfil validado" (2), "Discovery Day" (3) e "Proposta / COF" (4)
  *                 não têm equivalente seguro. O CRM real quebra essa faixa em
@@ -33,31 +34,57 @@ import type { Front, ManualFunnelInput } from "../types";
  *                 para dizer em qual delas o volume antigo estava.
  *   Condomínios · "Visita técnica" (2) e "Proposta" (4) idem: "Visita / Proposta"
  *                 é uma etapa só no CRM real e juntaria dois volumes distintos.
+ *   Ambas       · a posição 5 ("Contrato assinado" / "Loja contratada") NÃO vai
+ *                 para a coluna "Contrato": ela era contagem de fechamento, e
+ *                 vai para o bloco de resultado do período (`normalizeResults`).
  *
  * Os tempos por etapa (5 posições, alinhadas às 5 primeiras do modelo antigo)
  * seguem exatamente o mesmo mapa, para que volume e tempo não divirjam.
  */
 export const legacyStageMap: Record<Front, Record<number, string>> = {
-  franchise: { 0: "lead", 1: "contact", 5: "contract" },
-  condominium: { 0: "lead", 1: "contact", 3: "assembly", 5: "contract" },
+  franchise: { 0: "lead", 1: "contact" },
+  condominium: { 0: "lead", 1: "contact", 3: "assembly" },
 };
 
 /**
- * Padrões do funil. Vieram de aplicar `legacyStageMap` aos números ilustrativos
- * que o dashboard já trazia — as etapas do CRM real que nunca tiveram medição
- * começam em 0, sem inventar distribuição comercial.
+ * A última posição do modelo antigo ("Contrato assinado" / "Loja contratada")
+ * era, na cabeça de quem digitava, o número de negócios FECHADOS — não a
+ * ocupação atual da coluna "Contrato". Por isso ela migra para o bloco de
+ * resultado do período, e a coluna "Contrato" do snapshot começa em 0: o
+ * estoque de cards parados nela não era medido no modelo antigo.
+ */
+const LEGACY_CLOSED_INDEX = 5;
+
+/**
+ * Padrões do snapshot: a foto do kanban informada pelo cliente em 25/09/2026.
+ * São valores reais de estoque por coluna, não uma curva de funil — repare que
+ * "Contato" tem muito mais cards que "Lead" e que "COF" tem cards com
+ * "Visita / Call" zerada. Qualquer leitura cumulativa desses números está
+ * errada por construção.
+ *
+ * Só valem enquanto nada foi salvo; o editor em CRM e vendas substitui tudo.
  */
 export const defaultFunnel: Record<Front, ManualFunnelInput> = {
   franchise: {
-    stages: { lead: 420, contact: 260, recall: 0, fqc: 0, visit_call: 0, cof: 0, pre_contract: 0, waiting: 0, contract: 18, implementation: 0 },
-    stage_days: { lead: 3, contact: 6, recall: 0, fqc: 0, visit_call: 0, cof: 0, pre_contract: 0, waiting: 0, implementation: 0 },
+    stages: { lead: 9, contact: 1962, recall: 474, fqc: 72, visit_call: 0, cof: 194, pre_contract: 0, waiting: 0, contract: 0, implementation: 149 },
+    stage_days: { lead: 0, contact: 0, recall: 0, fqc: 0, visit_call: 0, cof: 0, pre_contract: 0, waiting: 0, implementation: 0 },
     avg_ticket: 84500,
   },
   condominium: {
-    stages: { lead: 180, contact: 126, recall: 0, fqa: 0, visit_proposal: 0, assembly: 49, contract: 16, implementation: 0 },
-    stage_days: { lead: 5, contact: 9, recall: 0, fqa: 0, visit_proposal: 0, assembly: 16, implementation: 0 },
+    stages: { lead: 3, contact: 798, recall: 9, fqa: 11, visit_proposal: 547, assembly: 13, contract: 0, implementation: 22 },
+    stage_days: { lead: 0, contact: 0, recall: 0, fqa: 0, visit_proposal: 0, assembly: 0, implementation: 0 },
     avg_ticket: 0,
   },
+};
+
+/**
+ * Padrão do resultado comercial: zero nas duas frentes. Não há como inferir
+ * fechamento nem faturamento do estoque do kanban, então o dashboard declara a
+ * ausência e espera o preenchimento em vez de exibir um número inventado.
+ */
+export const defaultResults: Record<Front, ManualPeriodResults> = {
+  franchise: { contracts_closed: 0, revenue: 0 },
+  condominium: { contracts_closed: 0, revenue: 0 },
 };
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -117,3 +144,27 @@ export function normalizeFunnel(front: Front, raw: unknown): ManualFunnelInput {
 
 /** Nomes das etapas que entram no ciclo comercial de uma frente. */
 export const funnelCycleStages = (front: Front) => cycleStages(crmStages(front));
+
+/**
+ * Normaliza o resultado comercial de uma frente.
+ *
+ * `rawFunnel` entra só para a migração: num payload do modelo antigo, o total
+ * de contratos assinados ficava na última posição do array de etapas. Fora
+ * desse caso nada é inferido — campo ausente vira 0, e a receita do período
+ * nunca é reconstruída a partir de contratos × ticket.
+ */
+export function normalizeResults(front: Front, raw: unknown, rawFunnel?: unknown): ManualPeriodResults {
+  const partial = (raw ?? {}) as { contracts_closed?: unknown; revenue?: unknown };
+  if (isFiniteNumber(partial.contracts_closed) || isFiniteNumber(partial.revenue)) {
+    return {
+      contracts_closed: isFiniteNumber(partial.contracts_closed) ? clamp(Math.round(partial.contracts_closed)) : 0,
+      revenue: isFiniteNumber(partial.revenue) ? clamp(partial.revenue) : 0,
+    };
+  }
+  const legacyStages = (rawFunnel as { stages?: unknown } | undefined)?.stages;
+  if (Array.isArray(legacyStages)) {
+    const closed = legacyStages[LEGACY_CLOSED_INDEX];
+    if (isFiniteNumber(closed)) return { contracts_closed: clamp(Math.round(closed)), revenue: 0 };
+  }
+  return { ...defaultResults[front] };
+}

@@ -72,7 +72,7 @@ export function Presentation({ data, range, onExit }: { data: DashboardData; ran
   );
 }
 
-const titles = { executive: <>O crescimento da rede, <em>em uma tela</em></>, franchise: <>Expansão de <em>franquias</em></>, condominium: <>Captação de <em>condomínios</em></>, organic: <>Presença <em>orgânica</em></>, crm: <>Funil comercial e <em>receita</em></> };
+const titles = { executive: <>O crescimento da rede, <em>em uma tela</em></>, franchise: <>Expansão de <em>franquias</em></>, condominium: <>Captação de <em>condomínios</em></>, organic: <>Presença <em>orgânica</em></>, crm: <>Pipeline atual e <em>resultado</em></> };
 
 function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange }) {
   const goals = useGoals();
@@ -123,7 +123,7 @@ function FrontSlide({ data, front, goals, range }: { data: DashboardData; front:
           <div className="ring-row" style={{ marginTop: 18 }}><Ring value={((b.current.cpl ?? 0) * 100) / (front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} label="CPL em relação ao alvo" sub={`${money(b.current.cpl)} de ${money(front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} · abaixo é melhor`} color="var(--green)" /></div>
         </section>
         <section className="panel"><div className="panel-head"><div><h3>Criativos campeões</h3></div></div><div className="creative-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>{creatives.map((c, i) => <CreativeCard key={c.id} c={c} rank={i + 1} />)}</div></section>
-        <section className="panel"><div className="panel-head"><div><h3>Funil comercial</h3><p>CRM Elo · entrada manual</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline por etapa</h3><p>CRM Elo · foto do kanban</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
       </div>
     </div>
   );
@@ -164,14 +164,15 @@ function CrmSlide({ data }: { data: DashboardData }) {
   return (
     <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 18, minHeight: 0 }}>
       <div className="grid grid-4">
-        <Kpi label="Contratos de franquia" value={f.contracts} format={integer} accent="red" hideDelta />
-        <Kpi label="Receita em taxa de franquia" value={f.revenue} format={money} accent="green" hideDelta />
-        <Kpi label="Lojas em condomínio contratadas" value={c.contracts} format={integer} accent="gold" hideDelta />
-        <Kpi label="Pipeline em proposta" value={f.pipeline_value} format={money} accent="sky" hideDelta />
+        <Kpi label="Contratos de franquia no período" value={f.contracts} format={integer} accent="red" hideDelta />
+        <Kpi label="Receita de franquia no período" value={f.revenue > 0 ? f.revenue : null} format={money} accent="green" hideDelta />
+        <Kpi label="Contratos de condomínio no período" value={c.contracts} format={integer} accent="gold" hideDelta />
+        {/* Oportunidades abertas: contagem de cards, não receita esperada. */}
+        <Kpi label="Oportunidades abertas" value={f.open_opportunities + c.open_opportunities} format={integer} accent="sky" hideDelta />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <section className="panel"><div className="panel-head"><div><h3>Funil · Franquias</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
-        <section className="panel"><div className="panel-head"><div><h3>Funil · Condomínios</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Franquias</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Condomínios</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
       </div>
     </div>
   );
