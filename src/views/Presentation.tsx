@@ -7,6 +7,7 @@ import { brandLogoUrl } from "../lib/app-path";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { monthProgress } from "../lib/metrics";
+import { toMapCities, useNetworkUnits } from "../lib/network-units";
 import { frontMeta, type DashboardData } from "../lib/use-dashboard";
 import type { DateRange, Front } from "../types";
 import { CreativeCard } from "./FrontView";
@@ -79,6 +80,10 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
   const month = monthProgress(range);
   const monthRows = data.current.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7));
   const spend = monthRows.reduce((s, r) => s + r.spend, 0);
+  // Mesma fonte do hero da Visão executiva. Na TV o mapa simplesmente não
+  // aparece se a base não carregar, sem derrubar o resto do slide.
+  const network = useNetworkUnits();
+  const mapCities = useMemo(() => (network.data ? toMapCities(network.data) : []), [network.data]);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18, minHeight: 0 }}>
       <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 18, minHeight: 0 }}>
@@ -88,7 +93,7 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
           <Kpi label="Custo por lead" value={data.all.current.cpl} previous={data.all.previous.cpl} format={money} accent="green" lowerIsBetter />
           <Kpi label="Novos seguidores" value={data.instagram.current.new_followers + data.facebook.current.new_followers} previous={data.instagram.previous.new_followers + data.facebook.previous.new_followers} format={integer} accent="violet" />
         </div>
-        <section className="panel hero" style={{ minHeight: 0 }}><Suspense fallback={null}><BrazilMap /></Suspense><div className="hero-copy"><span className="eyebrow"><i style={{ background: "var(--red)" }} />Rede em expansão</span><h2>Unidades ativas e praças em negociação</h2></div></section>
+        <section className="panel hero" style={{ minHeight: 0 }}>{mapCities.length > 0 && <Suspense fallback={null}><BrazilMap cities={mapCities} /></Suspense>}<div className="hero-copy"><span className="eyebrow"><i style={{ background: "var(--red)" }} />Rede em expansão</span><h2>Onde a Maria Gasolina já está</h2></div></section>
       </div>
       <section className="panel"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>Contra as metas definidas com a GT+</p></div></div>
         <div className="pacing-list">

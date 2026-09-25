@@ -1,7 +1,7 @@
 import { addDays, format, subDays } from "date-fns";
 import type {
   CampaignRow, Channel, Creative, CrmSummary, DeliveryStatus, Front, FrontDaily, Goals,
-  OrganicDaily, OrganicPost, Platform,
+  NetworkCity, NetworkUnitsSnapshot, OrganicDaily, OrganicPost, Platform,
 } from "../types";
 
 // Gerador determinístico — os números mudam de forma suave e realista, mas são
@@ -275,4 +275,64 @@ export const demoDelivery: DeliveryStatus = {
   reels_published: 9,
   carousel_published: 6,
   instant_published: 4,
+};
+
+// ---------------------------------------------------------------------------
+// Base de unidades no modo demonstração (`?demo=1`)
+//
+// A RPC `get_dashboard_network_units` exige sessão autenticada, e o modo
+// demonstração roda sem login. Este recorte existe só para o mapa ter o que
+// desenhar nessa visita — nunca é usado como fallback de erro da RPC real, e
+// não entra no build publicado (ver `isDemoMode` em `lib/api.ts`).
+//
+// As coordenadas são as dos municípios de verdade, para o recorte cair no lugar
+// certo do território; os volumes é que são ilustrativos.
+// ---------------------------------------------------------------------------
+
+const demoCityRows: Array<[string, string, number, number, number]> = [
+  ["Campinas", "SP", 12, -22.9099, -47.0626],
+  ["São Paulo", "SP", 9, -23.5505, -46.6333],
+  ["Jundiaí", "SP", 4, -23.1857, -46.8978],
+  ["Indaiatuba", "SP", 3, -23.0816, -47.2101],
+  ["Ribeirão Preto", "SP", 3, -21.1775, -47.8103],
+  ["Curitiba", "PR", 3, -25.4284, -49.2733],
+  ["Belo Horizonte", "MG", 2, -19.9167, -43.9345],
+  ["Rio de Janeiro", "RJ", 2, -22.9068, -43.1729],
+  ["Porto Alegre", "RS", 1, -30.0346, -51.2177],
+  ["Brasília", "DF", 1, -15.7939, -47.8828],
+];
+
+const demoNetworkCities: NetworkCity[] = demoCityRows.map(([city, state, units, latitude, longitude]) => ({
+  city,
+  state,
+  normalized_city: city.normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase(),
+  unit_count: units,
+  resolved: true,
+  municipality_ibge_code: null,
+  latitude,
+  longitude,
+}));
+
+export const demoNetworkUnits: NetworkUnitsSnapshot = {
+  units: [],
+  cities: demoNetworkCities,
+  summary: {
+    total_units: demoNetworkCities.reduce((sum, city) => sum + city.unit_count, 0),
+    total_cities: demoNetworkCities.length,
+    unresolved_cities: 0,
+    last_import_at: iso(demoEnd),
+    last_import: {
+      id: 0,
+      filename: "base-demonstracao.xlsx",
+      status: "success",
+      total_rows: demoNetworkCities.reduce((sum, city) => sum + city.unit_count, 0),
+      valid_rows: demoNetworkCities.reduce((sum, city) => sum + city.unit_count, 0),
+      duplicate_rows: 0,
+      invalid_rows: 0,
+      unresolved_cities: 0,
+      created_at: iso(demoEnd),
+      completed_at: iso(demoEnd),
+    },
+  },
+  headquarters: { city: "Campinas", state: "SP" },
 };

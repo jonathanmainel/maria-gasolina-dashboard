@@ -1,20 +1,13 @@
 import { AlertTriangle, ArrowRight, BadgeDollarSign, FileSignature, PiggyBank, Target, UserPlus, Wallet, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { lazy, Suspense } from "react";
-const BrazilMap = lazy(() => import("../components/three/BrazilMap").then((m) => ({ default: m.BrazilMap })));
 import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented, Sparkline, useTilt } from "../components/ui/primitives";
-import geo from "../data/brazil-geo.json";
+import { NetworkHero } from "../components/NetworkHero";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { dailySeries, monthProgress } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
-import type { AppView, DateRange, GeoCity } from "../types";
-
-const cities = geo.cities as GeoCity[];
-const unitCount = cities.filter((c) => c.kind !== "lead").reduce((s, c) => s + c.units, 0);
-const cityCount = cities.filter((c) => c.kind !== "lead").length;
-const leadCities = cities.filter((c) => c.kind === "lead").reduce((s, c) => s + c.units, 0);
+import type { AppView, DateRange } from "../types";
 
 export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData; range: DateRange; onNavigate: (v: AppView) => void }) {
   const goals = useGoals();
@@ -94,20 +87,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       </div>
 
       <div className="grid grid-hero" style={{ marginTop: 14 }}>
-        <section className="panel hero">
-          <Suspense fallback={null}><BrazilMap /></Suspense>
-          <div className="hero-copy">
-            <span className="eyebrow"><i style={{ background: "var(--red)" }} />Rede em expansão</span>
-            <h2>Onde a Maria Gasolina já está e para onde os leads apontam</h2>
-            <p>Unidades ativas em vermelho, sede em dourado, negociações abertas fora do eixo atual em azul. Passe o mouse sobre um ponto.</p>
-          </div>
-          <div className="hero-stats">
-            <div className="hero-stat"><small>Unidades ativas</small><strong><AnimatedNumber value={unitCount} format={integer} /><b>+</b></strong></div>
-            <div className="hero-stat"><small>Cidades com operação</small><strong><AnimatedNumber value={cityCount} format={integer} /></strong></div>
-            <div className="hero-stat"><small>Praças em negociação</small><strong><AnimatedNumber value={leadCities} format={integer} /></strong></div>
-          </div>
-          <div className="hero-legend"><span><i style={{ background: "var(--gold)" }} />Sede Campinas</span><span><i style={{ background: "var(--red)" }} />Unidades</span><span><i style={{ background: "var(--sky)" }} />Leads em negociação</span></div>
-        </section>
+        <NetworkHero />
         <Panel title="Ritmo do mês contra as metas" description={`Dia ${month.elapsed} de ${month.daysInMonth} · metas editáveis em Metas e ajustes`}>
           <div className="pacing-list">
             <Pacing label="Verba de mídia" actual={monthSpend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />
