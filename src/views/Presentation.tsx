@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clapperboard, Film, GalleryHorizontalEnd, Images, Pause, Play, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { lazy, Suspense } from "react";
 const BrazilMap = lazy(() => import("../components/three/BrazilMap").then((m) => ({ default: m.BrazilMap })));
@@ -10,7 +10,7 @@ import { monthProgress } from "../lib/metrics";
 import { frontMeta, type DashboardData } from "../lib/use-dashboard";
 import type { DateRange, Front } from "../types";
 import { CreativeCard } from "./FrontView";
-import { PostCard } from "./Organic";
+import { ContentTypeRow, PostCard } from "./Organic";
 
 const SLIDE_MS = 14000;
 
@@ -60,7 +60,7 @@ export function Presentation({ data, range, onExit }: { data: DashboardData; ran
         <div className="present-body">
           {slide === "executive" && <ExecutiveSlide data={data} range={range} />}
           {(slide === "franchise" || slide === "condominium") && <FrontSlide data={data} range={range} front={slide} goals={goals} />}
-          {slide === "organic" && <OrganicSlide data={data} goals={goals} />}
+          {slide === "organic" && <OrganicSlide data={data} />}
           {slide === "crm" && <CrmSlide data={data} />}
         </div>
         <div className="present-bottom">
@@ -129,7 +129,7 @@ function FrontSlide({ data, front, goals, range }: { data: DashboardData; front:
   );
 }
 
-function OrganicSlide({ data, goals }: { data: DashboardData; goals: ReturnType<typeof useGoals> }) {
+function OrganicSlide({ data }: { data: DashboardData }) {
   const ig = data.instagram;
   const posts = [...data.posts].sort((a, b) => b.engagement_rate * b.reach - a.engagement_rate * a.reach).slice(0, 3);
   return (
@@ -144,7 +144,15 @@ function OrganicSlide({ data, goals }: { data: DashboardData; goals: ReturnType<
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr", gap: 18, minHeight: 0 }}>
         <div className="post-grid">{posts.map((p, i) => <PostCard key={p.id} p={p} rank={i + 1} />)}</div>
-        <section className="panel"><div className="panel-head"><div><h3>Entrega do mês</h3><p>20 posts + 20 stories</p></div></div><div className="ring-row" style={{ gridTemplateColumns: "1fr" }}><Ring value={((data.delivery.posts_published) * 100) / goals.posts} label="Posts" sub={`${data.delivery.posts_published} de ${goals.posts}`} color="var(--violet)" /><Ring value={((data.delivery.stories_published) * 100) / goals.stories} label="Stories" sub={`${data.delivery.stories_published} de ${goals.stories}`} color="var(--gold)" /></div></section>
+        <section className="panel"><div className="panel-head"><div><h3>Conteúdos postados no mês</h3><p>Quantidade por formato</p></div></div>
+          <div className="content-type-list">
+            <ContentTypeRow icon={<Images size={16} />} label="Feed" value={data.delivery.posts_published} color="var(--violet)" />
+            <ContentTypeRow icon={<Clapperboard size={16} />} label="Stories" value={data.delivery.stories_published} color="var(--gold)" />
+            <ContentTypeRow icon={<Film size={16} />} label="Reels" value={data.delivery.reels_published} color="var(--red)" />
+            <ContentTypeRow icon={<GalleryHorizontalEnd size={16} />} label="Carrossel" value={data.delivery.carousel_published} color="var(--sky)" />
+            <ContentTypeRow icon={<Zap size={16} />} label="Instant" value={data.delivery.instant_published} color="var(--green)" />
+          </div>
+        </section>
       </div>
     </div>
   );

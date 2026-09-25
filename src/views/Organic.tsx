@@ -135,7 +135,7 @@ export function OrganicView({ data, range, scope, onScopeChange }: { data: Dashb
   );
 }
 
-function ContentTypeRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+export function ContentTypeRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
   return (
     <div className="content-type-row">
       <span className="ic" style={{ color, background: `color-mix(in srgb, ${color} 16%, transparent)` }}>{icon}</span>
