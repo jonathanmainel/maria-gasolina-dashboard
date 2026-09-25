@@ -3,10 +3,15 @@ import { Html } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import geo from "../../data/brazil-geo.json";
-import type { GeoCity } from "../../types";
+import { markerWeight } from "../../lib/map-projection";
+import { unitCountLabel } from "../../lib/network-units";
+import type { NetworkMapCity } from "../../types";
 import { useTheme } from "../../theme";
 
-const cities = geo.cities as GeoCity[];
+// O dataset estático segue sendo a base do desenho do território — contorno e
+// nuvem de pontos, em coordenadas de cena. As cidades não vêm mais daqui: elas
+// chegam por prop, já projetadas a partir da latitude/longitude que o backend
+// resolveu (ver `lib/map-projection.ts`).
 const dots = geo.dots as Array<[number, number]>;
 const outline = geo.outline as Array<[number, number]>;
 
@@ -51,12 +56,24 @@ function Outline({ dark }: { dark: boolean }) {
   return <lineLoop geometry={geometry}><lineBasicMaterial color={dark ? "#7d93a8" : "#8a9aa8"} transparent opacity={0.7} /></lineLoop>;
 }
 
-function Marker({ city, index, hovered, setHovered }: { city: GeoCity; index: number; hovered: string | null; setHovered: (id: string | null) => void }) {
+const GOLD = "#e9ad3f";
+const RED = "#d8443a";
+
+function Marker({ city, index, weight, hovered, setHovered }: {
+  city: NetworkMapCity;
+  index: number;
+  weight: number;
+  hovered: string | null;
+  setHovered: (id: string | null) => void;
+}) {
   const ref = useRef<THREE.Group>(null);
   const ringRef = useRef<THREE.Mesh>(null);
-  const color = city.kind === "hq" ? "#e9ad3f" : city.kind === "unit" ? "#d8443a" : "#5ab4ff";
-  const size = city.kind === "hq" ? 0.28 : 0.1 + Math.min(0.22, city.units * 0.014);
-  const height = 0.12 + Math.min(1.6, city.units * 0.05);
+  // Dourado só para a sede; todo o resto da rede é vermelho. A sede fica no
+  // mesmo ponto geográfico das suas unidades — não é um marcador extra nem
+  // soma +1 na contagem.
+  const color = city.isHeadquarters ? GOLD : RED;
+  const size = 0.1 + weight * 0.2;
+  const height = 0.16 + weight * 1.15;
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime() + index * 0.37;
     if (ringRef.current) {
@@ -66,10 +83,10 @@ function Marker({ city, index, hovered, setHovered }: { city: GeoCity; index: nu
     }
     if (ref.current) ref.current.position.z = 0.02 + Math.sin(t * 1.6) * 0.02;
   });
-  const active = hovered === city.city;
+  const active = hovered === city.key;
   return (
     <group ref={ref} position={[city.x, city.y, 0.02]}>
-      <mesh position={[0, 0, height / 2]} onPointerOver={(e) => { e.stopPropagation(); setHovered(city.city); }} onPointerOut={() => setHovered(null)}>
+      <mesh position={[0, 0, height / 2]} onPointerOver={(e) => { e.stopPropagation(); setHovered(city.key); }} onPointerOut={() => setHovered(null)}>
         <cylinderGeometry args={[size * 0.5, size * 0.7, height, 16]} />
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={active ? 1.4 : 0.7} roughness={0.35} metalness={0.2} />
       </mesh>
@@ -77,15 +94,23 @@ function Marker({ city, index, hovered, setHovered }: { city: GeoCity; index: nu
         <sphereGeometry args={[size * 0.55, 16, 16]} />
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={active ? 2 : 1.1} />
       </mesh>
-      <mesh ref={ringRef} rotation={[0, 0, 0]} position={[0, 0, 0.01]}>
+      <mesh ref={ringRef} position={[0, 0, 0.01]}>
         <ringGeometry args={[size * 0.8, size * 1.05, 32]} />
         <meshBasicMaterial color={color} transparent opacity={0.4} side={THREE.DoubleSide} />
       </mesh>
+      {/* Halo fixo: a sede se distingue pela forma, não só pela cor dourada. */}
+      {city.isHeadquarters && (
+        <mesh position={[0, 0, 0.012]}>
+          <ringGeometry args={[size * 1.5, size * 1.75, 48]} />
+          <meshBasicMaterial color={GOLD} transparent opacity={0.7} side={THREE.DoubleSide} />
+        </mesh>
+      )}
       {active && (
         <Html position={[0, 0, height + 0.5]} center distanceFactor={9} style={{ pointerEvents: "none" }}>
-          <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(10,14,20,.9)", border: "1px solid rgba(255,255,255,.14)", color: "#fff", fontSize: 12, whiteSpace: "nowrap", fontFamily: "Montserrat, sans-serif", boxShadow: "0 10px 30px rgba(0,0,0,.4)" }}>
-            <strong style={{ display: "block", fontSize: 12.5 }}>{city.city} · {city.state}</strong>
-            <span style={{ color: "#c2ccd5", fontSize: 11 }}>{city.kind === "lead" ? `${city.units} lead${city.units > 1 ? "s" : ""} em negociação` : city.kind === "hq" ? `Sede · ${city.units} unidades` : `${city.units} unidade${city.units > 1 ? "s" : ""}`}</span>
+          <div className="map-tip">
+            <strong>{city.city} · {city.state}</strong>
+            {city.isHeadquarters && <em>Sede</em>}
+            <span>{unitCountLabel(city.unitCount)}</span>
           </div>
         </Html>
       )}
@@ -117,22 +142,34 @@ function Rig() {
   return null;
 }
 
-export function BrazilMap() {
+export function BrazilMap({ cities }: { cities: NetworkMapCity[] }) {
   const { theme } = useTheme();
   const dark = theme === "dark";
   const [hovered, setHovered] = useState<string | null>(null);
+  // A maior cidade da rede define a escala das outras: o tamanho é relativo ao
+  // conjunto recebido, não a um número fixo.
+  const maxUnits = useMemo(() => cities.reduce((max, city) => Math.max(max, city.unitCount), 0), [cities]);
   return (
     <div className="hero-canvas" aria-hidden>
       <Canvas dpr={[1, 1.75]} camera={{ position: [2.4, -8, 13], fov: 38, near: 0.1, far: 100 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
         <Suspense fallback={null}>
           <ambientLight intensity={dark ? 0.9 : 1.4} />
           <directionalLight position={[6, 4, 12]} intensity={dark ? 1.6 : 1.1} color="#fff2d6" />
-          <pointLight position={[-8, -6, 8]} intensity={dark ? 24 : 8} color="#d8443a" distance={40} />
-          <pointLight position={[8, 6, 6]} intensity={dark ? 22 : 8} color="#e9ad3f" distance={40} />
+          <pointLight position={[-8, -6, 8]} intensity={dark ? 24 : 8} color={RED} distance={40} />
+          <pointLight position={[8, 6, 6]} intensity={dark ? 22 : 8} color={GOLD} distance={40} />
           <group rotation={[0.22, 0, 0]} position={[2.2, 0.2, 0]}>
             <DotMatrix dark={dark} />
             <Outline dark={dark} />
-            {cities.map((c, i) => <Marker key={c.city} city={c} index={i} hovered={hovered} setHovered={setHovered} />)}
+            {cities.map((city, i) => (
+              <Marker
+                key={city.key}
+                city={city}
+                index={i}
+                weight={markerWeight(city.unitCount, maxUnits)}
+                hovered={hovered}
+                setHovered={setHovered}
+              />
+            ))}
           </group>
           <Rig />
         </Suspense>

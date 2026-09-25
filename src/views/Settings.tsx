@@ -1,5 +1,6 @@
 import { Check, Copy, Database, HardDrive, Link2, MonitorPlay, Moon, Printer, Sun } from "lucide-react";
 import { useState } from "react";
+import { NetworkUnitsPanel } from "../components/NetworkUnitsPanel";
 import { ManualNumbersPanel } from "../components/ui/editable";
 import { Panel } from "../components/ui/primitives";
 import {
@@ -86,6 +87,7 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
           />
         </div>
         <div className="panel-stack">
+          <NetworkUnitsPanel />
           <Panel title="Compartilhar somente leitura" description="Link para fundadores e diretoria abrirem sem criar conta" noTilt>
             <div className="share-box">
               <code>{shareUrl}</code>

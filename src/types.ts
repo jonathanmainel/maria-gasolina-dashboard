@@ -383,13 +383,88 @@ export interface DeliveryStatus {
   instant_published: number;
 }
 
-export interface GeoCity {
+// ---------------------------------------------------------------------------
+// Base de unidades da rede — contrato de `public.get_dashboard_network_units`
+//
+// Fonte única do mapa da Visão executiva. As coordenadas vêm resolvidas do
+// backend (dataset de municípios fixado por commit/checksum na Edge Function
+// `import-network-units`); o frontend só projeta latitude/longitude para o
+// sistema x/y do mapa 3D. Nada aqui é digitado à mão ou guardado em JSON.
+// ---------------------------------------------------------------------------
+
+export interface NetworkUnit {
+  id: number;
+  source_row_number: number;
+  unit_name: string;
+  neighborhood: string;
   city: string;
   state: string;
+  postal_code: string;
+  normalized_city: string;
+  normalized_state: string;
+  municipality_ibge_code: number | null;
+  municipality_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geography_status: "resolved" | "unresolved";
+}
+
+/** Uma linha por cidade, já agrupada pela RPC. `unit_count` é a contagem real. */
+export interface NetworkCity {
+  city: string;
+  /** UF normalizada em caixa alta. */
+  state: string;
+  normalized_city: string;
+  unit_count: number;
+  /** Falso quando a cidade não casou com nenhum município: sem coordenadas. */
+  resolved: boolean;
+  municipality_ibge_code: number | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface NetworkImportRecord {
+  id: number;
+  filename: string;
+  status: string;
+  total_rows: number;
+  valid_rows: number;
+  duplicate_rows: number;
+  invalid_rows: number;
+  unresolved_cities: number;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface NetworkUnitsSummary {
+  total_units: number;
+  total_cities: number;
+  unresolved_cities: number;
+  last_import_at: string | null;
+  last_import: NetworkImportRecord | null;
+}
+
+export interface NetworkHeadquarters {
+  city: string;
+  state: string;
+}
+
+export interface NetworkUnitsSnapshot {
+  units: NetworkUnit[];
+  cities: NetworkCity[];
+  summary: NetworkUnitsSummary;
+  headquarters: NetworkHeadquarters;
+}
+
+/** Cidade pronta para o mapa: coordenada já projetada e sede sinalizada. */
+export interface NetworkMapCity {
+  key: string;
+  city: string;
+  state: string;
+  unitCount: number;
   x: number;
   y: number;
-  units: number;
-  kind: "hq" | "unit" | "lead";
+  isHeadquarters: boolean;
 }
 
 
