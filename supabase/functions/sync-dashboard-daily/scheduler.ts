@@ -1,4 +1,4 @@
-export type DashboardSource = "google_ads" | "meta_ads";
+export type DashboardSource = "google_ads" | "meta_ads" | "ga4";
 
 export type AutomatedTarget = {
   id: number;
@@ -66,7 +66,7 @@ export function uniqueAutomatedTargets(
   const targets = new Map<string, AutomatedTarget>();
   for (const row of rows) {
     if (
-      (row.source !== "google_ads" && row.source !== "meta_ads") ||
+      (row.source !== "google_ads" && row.source !== "meta_ads" && row.source !== "ga4") ||
       row.active !== true ||
       row.automation_enabled !== true
     ) continue;

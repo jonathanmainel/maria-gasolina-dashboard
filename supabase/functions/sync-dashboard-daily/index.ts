@@ -39,7 +39,7 @@ async function safeJson(response: Response): Promise<SyncResponse> {
 }
 
 function syncCounts(source: DashboardSource, body: SyncResponse) {
-  if (source === "google_ads") return body.counts ?? {};
+  if (source === "google_ads" || source === "ga4") return body.counts ?? {};
 
   return {
     daily: body.meta_insights?.daily_count ?? 0,
@@ -81,7 +81,7 @@ export default {
       .select(
         "client_id, source, account_id, active, automation_enabled, dashboard_clients!inner(id, slug, name, active)",
       )
-      .in("source", ["google_ads", "meta_ads"])
+      .in("source", ["google_ads", "meta_ads", "ga4"])
       .eq("active", true)
       .eq("automation_enabled", true)
       .eq("dashboard_clients.active", true)
@@ -132,7 +132,9 @@ export default {
           if (!supabaseUrl) throw new Error("SUPABASE_URL is not configured.");
           const functionName = target.source === "google_ads"
             ? "sync-google-ads"
-            : "sync-meta-ads";
+            : target.source === "meta_ads"
+            ? "sync-meta-ads"
+            : "sync-ga4";
           const syncResponse = await fetch(
             `${supabaseUrl}/functions/v1/${functionName}`,
             {

@@ -23,7 +23,7 @@ describe("dashboard daily scheduler", () => {
     ).toEqual({ startDate: "2026-12-26", endDate: "2027-01-01" });
   });
 
-  it("groups enabled Google and Meta targets and excludes disabled test sources", () => {
+  it("groups enabled Google, Meta and GA4 targets and excludes disabled test sources", () => {
     const maria = {
       source: "google_ads",
       account_id: "6072699813",
@@ -53,6 +53,18 @@ describe("dashboard daily scheduler", () => {
         },
       },
       {
+        source: "ga4",
+        account_id: "508003193",
+        active: true,
+        automation_enabled: true,
+        dashboard_clients: {
+          id: 2,
+          slug: "maria-gasolina",
+          name: "Maria Gasolina",
+          active: true,
+        },
+      },
+      {
         source: "google_ads",
         account_id: "6072699813",
         active: true,
@@ -65,6 +77,13 @@ describe("dashboard daily scheduler", () => {
         },
       },
     ])).toEqual([
+      {
+        id: 2,
+        slug: "maria-gasolina",
+        name: "Maria Gasolina",
+        source: "ga4",
+        accountIds: ["508003193"],
+      },
       {
         id: 2,
         slug: "maria-gasolina",
@@ -114,6 +133,19 @@ describe("dashboard daily scheduler", () => {
 
     expect(results.map(({ target, ok }) => ({ target, ok }))).toEqual([
       { target: "google_ads", ok: false },
+      { target: "meta_ads", ok: true },
+    ]);
+  });
+
+  it("includes GA4 and keeps other sources running if GA4 fails", async () => {
+    const sources = ["ga4", "google_ads", "meta_ads"] as const;
+    const results = await executeIsolatedTargets(sources, async (source) => {
+      if (source === "ga4") throw new Error("GA4 unavailable");
+      return "success";
+    });
+    expect(results.map(({ target, ok }) => ({ target, ok }))).toEqual([
+      { target: "ga4", ok: false },
+      { target: "google_ads", ok: true },
       { target: "meta_ads", ok: true },
     ]);
   });

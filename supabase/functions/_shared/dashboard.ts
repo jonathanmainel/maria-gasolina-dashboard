@@ -2,7 +2,8 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 export type DashboardSource =
   | "meta_ads"
-  | "google_ads";
+  | "google_ads"
+  | "ga4";
 
 type SupabaseAdminClient = SupabaseClient<any>;
 
