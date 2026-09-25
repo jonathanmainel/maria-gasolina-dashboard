@@ -749,6 +749,13 @@ tbody tr:hover { background: var(--surface-2); }
   .hero-copy { max-width: none; }
   .present-slide { padding: 24px 20px; }
 }
+/* As duas colunas do login têm mínimos de 360px + 480px: abaixo de ~840px elas não
+   cabem mais e a página passava a rolar na horizontal. Troca para coluna única um
+   pouco antes disso, enquanto o painel de marca ainda teria espaço para respirar. */
+@media (max-width: 900px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-brand-panel { display: none; }
+}
 @media (max-width: 640px) {
   .grid-4, .grid-6 { grid-template-columns: 1fr; }
   .panel-controls { justify-content: flex-start; }
@@ -795,8 +802,6 @@ tbody tr:hover { background: var(--surface-2); }
   .mobile-details b { color: var(--text); }
   .hero { min-height: 340px; }
   .hero-stats { grid-template-columns: 1fr; }
-  .auth-page { grid-template-columns: 1fr; }
-  .auth-brand-panel { display: none; }
   .creative-grid { grid-template-columns: 1fr; }
   .present .kpi-value strong { font-size: 26px; }
   .present-top .r { display: none; }
