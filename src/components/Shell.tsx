@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, ChevronDown, Download, Link2, LogOut, Menu, MonitorPlay, Moon, Rocket, Settings2, Sparkles, Sun, Users, X } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, Download, Globe, Link2, LogOut, Menu, MonitorPlay, Moon, Rocket, Settings2, Sparkles, Sun, Users, X } from "lucide-react";
 import { lazy, Suspense, useCallback, useRef, useState, type PropsWithChildren } from "react";
 import { useAuth } from "../auth";
 import { brandLogoUrl } from "../lib/app-path";
@@ -27,7 +27,8 @@ const viewTitles: Record<AppView, { eyebrow: string; title: string }> = {
   executive: { eyebrow: "Visão executiva", title: "Resultado consolidado das três frentes" },
   franchise: { eyebrow: "Frente 1 · Tráfego pago", title: "Expansão de franquias" },
   condominium: { eyebrow: "Frente 2 · Tráfego pago", title: "Captação de condomínios" },
-  organic: { eyebrow: "Frente 3 · Orgânico", title: "Instagram, Facebook e Site" },
+  organic: { eyebrow: "Frente 3 · Orgânico", title: "Instagram e Facebook" },
+  site: { eyebrow: "Site · Google Analytics 4", title: "Comportamento dos usuários no site" },
   crm: { eyebrow: "CRM Elo · Vendas", title: "Funil comercial e receita" },
   settings: { eyebrow: "Configurações", title: "Metas, compartilhamento e exportação" },
 };
@@ -67,6 +68,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
           {item("franchise", "Franquias", <Rocket size={17} />, "franchise")}
           {item("condominium", "Condomínios", <Building2 size={17} />, "condominium")}
           {item("organic", "Orgânico", <Instagram size={17} />, "organic")}
+          {item("site", "Site", <Globe size={17} />, "site")}
         </div>
         <div className="sidebar-group">
           <small>Comercial</small>

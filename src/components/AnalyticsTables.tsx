@@ -1,15 +1,24 @@
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
-import { useMemo, useState } from "react";
-import { compact, percent } from "../lib/format";
-import type { AnalyticsAcquisitionItem, AnalyticsEventItem } from "../types";
+import { useEffect, useMemo, useState } from "react";
+import { compact, integer, percent } from "../lib/format";
+import type { AnalyticsAcquisitionItem, AnalyticsEventItem, AnalyticsLandingPageItem } from "../types";
+
+// Tabelas do GA4. Nomenclatura da interface: `generate_leads` é exibido como
+// "Leads" e `lead_rate` como "Taxa de conversão" — decisão de produto do MVP,
+// em que o Lead é o `form_submit` do GA4.
 
 interface SharedProps {
   totalCount?: number;
+  /** Linhas visíveis antes do "Carregar mais". O conjunto inteiro já está em memória. */
+  pageSize?: number;
 }
 
+const DEFAULT_PAGE_SIZE = 25;
+
 type SortDirection = "asc" | "desc";
-type AcquisitionSortKey = "channel_group" | "source_medium" | "sessions" | "engaged_sessions" | "engagement_rate" | "views" | "generate_leads" | "lead_rate";
+type AcquisitionSortKey = "channel_group" | "source_medium" | "sessions" | "engaged_sessions" | "engagement_rate" | "new_users" | "generate_leads" | "lead_rate";
 type EventSortKey = "event_name" | "event_count" | "daily_average" | "key_events" | "share_of_total";
+type LandingSortKey = "landing_page" | "sessions" | "engaged_sessions" | "engagement_rate" | "new_users" | "views";
 
 function compareValues(a: string | number | null, b: string | number | null, direction: SortDirection) {
   if (a === null && b === null) return 0;
@@ -21,10 +30,36 @@ function compareValues(a: string | number | null, b: string | number | null, dir
   return direction === "asc" ? result : -result;
 }
 
-export function AnalyticsAcquisitionTable({ items, totalCount }: SharedProps & { items: AnalyticsAcquisitionItem[] }) {
+/**
+ * Revela o resto das linhas sem uma segunda ida ao banco: as RPCs já foram
+ * percorridas até o fim antes de montar a tabela, então paginar aqui é só
+ * decidir quantas linhas desenhar de uma vez.
+ */
+function useVisibleRows<T>(rows: T[], pageSize = DEFAULT_PAGE_SIZE) {
+  const [visible, setVisible] = useState(pageSize);
+  useEffect(() => { setVisible(pageSize); }, [pageSize, rows.length]);
+  return { rows: rows.slice(0, visible), hidden: Math.max(0, rows.length - visible), more: () => setVisible((n) => n + pageSize) };
+}
+
+function TableFoot({ shown, total, hidden, onMore }: { shown: number; total: number; hidden: number; onMore: () => void }) {
+  return (
+    <div className="table-foot">
+      <p className="table-count">Exibindo {integer(shown)} de {integer(total)}</p>
+      {hidden > 0 && <button type="button" className="load-more" onClick={onMore}>Carregar mais <span>({integer(hidden)} restantes)</span></button>}
+    </div>
+  );
+}
+
+export function AnalyticsAcquisitionTable({ items, totalCount, pageSize, orderBy = "sessions" }: SharedProps & {
+  items: AnalyticsAcquisitionItem[];
+  /** Ordenação vinda do seletor da seção: quem traz tráfego x quem traz leads. */
+  orderBy?: "sessions" | "generate_leads";
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [sort, setSort] = useState<{ key: AcquisitionSortKey; direction: SortDirection }>({ key: "sessions", direction: "desc" });
+  const [sort, setSort] = useState<{ key: AcquisitionSortKey; direction: SortDirection }>({ key: orderBy, direction: "desc" });
+  useEffect(() => { setSort({ key: orderBy, direction: "desc" }); }, [orderBy]);
   const sorted = useMemo(() => [...items].sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.direction)), [items, sort]);
+  const page = useVisibleRows(sorted, pageSize);
   const changeSort = (key: AcquisitionSortKey) => setSort((current) => ({
     key,
     direction: current.key === key && current.direction === "desc" ? "asc" : "desc",
@@ -41,38 +76,89 @@ export function AnalyticsAcquisitionTable({ items, totalCount }: SharedProps & {
             <SortHead label="Sessões" field="sessions" current={sort} onClick={changeSort} />
             <SortHead label="Sessões engajadas" field="engaged_sessions" current={sort} onClick={changeSort} />
             <SortHead label="Taxa de engajamento" field="engagement_rate" current={sort} onClick={changeSort} />
-            <SortHead label="Visualizações" field="views" current={sort} onClick={changeSort} />
-            <SortHead label="Conversões" field="generate_leads" current={sort} onClick={changeSort} />
+            <SortHead label="Novos usuários" field="new_users" current={sort} onClick={changeSort} />
+            <SortHead label="Leads" field="generate_leads" current={sort} onClick={changeSort} />
             <SortHead label="Taxa de conversão" field="lead_rate" current={sort} onClick={changeSort} />
           </tr></thead>
-          <tbody>{sorted.map((item) => <tr key={`${item.channel_group}:${item.source_medium}`}>
+          <tbody>{page.rows.map((item) => <tr key={`${item.channel_group}:${item.source_medium}`}>
             <td className="name-cell"><strong>{item.channel_group}</strong></td>
             <td className="name-cell">{item.source_medium}</td>
-            <td>{compact(item.sessions)}</td><td>{compact(item.engaged_sessions)}</td>
-            <td>{percent(item.engagement_rate)}</td><td>{compact(item.views)}</td><td>{compact(item.generate_leads)}</td><td>{percent(item.lead_rate)}</td>
+            <td>{integer(item.sessions)}</td><td>{integer(item.engaged_sessions)}</td>
+            <td>{percent(item.engagement_rate)}</td><td>{integer(item.new_users)}</td><td>{integer(item.generate_leads)}</td><td>{percent(item.lead_rate)}</td>
           </tr>)}</tbody>
         </table>
       </div>
-      <div className="mobile-rows">{sorted.map((item) => {
+      <div className="mobile-rows">{page.rows.map((item) => {
         const key = `${item.channel_group}:${item.source_medium}`;
         const open = expanded === key;
         return <article className="mobile-row" key={key}>
           <button type="button" onClick={() => setExpanded(open ? null : key)} aria-expanded={open}>
             <span><strong>{item.source_medium}</strong><small>{item.channel_group}</small></span>
-            <span className="mobile-primary"><strong>{compact(item.sessions)} sessões</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+            <span className="mobile-primary"><strong>{integer(item.sessions)} sessões</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
           </button>
-          {open && <div className="mobile-details"><Metric label="Sessões engajadas" value={compact(item.engaged_sessions)} /><Metric label="Taxa de engajamento" value={percent(item.engagement_rate)} /><Metric label="Visualizações" value={compact(item.views)} /><Metric label="Conversões" value={compact(item.generate_leads)} /><Metric label="Taxa de conversão" value={percent(item.lead_rate)} /></div>}
+          {open && <div className="mobile-details"><Metric label="Sessões engajadas" value={integer(item.engaged_sessions)} /><Metric label="Taxa de engajamento" value={percent(item.engagement_rate)} /><Metric label="Novos usuários" value={integer(item.new_users)} /><Metric label="Leads" value={integer(item.generate_leads)} /><Metric label="Taxa de conversão" value={percent(item.lead_rate)} /></div>}
         </article>;
       })}</div>
-      <p className="table-count">Exibindo {items.length} de {totalCount ?? items.length}</p>
+      <TableFoot shown={page.rows.length} total={totalCount ?? items.length} hidden={page.hidden} onMore={page.more} />
     </div>
   );
 }
 
-export function AnalyticsEventsTable({ items, totalCount }: SharedProps & { items: AnalyticsEventItem[] }) {
+/**
+ * Landing pages: sem coluna de conversões. A RPC devolve `primary_conversions`
+ * null enquanto a conversão primária não estiver marcada na propriedade, e uma
+ * coluna de "—" em toda a tabela seria pior do que não ter a coluna.
+ */
+export function AnalyticsLandingPagesTable({ items, totalCount, pageSize }: SharedProps & { items: AnalyticsLandingPageItem[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ key: LandingSortKey; direction: SortDirection }>({ key: "sessions", direction: "desc" });
+  const sorted = useMemo(() => [...items].sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.direction)), [items, sort]);
+  const page = useVisibleRows(sorted, pageSize);
+  const changeSort = (key: LandingSortKey) => setSort((current) => ({
+    key,
+    direction: current.key === key && current.direction === "desc" ? "asc" : "desc",
+  }));
+  if (!items.length) return <div className="empty-state">Nenhuma landing page encontrada neste período.</div>;
+
+  return (
+    <div className="table-wrap analytics-table" data-testid="ga4-landing-pages-table">
+      <div className="desktop-table">
+        <table>
+          <thead><tr>
+            <SortHead label="Página" field="landing_page" current={sort} onClick={changeSort} wide />
+            <SortHead label="Sessões" field="sessions" current={sort} onClick={changeSort} />
+            <SortHead label="Sessões engajadas" field="engaged_sessions" current={sort} onClick={changeSort} />
+            <SortHead label="Taxa de engajamento" field="engagement_rate" current={sort} onClick={changeSort} />
+            <SortHead label="Novos usuários" field="new_users" current={sort} onClick={changeSort} />
+            <SortHead label="Visualizações" field="views" current={sort} onClick={changeSort} />
+          </tr></thead>
+          <tbody>{page.rows.map((item) => <tr key={item.landing_page}>
+            <td className="name-cell"><strong>{item.landing_page}</strong></td>
+            <td>{integer(item.sessions)}</td><td>{integer(item.engaged_sessions)}</td>
+            <td>{percent(item.engagement_rate)}</td><td>{integer(item.new_users)}</td><td>{integer(item.views)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div className="mobile-rows">{page.rows.map((item) => {
+        const open = expanded === item.landing_page;
+        return <article className="mobile-row" key={item.landing_page}>
+          <button type="button" onClick={() => setExpanded(open ? null : item.landing_page)} aria-expanded={open}>
+            <span><strong>{item.landing_page}</strong><small>Landing page</small></span>
+            <span className="mobile-primary"><strong>{integer(item.sessions)} sessões</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+          </button>
+          {open && <div className="mobile-details"><Metric label="Sessões engajadas" value={integer(item.engaged_sessions)} /><Metric label="Taxa de engajamento" value={percent(item.engagement_rate)} /><Metric label="Novos usuários" value={integer(item.new_users)} /><Metric label="Visualizações" value={integer(item.views)} /></div>}
+        </article>;
+      })}</div>
+      <TableFoot shown={page.rows.length} total={totalCount ?? items.length} hidden={page.hidden} onMore={page.more} />
+    </div>
+  );
+}
+
+export function AnalyticsEventsTable({ items, totalCount, pageSize }: SharedProps & { items: AnalyticsEventItem[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: EventSortKey; direction: SortDirection }>({ key: "event_count", direction: "desc" });
   const sorted = useMemo(() => [...items].sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.direction)), [items, sort]);
+  const page = useVisibleRows(sorted, pageSize);
   const changeSort = (key: EventSortKey) => setSort((current) => ({
     key,
     direction: current.key === key && current.direction === "desc" ? "asc" : "desc",
@@ -87,26 +173,26 @@ export function AnalyticsEventsTable({ items, totalCount }: SharedProps & { item
             <SortHead label="Evento" field="event_name" current={sort} onClick={changeSort} wide />
             <SortHead label="Quantidade" field="event_count" current={sort} onClick={changeSort} />
             <SortHead label="Média diária" field="daily_average" current={sort} onClick={changeSort} />
-            <SortHead label="Eventos principais" field="key_events" current={sort} onClick={changeSort} />
             <SortHead label="Participação no total" field="share_of_total" current={sort} onClick={changeSort} />
+            <SortHead label="Key events" field="key_events" current={sort} onClick={changeSort} />
           </tr></thead>
-          <tbody>{sorted.map((item) => <tr key={item.event_name}>
-            <td className="name-cell"><strong>{item.event_name}</strong></td><td>{compact(item.event_count)}</td>
-            <td>{compact(item.daily_average)}</td><td>{compact(item.key_events)}</td><td>{percent(item.share_of_total)}</td>
+          <tbody>{page.rows.map((item) => <tr key={item.event_name}>
+            <td className="name-cell"><strong>{item.event_name}</strong></td><td>{integer(item.event_count)}</td>
+            <td>{compact(item.daily_average)}</td><td>{percent(item.share_of_total)}</td><td>{integer(item.key_events)}</td>
           </tr>)}</tbody>
         </table>
       </div>
-      <div className="mobile-rows">{sorted.map((item) => {
+      <div className="mobile-rows">{page.rows.map((item) => {
         const open = expanded === item.event_name;
         return <article className="mobile-row" key={item.event_name}>
           <button type="button" onClick={() => setExpanded(open ? null : item.event_name)} aria-expanded={open}>
             <span><strong>{item.event_name}</strong><small>Evento do site</small></span>
-            <span className="mobile-primary"><strong>{compact(item.event_count)}</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+            <span className="mobile-primary"><strong>{integer(item.event_count)}</strong>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
           </button>
-          {open && <div className="mobile-details"><Metric label="Média diária" value={compact(item.daily_average)} /><Metric label="Eventos principais" value={compact(item.key_events)} /><Metric label="Participação" value={percent(item.share_of_total)} /></div>}
+          {open && <div className="mobile-details"><Metric label="Média diária" value={compact(item.daily_average)} /><Metric label="Participação" value={percent(item.share_of_total)} /><Metric label="Key events" value={integer(item.key_events)} /></div>}
         </article>;
       })}</div>
-      <p className="table-count">Exibindo {items.length} de {totalCount ?? items.length}</p>
+      <TableFoot shown={page.rows.length} total={totalCount ?? items.length} hidden={page.hidden} onMore={page.more} />
     </div>
   );
 }
@@ -132,4 +218,3 @@ function SortHead<K extends string>({ label, field, current, onClick, wide }: {
 function Metric({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
 }
-

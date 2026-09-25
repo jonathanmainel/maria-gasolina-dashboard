@@ -14,10 +14,11 @@ import { FrontView } from "../views/FrontView";
 import { OrganicView, type OrganicScope } from "../views/Organic";
 import { Presentation } from "../views/Presentation";
 import { SettingsView } from "../views/Settings";
+import { SiteView } from "../views/SiteView";
 
 const initialEnd = addDays(new Date(), -1);
 const initialRange: DateRange = { start: format(addDays(initialEnd, -29), "yyyy-MM-dd"), end: format(initialEnd, "yyyy-MM-dd") };
-const validViews: AppView[] = ["executive", "franchise", "condominium", "organic", "crm", "settings"];
+const validViews: AppView[] = ["executive", "franchise", "condominium", "organic", "site", "crm", "settings"];
 
 export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,7 +51,12 @@ export function DashboardPage() {
     <div className={comparisonEnabled ? "" : "comparison-hidden"}>
       <Shell view={view} onViewChange={onViewChange} range={range} comparisonEnabled={comparisonEnabled} onPeriodApply={(r, c) => { setRange(r); setComparisonEnabled(c); }} lastSync={lastSync.data ?? undefined} readOnly={readOnly} onPresent={onPresent} onShare={onShare}>
         {readOnly && <div className="readonly-banner"><Eye size={16} />Você está vendo uma versão somente leitura compartilhada pela GT+. Metas e configurações ficam ocultas.</div>}
-        {data.isError ? (
+        {/* A aba Site não depende das frentes pagas: ela lê o GA4 nas próprias
+            queries, com skeleton e erro por seção, então fica fora do estado de
+            carregamento global para não esperar (nem quebrar com) o Meta/Google. */}
+        {view === "site" ? (
+          <SiteView range={range} />
+        ) : data.isError ? (
           <div className="screen-state error" style={{ minHeight: "60vh" }}><AlertCircle size={30} /><h1>Não foi possível carregar os dados</h1><p>{data.error?.message ?? "Tente novamente em alguns instantes."}</p><button type="button" className="primary-button" onClick={data.refetch}>Tentar novamente</button></div>
         ) : data.isLoading ? (
           <div className="grid grid-4"><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={420} className="span-2" /><Skeleton height={420} className="span-2" /></div>
@@ -59,7 +65,7 @@ export function DashboardPage() {
             {view === "executive" && <ExecutiveView data={data} range={range} onNavigate={onViewChange} />}
             {view === "franchise" && <FrontView front="franchise" data={data} range={range} onNavigate={onViewChange} />}
             {view === "condominium" && <FrontView front="condominium" data={data} range={range} onNavigate={onViewChange} />}
-            {view === "organic" && <OrganicView data={data} range={range} scope={organicScope} onScopeChange={setOrganicScope} />}
+            {view === "organic" && <OrganicView data={data} scope={organicScope} onScopeChange={setOrganicScope} />}
             {view === "crm" && <CrmView data={data} readOnly={readOnly} />}
             {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} />}
           </>

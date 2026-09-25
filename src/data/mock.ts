@@ -1,4 +1,4 @@
-import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, CursorPage, EntityItem, OverviewResponse, PmaxItem } from "../types";
+import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem, CursorPage, EntityItem, OverviewResponse, PmaxItem } from "../types";
 
 const kpis = (spend: number, impressions: number, clicks: number, results: number, reach?: number) => ({
   has_data: true,
@@ -37,7 +37,16 @@ const analyticsDaily: AnalyticsDailyMetric[] = [
   { date: days[6], sessions: 469, engaged_sessions: 327, active_users: 414, new_users: 339, views: 802, events: 2416, conversions: 21, revenue: 0, page_views: 802, scrolls: 304, generate_leads: 21 },
 ];
 
-const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => daily.reduce<AnalyticsKpis>((total, item) => ({
+// As taxas saem dos totais somados (soma / soma), igual ao que a RPC devolve —
+// a média das taxas diárias daria peso igual a um dia fraco e a um dia forte.
+const withRates = (total: AnalyticsKpis): AnalyticsKpis => ({
+  ...total,
+  engagement_rate: total.sessions ? (total.engaged_sessions * 100) / total.sessions : null,
+  views_per_session: total.sessions ? total.views / total.sessions : null,
+  lead_rate: total.sessions ? (total.generate_leads * 100) / total.sessions : null,
+});
+
+const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => withRates(daily.reduce<AnalyticsKpis>((total, item) => ({
   has_data: true,
   sessions: total.sessions + item.sessions,
   engaged_sessions: total.engaged_sessions + item.engaged_sessions,
@@ -48,7 +57,7 @@ const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => daily.re
   conversions: total.conversions + item.conversions,
   revenue: total.revenue + item.revenue,
   generate_leads: total.generate_leads + item.generate_leads,
-}), { has_data: false, sessions: 0, engaged_sessions: 0, active_users: 0, new_users: 0, views: 0, events: 0, conversions: 0, revenue: 0, generate_leads: 0 });
+}), { has_data: false, sessions: 0, engaged_sessions: 0, active_users: 0, new_users: 0, views: 0, events: 0, conversions: 0, revenue: 0, generate_leads: 0 }));
 
 export const mockOverview: OverviewResponse = {
   client: { id: 1, slug: "maria-gasolina", name: "Maria Gasolina Express", timezone: "America/Sao_Paulo" },
@@ -84,7 +93,7 @@ export const mockOverview: OverviewResponse = {
   }),
   analytics: {
     current: analyticsKpis(analyticsDaily),
-    previous: {
+    previous: withRates({
       has_data: true,
       sessions: 2764,
       engaged_sessions: 1812,
@@ -95,7 +104,7 @@ export const mockOverview: OverviewResponse = {
       conversions: 104,
       revenue: 0,
       generate_leads: 104,
-    },
+    }),
     daily: analyticsDaily,
   },
 };
@@ -130,6 +139,37 @@ const eventTotal = eventSeed.reduce((sum, [, count]) => sum + count, 0);
 export const mockAnalyticsEvents: AnalyticsEventItem[] = eventSeed.map(([event_name, event_count, key_events]) => ({
   event_name, event_count, key_events, daily_average: event_count / 7, share_of_total: event_count * 100 / eventTotal,
 }));
+
+// Landing pages de demonstração. `primary_conversions` fica null de propósito:
+// é o que a RPC devolve enquanto a conversão primária não está marcada na
+// propriedade, e a interface precisa se comportar bem nesse cenário.
+const landingPageSeed: Array<[string, number, number, number, number]> = [
+  ["/seja-um-franqueado", 1284, 902, 1041, 2318],
+  ["/", 617, 341, 498, 1104],
+  ["/links", 198, 142, 167, 288],
+  ["/franquia-maria-gasolina", 143, 104, 118, 261],
+  ["/contato", 96, 58, 71, 148],
+  ["/unidades", 84, 51, 63, 139],
+  ["/blog/quanto-custa-uma-franquia", 71, 54, 62, 118],
+  ["/condominios", 62, 39, 48, 97],
+  ["/sobre", 48, 26, 35, 71],
+  ["/blog", 37, 22, 28, 59],
+  ["/trabalhe-conosco", 29, 17, 24, 41],
+  ["/politica-de-privacidade", 18, 7, 14, 24],
+  ["/blog/franquia-de-combustivel", 14, 9, 11, 21],
+  ["(not set)", 11, 4, 8, 13],
+];
+export const mockAnalyticsLandingPages: AnalyticsLandingPageItem[] = landingPageSeed.map(
+  ([landing_page, sessions, engaged_sessions, new_users, views]) => ({
+    landing_page, sessions, engaged_sessions, new_users, views,
+    active_users: Math.round(sessions * 0.86),
+    events: Math.round(sessions * 5.2),
+    key_events: Math.round(sessions * 0.03),
+    primary_conversions: null,
+    engagement_rate: sessions ? (engaged_sessions * 100) / sessions : null,
+    conversion_rate: null,
+  }),
+);
 
 const entity = (
   source: "google_ads" | "meta_ads",

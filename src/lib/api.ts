@@ -1,5 +1,5 @@
-import type { AnalyticsAcquisitionItem, AnalyticsEventItem, AnalyticsKpis, CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
-import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockEntities, mockOverview, mockPmax } from "../data/mock";
+import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem, CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
+import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockAnalyticsLandingPages, mockEntities, mockOverview, mockPmax } from "../data/mock";
 import { supabase } from "./supabase";
 import { getMetaCreativePreviews } from "./creative-previews";
 
@@ -150,6 +150,40 @@ export async function getAnalyticsEvents(
   if (error) throw error;
   return data as CursorPage<AnalyticsEventItem>;
 }
+
+export async function getAnalyticsLandingPages(
+  range: DateRange,
+  cursor: Record<string, string | number> | null = null,
+  limit = RPC_PAGE_SIZE,
+): Promise<CursorPage<AnalyticsLandingPageItem>> {
+  if (isDemoMode) {
+    await delay();
+    return mockPage(mockAnalyticsLandingPages, cursor, limit);
+  }
+  if (!supabase) throw new Error("A conexão com o Supabase ainda não foi configurada.");
+  const { data, error } = await supabase.rpc("get_dashboard_ga4_landing_pages", {
+    p_client_slug: CLIENT_SLUG,
+    p_start_date: range.start,
+    p_end_date: range.end,
+    p_limit: limit,
+    p_cursor: cursor,
+  });
+  if (error) throw error;
+  return data as CursorPage<AnalyticsLandingPageItem>;
+}
+
+// Rankings, gráficos e insights da aba Site precisam do conjunto completo, não
+// da primeira página: um canal com poucas sessões mas boa conversão pode estar
+// na terceira página da RPC, que ordena por sessões. `readAllPages` já tem teto
+// de segurança (MAX_PAGES) e sinaliza `truncated` em vez de cortar em silêncio.
+export const getAllAnalyticsAcquisition = (range: DateRange) =>
+  readAllPages((cursor) => getAnalyticsAcquisition(range, cursor, RPC_PAGE_SIZE));
+
+export const getAllAnalyticsEvents = (range: DateRange) =>
+  readAllPages((cursor) => getAnalyticsEvents(range, cursor, RPC_PAGE_SIZE));
+
+export const getAllAnalyticsLandingPages = (range: DateRange) =>
+  readAllPages((cursor) => getAnalyticsLandingPages(range, cursor, RPC_PAGE_SIZE));
 
 // ---------------------------------------------------------------------------
 // v2 — frentes (Meta Ads + Google Ads), orgânico e GA4.
@@ -444,26 +478,27 @@ export async function getOrganic(range: DateRange): Promise<OrganicBundle> {
   };
 }
 
-export interface Ga4Bundle {
+export interface SiteOverviewBundle {
   current: AnalyticsKpis | null;
   previous: AnalyticsKpis | null;
-  acquisition: AnalyticsAcquisitionItem[];
-  events: AnalyticsEventItem[];
+  daily: AnalyticsDailyMetric[];
   origin: "supabase" | "demo";
 }
 
-/** GA4 vem das RPCs de leitura que já existiam no banco — nada novo foi criado. */
-export async function getGa4(range: DateRange): Promise<Ga4Bundle> {
-  const [overview, acquisition, events] = await Promise.all([
-    getOverview(range),
-    getAnalyticsAcquisition(range, null, 25),
-    getAnalyticsEvents(range, null, 25),
-  ]);
+/**
+ * KPIs e série diária do GA4. Fica numa consulta separada da aquisição, dos
+ * eventos e das landing pages de propósito: cada seção da aba Site tem seu
+ * próprio estado de carregamento e de erro, então uma RPC secundária que falhe
+ * não derruba os KPIs nem o gráfico principal.
+ */
+export async function getSiteOverview(range: DateRange): Promise<SiteOverviewBundle> {
+  const overview = await getOverview(range);
   return {
     current: overview.analytics?.current ?? null,
     previous: overview.analytics?.previous ?? null,
-    acquisition: acquisition.items,
-    events: events.items,
+    // O recorte por período é defensivo: garante que a série do gráfico nunca
+    // inclua dias do período de comparação, qualquer que seja a RPC.
+    daily: (overview.analytics?.daily ?? []).filter((day) => day.date >= range.start && day.date <= range.end),
     origin: isDemoMode ? "demo" : "supabase",
   };
 }

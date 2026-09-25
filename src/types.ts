@@ -87,6 +87,27 @@ export interface AnalyticsEventItem {
   share_of_total: number | null;
 }
 
+/**
+ * Uma linha de `get_dashboard_ga4_landing_pages`: a página pela qual a sessão
+ * começou, agregada no período. `primary_conversions` (e portanto
+ * `conversion_rate`) vem null enquanto a conversão primária não estiver marcada
+ * na propriedade — por isso a interface analisa landing page por sessões,
+ * engajamento e novos usuários, e não inventa leads por página.
+ */
+export interface AnalyticsLandingPageItem {
+  landing_page: string;
+  sessions: number;
+  engaged_sessions: number;
+  active_users: number;
+  new_users: number;
+  views: number;
+  events: number;
+  key_events: number;
+  primary_conversions: number | null;
+  engagement_rate: number | null;
+  conversion_rate: number | null;
+}
+
 export interface OverviewResponse {
   client: { id: number; slug: string; name: string; timezone: string };
   period: { start: string; end: string; days: number };
@@ -150,7 +171,7 @@ export interface DateRange {
 export type Front = "franchise" | "condominium";
 export type Channel = "google_ads" | "meta_ads";
 export type Platform = "instagram" | "facebook";
-export type AppView = "executive" | "franchise" | "condominium" | "organic" | "crm" | "settings";
+export type AppView = "executive" | "franchise" | "condominium" | "organic" | "site" | "crm" | "settings";
 
 export interface FrontDaily {
   date: string;
