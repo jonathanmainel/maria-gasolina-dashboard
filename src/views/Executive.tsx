@@ -176,7 +176,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           </div>
           <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: colors.red }} />Franquias</span><span><i style={{ background: colors.gold }} />Condomínios</span></div>
         </Panel>
-        <Panel title="Projetado vs. faturado" description="Receita já fechada contra a previsão do pipeline aberto">
+        <Panel className="fill-body" title="Projetado vs. faturado" description="Receita já fechada contra a previsão do pipeline aberto">
           <div className="proj-compare">
             <div className="proj-bar"><span>Faturado</span><div className="proj-track"><div className="proj-fill won" style={{ width: "100%" }} /></div><b>{money(crmFranchise.revenue)}</b></div>
             <div className="proj-bar"><span>Projetado (pipeline aberto)</span><div className="proj-track"><div className="proj-fill forecast" style={{ width: `${Math.min(100, (salesProjected / Math.max(1, crmFranchise.revenue + salesProjected)) * 100)}%` }} /></div><b>{money(salesProjected)}</b></div>

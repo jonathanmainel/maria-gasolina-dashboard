@@ -91,34 +91,42 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
           )}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
-        <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo total: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
-          {crm.avg_cycle_days > 0 ? (
-            <>
-              <CycleBar stages={crm.stages} color={meta.color} totalDays={crm.avg_cycle_days} />
-              <div className="grid grid-2" style={{ gap: 10, marginTop: 20 }}>
-                <MiniCrmStat label="Ciclo total" value={`${crm.avg_cycle_days} dias`} sub="soma do tempo informado em cada etapa" />
-                <MiniCrmStat label="Etapa mais demorada" value={slowestStage?.name ?? "—"} sub={slowestStage ? `~${slowestStage.avg_days} dias` : undefined} />
+        {/* Coluna lateral: ciclo e receita dividem a altura do funil. Antes cada um
+            ocupava uma linha inteira ao lado de um vizinho bem mais alto e sobrava
+            quase metade do painel vazio. */}
+        <div className="panel-stack">
+          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo total: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
+            {crm.avg_cycle_days > 0 ? (
+              <>
+                <CycleBar stages={crm.stages} color={meta.color} totalDays={crm.avg_cycle_days} />
+                <div className="grid grid-2" style={{ gap: 10, marginTop: 16 }}>
+                  <MiniCrmStat label="Ciclo total" value={`${crm.avg_cycle_days} dias`} sub="soma do tempo informado em cada etapa" />
+                  <MiniCrmStat label="Etapa mais demorada" value={slowestStage?.name ?? "—"} sub={slowestStage ? `~${slowestStage.avg_days} dias` : undefined} />
+                </div>
+              </>
+            ) : (
+              <div className="empty-state">Nenhum tempo de etapa informado ainda.</div>
+            )}
+          </Panel>
+          <Panel title="Projetado vs. faturado" description="Receita já fechada contra a previsão ponderada do pipeline em aberto">
+            {totalPotential > 0 ? (
+              <div className="proj-compare">
+                <div className="proj-bar"><span>Faturado</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${(crm.revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.revenue)}</b></div>
+                <div className="proj-bar"><span>Projetado (pipeline aberto)</span><div className="proj-track"><div className="proj-fill forecast" style={{ width: `${(crm.projected_revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.projected_revenue)}</b></div>
+                <div className="proj-total"><span>Potencial total do período</span><strong>{money(totalPotential)}</strong></div>
               </div>
-            </>
-          ) : (
-            <div className="empty-state">Nenhum tempo de etapa informado ainda.</div>
-          )}
-        </Panel>
+            ) : (
+              <div className="empty-state">Esta frente não tem taxa direta: informe um ticket médio para projetar receita.</div>
+            )}
+          </Panel>
+        </div>
       </div>
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        <Panel title="Projetado vs. faturado" description="Receita já fechada contra a previsão ponderada do pipeline em aberto">
-          {totalPotential > 0 ? (
-            <div className="proj-compare">
-              <div className="proj-bar"><span>Faturado</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${(crm.revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.revenue)}</b></div>
-              <div className="proj-bar"><span>Projetado (pipeline aberto)</span><div className="proj-track"><div className="proj-fill forecast" style={{ width: `${(crm.projected_revenue * 100) / totalPotential}%` }} /></div><b>{money(crm.projected_revenue)}</b></div>
-              <div className="proj-total"><span>Potencial total do período</span><strong>{money(totalPotential)}</strong></div>
-            </div>
-          ) : (
-            <div className="empty-state">Esta frente não tem taxa direta: informe um ticket médio para projetar receita.</div>
-          )}
-        </Panel>
-        <Panel title="Mês a mês" description="Leads reais de mídia, com reuniões, contratos e receita projetados pela taxa informada">
+        {/* O gráfico passou para a coluna larga: seis meses em três séries não cabiam
+            bem em um terço da largura, e a comparação de receita, que é só três barras,
+            não precisava de dois terços. */}
+        <Panel className="fill-chart" title="Mês a mês" description="Leads reais de mídia, com reuniões, contratos e receita projetados pela taxa informada">
           {crm.monthly.length ? (
             <>
               <div className="chart-box h-320">
@@ -142,22 +150,21 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
             <div className="empty-state">Nenhum lead de mídia no período selecionado.</div>
           )}
         </Panel>
-      </div>
-
-      <div className="grid grid-2" style={{ marginTop: 14 }}>
-        <Panel title="Origem dos contratos" description="Qual canal trouxe quem realmente fechou">
-          {crm.sources.length ? (
-            <BarList items={crm.sources.map((source, index) => ({ name: source.name, value: source.contracts, color: [colors.meta, colors.google, colors.instagram, colors.gold][index], hint: `${integer(source.leads)} leads` }))} format={integer} />
-          ) : (
-            <div className="empty-state">Nenhum lead de mídia no período para distribuir os contratos.</div>
-          )}
-        </Panel>
-        <Panel title="Negociações recentes" description="Últimas movimentações no CRM">
-          <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
-            <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Disponível quando a API do Elo for liberada</strong>
-            <span>Negociação a negociação só existe dentro do CRM: não há como preencher esta lista à mão sem inventar dados.</span>
-          </div>
-        </Panel>
+        <div className="panel-stack">
+          <Panel title="Origem dos contratos" description="Qual canal trouxe quem realmente fechou">
+            {crm.sources.length ? (
+              <BarList items={crm.sources.map((source, index) => ({ name: source.name, value: source.contracts, color: [colors.meta, colors.google, colors.instagram, colors.gold][index], hint: `${integer(source.leads)} leads` }))} format={integer} />
+            ) : (
+              <div className="empty-state">Nenhum lead de mídia no período para distribuir os contratos.</div>
+            )}
+          </Panel>
+          <Panel title="Negociações recentes" description="Últimas movimentações no CRM">
+            <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
+              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Disponível quando a API do Elo for liberada</strong>
+              <span>Negociação a negociação só existe dentro do CRM: não há como preencher esta lista à mão sem inventar dados.</span>
+            </div>
+          </Panel>
+        </div>
       </div>
     </div>
   );

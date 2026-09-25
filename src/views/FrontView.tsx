@@ -186,7 +186,7 @@ const months = useMemo(
         <Panel title={`Funil comercial · ${meta.short}`} description="Do lead ao contrato, com as taxas entre etapas" badge={<span className="badge sky">CRM Elo · entrada manual</span>}>
           <Funnel stages={crm.stages} color={meta.color} format={integer} dense />
         </Panel>
-        <Panel title="Onde os leads entram" description="Participação de cada origem no funil">
+        <Panel className="fill-body" title="Onde os leads entram" description="Participação de cada origem no funil">
           <BarList items={crm.sources.map((s, i) => ({ name: s.name, value: s.leads, color: [colors.meta, colors.google, colors.instagram, colors.gold][i] }))} format={integer} />
           <button type="button" className="secondary-button" style={{ marginTop: 16, width: "100%" }} onClick={() => onNavigate("crm")}>Abrir CRM e vendas <ArrowRight size={15} /></button>
         </Panel>

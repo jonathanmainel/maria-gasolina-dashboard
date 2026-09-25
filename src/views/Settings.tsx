@@ -57,16 +57,35 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
 
       <ManualStorageNote storage={storage} reason={fallbackReason} />
 
+      {/* Duas colunas de altura equivalente: as metas e o bloco de conteúdos sobem
+          para o lado dos painéis utilitários em vez de deixar um card de metas
+          esticado e meio vazio com a seção de baixo empurrada para fora da tela. */}
       <div className="grid grid-wide">
-        <ManualNumbersPanel
-          title="Metas do mês"
-          description="Alimentam o ritmo do mês, os anéis e as projeções"
-          fields={goalFields}
-          values={goalsToValues(data.goals)}
-          onSave={(next) => persist({ goals: valuesToGoals(next) })}
-          saveLabel="Salvar metas"
-        />
-        <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+        <div className="panel-stack">
+          <ManualNumbersPanel
+            title="Metas do mês"
+            description="Alimentam o ritmo do mês, os anéis e as projeções"
+            fields={goalFields}
+            values={goalsToValues(data.goals)}
+            onSave={(next) => persist({ goals: valuesToGoals(next) })}
+            saveLabel="Salvar metas"
+          />
+          <div className="section-title">
+            <div>
+              <h2>Dados de negócio sem origem automática</h2>
+              <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O funil comercial é editado dentro de CRM e vendas.</p>
+            </div>
+          </div>
+          <ManualNumbersPanel
+            title="Conteúdos postados no mês"
+            description="Quantidade por formato no Instagram. Feed e Stories também alimentam o ritmo do mês."
+            fields={publicationFields}
+            values={deliveryToValues(data.delivery)}
+            onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
+            saveLabel="Salvar conteúdos"
+          />
+        </div>
+        <div className="panel-stack">
           <Panel title="Compartilhar somente leitura" description="Link para fundadores e diretoria abrirem sem criar conta" noTilt>
             <div className="share-box">
               <code>{shareUrl}</code>
@@ -88,21 +107,6 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
           </Panel>
         </div>
       </div>
-
-      <div className="section-title" style={{ marginTop: 22 }}>
-        <div>
-          <h2>Dados de negócio sem origem automática</h2>
-          <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O funil comercial é editado dentro de CRM e vendas.</p>
-        </div>
-      </div>
-      <ManualNumbersPanel
-        title="Conteúdos postados no mês"
-        description="Quantidade por formato no Instagram. Feed e Stories também alimentam o ritmo do mês."
-        fields={publicationFields}
-        values={deliveryToValues(data.delivery)}
-        onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
-        saveLabel="Salvar conteúdos"
-      />
     </div>
   );
 }
