@@ -4,6 +4,7 @@ import {
   buildCreativeStoragePath,
   canReuseCreativePreview,
   downloadPreview,
+  fetchAccountVideoPictures,
   fetchBestVideoThumbnail,
   type ExistingCreative,
   isCreativePreviewStale,
@@ -149,6 +150,58 @@ describe("Meta creative normalization", () => {
       }),
     );
     expect(result).toBeNull();
+  });
+
+  it("uses the largest supported Video format picture when thumbnails are unavailable", async () => {
+    let calls = 0;
+    const result = await fetchBestVideoThumbnail(
+      "v26.0",
+      "SECRET",
+      "video-1",
+      async () => {
+        calls++;
+        if (calls === 1) {
+          return new Response(JSON.stringify({ error: { code: 100 } }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({
+          format: [
+            { width: 320, height: 180, picture: "https://cdn.example/320.jpg" },
+            { width: 1920, height: 1080, picture: "https://cdn.example/1920.jpg" },
+          ],
+          picture: "https://cdn.example/160.jpg",
+        }), { headers: { "content-type": "application/json" } });
+      },
+    );
+
+    expect(result).toMatchObject({
+      url: "https://cdn.example/1920.jpg",
+      source: "video.format.picture",
+      policy: "video_format_thumbnail",
+    });
+  });
+
+  it("uses the supported ad account video library for unresolved pictures", async () => {
+    const result = await fetchAccountVideoPictures(
+      "v26.0",
+      "SECRET",
+      "123",
+      ["video-2"],
+      async () => new Response(JSON.stringify({
+        data: [
+          { id: "video-1", picture: "https://cdn.example/one.jpg" },
+          { id: "video-2", picture: "https://cdn.example/two.jpg" },
+        ],
+      }), { headers: { "content-type": "application/json" } }),
+    );
+
+    expect([...result.entries()]).toEqual([["video-2", expect.objectContaining({
+      url: "https://cdn.example/two.jpg",
+      source: "ad_account.advideos.picture",
+      policy: "video_account_picture",
+    })]]);
   });
 
   it("uses the first carousel card as representative preview", () => {

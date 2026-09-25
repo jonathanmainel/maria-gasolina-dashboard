@@ -433,6 +433,7 @@ export default {
         endDate: end_date,
         dryRun: dry_run,
         refreshVideoPreviewsOnly: refresh_video_previews_only,
+        videoPictureOverrides: video_picture_overrides,
       } = validation.value;
 
       const metaAccessToken = Deno.env.get("META_ACCESS_TOKEN");
@@ -519,65 +520,67 @@ export default {
         const adInsights: MetaInsight[] = [];
         const accountMetadata: ResolvedMetaAccountMetadata[] = [];
 
-        for (const sourceAccount of sourceAccounts) {
-          const [
-            metadata,
-            accountDailyInsights,
-            accountCampaignInsights,
-            accountAdSetInsights,
-            accountAdInsights,
-          ] =
-            await Promise.all([
-              fetchMetaAccountMetadata(
-                metaApiVersion,
-                metaAccessToken,
-                sourceAccount.account_id,
-              ),
-              fetchMetaInsights(
-                metaApiVersion,
-                metaAccessToken,
-                sourceAccount.account_id,
-                start_date,
-                end_date,
-                "account",
-              ),
-              fetchMetaInsights(
-                metaApiVersion,
-                metaAccessToken,
-                sourceAccount.account_id,
-                start_date,
-                end_date,
-                "campaign",
-              ),
-              fetchMetaInsights(
-                metaApiVersion,
-                metaAccessToken,
-                sourceAccount.account_id,
-                start_date,
-                end_date,
-                "adset",
-              ),
-              fetchMetaInsights(
-                metaApiVersion,
-                metaAccessToken,
-                sourceAccount.account_id,
-                start_date,
-                end_date,
-                "ad",
-              ),
-            ]);
+        if (!refresh_video_previews_only) {
+          for (const sourceAccount of sourceAccounts) {
+            const [
+              metadata,
+              accountDailyInsights,
+              accountCampaignInsights,
+              accountAdSetInsights,
+              accountAdInsights,
+            ] =
+              await Promise.all([
+                fetchMetaAccountMetadata(
+                  metaApiVersion,
+                  metaAccessToken,
+                  sourceAccount.account_id,
+                ),
+                fetchMetaInsights(
+                  metaApiVersion,
+                  metaAccessToken,
+                  sourceAccount.account_id,
+                  start_date,
+                  end_date,
+                  "account",
+                ),
+                fetchMetaInsights(
+                  metaApiVersion,
+                  metaAccessToken,
+                  sourceAccount.account_id,
+                  start_date,
+                  end_date,
+                  "campaign",
+                ),
+                fetchMetaInsights(
+                  metaApiVersion,
+                  metaAccessToken,
+                  sourceAccount.account_id,
+                  start_date,
+                  end_date,
+                  "adset",
+                ),
+                fetchMetaInsights(
+                  metaApiVersion,
+                  metaAccessToken,
+                  sourceAccount.account_id,
+                  start_date,
+                  end_date,
+                  "ad",
+                ),
+              ]);
 
-          accountMetadata.push({
-            ...metadata,
-            requested_account_id: sourceAccount.account_id,
-            account_status_label: getMetaAccountStatusLabel(
-              metadata.account_status,
-            ),
-          });
-          dailyInsights.push(...accountDailyInsights);
-          campaignInsights.push(...accountCampaignInsights);
-          adSetInsights.push(...accountAdSetInsights);
-          adInsights.push(...accountAdInsights);
+            accountMetadata.push({
+              ...metadata,
+              requested_account_id: sourceAccount.account_id,
+              account_status_label: getMetaAccountStatusLabel(
+                metadata.account_status,
+              ),
+            });
+            dailyInsights.push(...accountDailyInsights);
+            campaignInsights.push(...accountCampaignInsights);
+            adSetInsights.push(...accountAdSetInsights);
+            adInsights.push(...accountAdInsights);
+          }
         }
 
         const normalizedDailyRows = sortRows(
@@ -610,7 +613,7 @@ export default {
         } | null = null;
         let databaseWriteStatus: string | null = null;
 
-        if (!dry_run) {
+        if (!dry_run && !refresh_video_previews_only) {
           const paidMediaPayloadHash = await createPayloadHash({
             daily: normalizedDailyRows,
             campaigns: normalizedCampaignRows,
@@ -747,6 +750,9 @@ export default {
             would_insert: number;
             would_update: number;
             video_high_res_resolved: number;
+            video_ids_resolved: number;
+            video_thumbnail_candidates: number;
+            video_account_picture_resolved: number;
             video_preferred_thumbnail: number;
             video_thumbnail_fallback: number;
             video_preview_failed: number;
@@ -768,6 +774,7 @@ export default {
               adRows: normalizedAdRows,
               dryRun: dry_run,
               videoRefreshOnly: refresh_video_previews_only,
+              videoPictureOverrides: video_picture_overrides,
             }),
           };
         } catch {
@@ -782,6 +789,9 @@ export default {
             would_insert: 0,
             would_update: 0,
             video_high_res_resolved: 0,
+            video_ids_resolved: 0,
+            video_thumbnail_candidates: 0,
+            video_account_picture_resolved: 0,
             video_preferred_thumbnail: 0,
             video_thumbnail_fallback: 0,
             video_preview_failed: 0,
@@ -790,8 +800,23 @@ export default {
           };
         }
 
+        const creativeWritePerformed = !dry_run &&
+          creativeEnrichment.status === "success" &&
+          creativeEnrichment.inserted + creativeEnrichment.updated > 0;
+        const responseWritePerformed = databaseWritePerformed ||
+          creativeWritePerformed;
+        const responseWriteStatus = databaseWriteStatus ??
+          (creativeWritePerformed
+            ? creativeEnrichment.failed > 0
+              ? "partial_success"
+              : "success"
+            : null);
+        const responseOk = !refresh_video_previews_only ||
+          (creativeEnrichment.status === "success" &&
+            creativeEnrichment.failed === 0);
+
         return Response.json({
-          ok: true,
+          ok: responseOk,
           mode: dry_run ? "dry_run" : "write",
 
           request: {
@@ -800,6 +825,7 @@ export default {
             end_date,
             dry_run,
             refresh_video_previews_only,
+            video_picture_override_count: Object.keys(video_picture_overrides).length,
           },
 
           dashboard_client: {
@@ -868,17 +894,21 @@ export default {
             ad_truncated: normalizedAdRows.length > RESPONSE_PREVIEW_LIMIT,
           },
 
-          database_write_performed: databaseWritePerformed,
-          database_write_status: databaseWriteStatus,
+          database_write_performed: responseWritePerformed,
+          database_write_status: responseWriteStatus,
           database_write_result: databaseWriteResult,
           creative_enrichment: creativeEnrichment,
 
-          message: dry_run
+          message: refresh_video_previews_only
+            ? dry_run
+              ? "Meta video previews inspected selectively. No database write was performed."
+              : "Meta video previews refreshed selectively without rewriting metrics."
+            : dry_run
             ? "Meta Ads metrics and creative previews inspected successfully. No database write was performed."
             : databaseWriteStatus === "already_processed"
               ? "Meta Ads metrics were already processed. Creative previews were refreshed independently."
               : "Meta Ads metrics and creative previews processed successfully.",
-        });
+        }, { status: responseOk ? 200 : 207 });
       } catch (error) {
         if (error instanceof MetaApiRequestError) {
           return Response.json(

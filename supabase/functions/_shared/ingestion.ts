@@ -4,6 +4,7 @@ export type IngestionRequest = {
   end_date?: string;
   dry_run?: boolean;
   refresh_video_previews_only?: boolean;
+  video_picture_overrides?: Record<string, string>;
 };
 
 export type ValidatedIngestionRequest = {
@@ -12,6 +13,7 @@ export type ValidatedIngestionRequest = {
   endDate: string;
   dryRun: boolean;
   refreshVideoPreviewsOnly: boolean;
+  videoPictureOverrides: Record<string, string>;
 };
 
 export type IngestionValidationResult =
@@ -47,6 +49,7 @@ export function validateIngestionRequest(
     end_date,
     dry_run,
     refresh_video_previews_only,
+    video_picture_overrides,
   } = body;
 
   if (!client_slug) {
@@ -100,6 +103,52 @@ export function validateIngestionRequest(
     };
   }
 
+  const validatedVideoPictureOverrides: Record<string, string> = {};
+  if (video_picture_overrides !== undefined) {
+    if (
+      !video_picture_overrides ||
+      typeof video_picture_overrides !== "object" ||
+      Array.isArray(video_picture_overrides)
+    ) {
+      return {
+        ok: false,
+        status: 400,
+        error: "video_picture_overrides must be an object.",
+      };
+    }
+    const entries = Object.entries(video_picture_overrides);
+    if (entries.length > 100) {
+      return {
+        ok: false,
+        status: 400,
+        error: "video_picture_overrides supports at most 100 videos.",
+      };
+    }
+    for (const [videoId, rawUrl] of entries) {
+      let parsed: URL;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        return {
+          ok: false,
+          status: 400,
+          error: "video_picture_overrides contains an invalid URL.",
+        };
+      }
+      const host = parsed.hostname.toLowerCase();
+      const trustedMetaHost = host === "facebook.com" ||
+        host.endsWith(".facebook.com") || host.endsWith(".fbcdn.net");
+      if (!/^\d+$/.test(videoId) || parsed.protocol !== "https:" || !trustedMetaHost) {
+        return {
+          ok: false,
+          status: 400,
+          error: "video_picture_overrides accepts only numeric video IDs and HTTPS Meta CDN URLs.",
+        };
+      }
+      validatedVideoPictureOverrides[videoId] = parsed.toString();
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -108,6 +157,7 @@ export function validateIngestionRequest(
       endDate: end_date,
       dryRun: dry_run,
       refreshVideoPreviewsOnly: refresh_video_previews_only ?? false,
+      videoPictureOverrides: validatedVideoPictureOverrides,
     },
   };
 }

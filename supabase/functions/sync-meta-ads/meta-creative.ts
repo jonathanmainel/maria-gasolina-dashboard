@@ -96,6 +96,9 @@ export type CreativeEnrichmentStats = {
   would_insert: number;
   would_update: number;
   video_high_res_resolved: number;
+  video_ids_resolved: number;
+  video_thumbnail_candidates: number;
+  video_account_picture_resolved: number;
   video_preferred_thumbnail: number;
   video_thumbnail_fallback: number;
   video_preview_failed: number;
@@ -122,6 +125,7 @@ type EnrichOptions = {
   now?: Date;
   fetchImpl?: typeof fetch;
   videoRefreshOnly?: boolean;
+  videoPictureOverrides?: Record<string, string>;
 };
 
 type VideoPreviewCandidate = {
@@ -130,6 +134,8 @@ type VideoPreviewCandidate = {
   policy:
     | "video_preferred_thumbnail"
     | "video_high_res_thumbnail"
+    | "video_format_thumbnail"
+    | "video_account_picture"
     | "video_creative_image"
     | "video_thumbnail_fallback";
   width: number | null;
@@ -726,14 +732,115 @@ export async function fetchBestVideoThumbnail(
         paging?: { next?: string };
         error?: { code?: number };
       };
-      if (!response.ok || payload.error) return null;
+      if (!response.ok || payload.error) break;
       thumbnails.push(...(payload.data ?? []));
       next = payload.paging?.next ?? null;
     }
-    return selectBestVideoThumbnail(thumbnails);
+    const selected = selectBestVideoThumbnail(thumbnails);
+    if (selected) return selected;
+  } catch {
+    // Continue with the supported Video node format/picture fallback.
+  }
+
+  try {
+    const videoUrl = new URL(
+      `https://graph.facebook.com/${apiVersion}/${videoId}`,
+    );
+    videoUrl.searchParams.set("fields", "format,picture");
+    const response = await fetchImpl(videoUrl.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const payload = (await response.json()) as {
+      format?: Array<Record<string, unknown>>;
+      picture?: unknown;
+      error?: { code?: number };
+    };
+    if (!response.ok || payload.error) return null;
+
+    const fromFormat = selectBestVideoThumbnail(
+      (payload.format ?? []).map((format) => ({
+        uri: stringValue(format.picture),
+        width: format.width,
+        height: format.height,
+        is_preferred: false,
+      })),
+    );
+    if (fromFormat) {
+      return {
+        ...fromFormat,
+        source: "video.format.picture",
+        policy: "video_format_thumbnail",
+      };
+    }
+
+    const picture = stringValue(payload.picture);
+    return picture
+      ? {
+        url: picture,
+        source: "video.picture",
+        policy: "video_thumbnail_fallback",
+        width: null,
+        height: null,
+        preferred: false,
+      }
+      : null;
   } catch {
     return null;
   }
+}
+
+export async function fetchAccountVideoPictures(
+  apiVersion: string,
+  accessToken: string,
+  accountId: string,
+  targetVideoIds: string[],
+  fetchImpl: typeof fetch,
+): Promise<Map<string, VideoPreviewCandidate>> {
+  const remaining = new Set(targetVideoIds);
+  const found = new Map<string, VideoPreviewCandidate>();
+  if (remaining.size === 0) return found;
+
+  const url = new URL(
+    `https://graph.facebook.com/${apiVersion}/act_${accountId}/advideos`,
+  );
+  url.searchParams.set("fields", "id,picture");
+  url.searchParams.set("limit", "100");
+  let next: string | null = url.toString();
+  let pages = 0;
+
+  try {
+    while (next && remaining.size > 0 && pages < 20) {
+      pages++;
+      const response = await fetchImpl(next, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = (await response.json()) as {
+        data?: Array<Record<string, unknown>>;
+        paging?: { next?: string };
+        error?: { code?: number };
+      };
+      if (!response.ok || payload.error) break;
+      for (const video of payload.data ?? []) {
+        const id = stringValue(video.id);
+        const picture = stringValue(video.picture);
+        if (!id || !picture || !remaining.has(id)) continue;
+        found.set(id, {
+          url: picture,
+          source: "ad_account.advideos.picture",
+          policy: "video_account_picture",
+          width: null,
+          height: null,
+          preferred: false,
+        });
+        remaining.delete(id);
+      }
+      next = payload.paging?.next ?? null;
+    }
+  } catch {
+    // Keep the existing creative image when the account video library is unavailable.
+  }
+
+  return found;
 }
 
 async function firstDownloadedCandidate(
@@ -919,11 +1026,20 @@ export async function enrichMetaCreativePreviews(
   const now = options.now ?? new Date();
   const nowIso = now.toISOString();
   const fetchImpl = options.fetchImpl ?? fetch;
-  const refs = await collectAdRefs(options);
-  const existing = await loadExisting(options.supabase, options.clientId, refs);
+  const collectedRefs = await collectAdRefs(options);
+  const existing = await loadExisting(
+    options.supabase,
+    options.clientId,
+    collectedRefs,
+  );
+  const refs = options.videoRefreshOnly
+    ? collectedRefs.filter((ref) =>
+      existing.get(ref.ad_id)?.creative_type === "video"
+    )
+    : collectedRefs;
   const candidates = refs.filter((ref) => {
     const current = existing.get(ref.ad_id);
-    if (options.videoRefreshOnly) return current?.creative_type === "video";
+    if (options.videoRefreshOnly) return true;
     return isCreativePreviewStale(current, now);
   });
   const stats: CreativeEnrichmentStats = {
@@ -936,6 +1052,9 @@ export async function enrichMetaCreativePreviews(
     would_insert: 0,
     would_update: 0,
     video_high_res_resolved: 0,
+    video_ids_resolved: 0,
+    video_thumbnail_candidates: 0,
+    video_account_picture_resolved: 0,
     video_preferred_thumbnail: 0,
     video_thumbnail_fallback: 0,
     video_preview_failed: 0,
@@ -1014,6 +1133,7 @@ export async function enrichMetaCreativePreviews(
     ),
   )];
   const videoThumbnails = new Map<string, VideoPreviewCandidate | null>();
+  stats.video_ids_resolved = videoIds.length;
   const resolvedVideoThumbnails = await mapWithConcurrency(
     videoIds,
     CREATIVE_CONCURRENCY,
@@ -1032,6 +1152,42 @@ export async function enrichMetaCreativePreviews(
       videoThumbnails.set(result.value.videoId, result.value.thumbnail);
     }
   }
+
+  for (const accountId of options.accountIds) {
+    const accountVideoIds = [...new Set(
+      refs.flatMap((ref) => {
+        if (ref.account_id !== accountId) return [];
+        const videoId = normalized.get(ref.ad_id)?.videoId;
+        return videoId && !videoThumbnails.get(videoId) ? [videoId] : [];
+      }),
+    )];
+    const accountPictures = await fetchAccountVideoPictures(
+      options.apiVersion,
+      options.accessToken,
+      accountId,
+      accountVideoIds,
+      fetchImpl,
+    );
+    for (const [videoId, picture] of accountPictures) {
+      videoThumbnails.set(videoId, picture);
+    }
+  }
+  for (const videoId of videoIds) {
+    if (videoThumbnails.get(videoId)) continue;
+    const override = options.videoPictureOverrides?.[videoId];
+    if (!override) continue;
+    videoThumbnails.set(videoId, {
+      url: override,
+      source: "official_meta_connector.picture",
+      policy: "video_account_picture",
+      width: null,
+      height: null,
+      preferred: false,
+    });
+  }
+  stats.video_thumbnail_candidates = [...videoThumbnails.values()].filter(
+    (thumbnail) => thumbnail !== null,
+  ).length;
 
   const processed = await mapWithConcurrency(
     candidates,
@@ -1260,12 +1416,16 @@ export async function enrichMetaCreativePreviews(
     if (result.value.reused) stats.reused++;
     if (
       result.value.videoPolicy === "video_preferred_thumbnail" ||
-      result.value.videoPolicy === "video_high_res_thumbnail"
+      result.value.videoPolicy === "video_high_res_thumbnail" ||
+      result.value.videoPolicy === "video_format_thumbnail"
     ) {
       stats.video_high_res_resolved++;
     }
     if (result.value.videoPolicy === "video_preferred_thumbnail") {
       stats.video_preferred_thumbnail++;
+    }
+    if (result.value.videoPolicy === "video_account_picture") {
+      stats.video_account_picture_resolved++;
     }
     if (
       result.value.videoPolicy === "video_creative_image" ||
