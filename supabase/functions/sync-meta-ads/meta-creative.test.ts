@@ -4,10 +4,12 @@ import {
   buildCreativeStoragePath,
   canReuseCreativePreview,
   downloadPreview,
+  fetchBestVideoThumbnail,
   type ExistingCreative,
   isCreativePreviewStale,
   mapWithConcurrency,
   normalizeMetaCreative,
+  selectBestVideoThumbnail,
 } from "./meta-creative.ts";
 
 const existing: ExistingCreative = {
@@ -51,13 +53,102 @@ describe("Meta creative normalization", () => {
         id: "creative-video",
         object_type: "VIDEO",
         object_story_spec: {
-          video_data: { image_url: "https://cdn.example/video.jpg" },
+          video_data: {
+            video_id: "video-story",
+            image_url: "https://cdn.example/video.jpg",
+          },
         },
       },
     });
 
     expect(result.creativeType).toBe("video");
     expect(result.previewKind).toBe("video_thumbnail");
+    expect(result.videoId).toBe("video-story");
+    expect(result.videoIdSource).toBe(
+      "object_story_spec.video_data.video_id",
+    );
+  });
+
+  it("prefers creative.video_id and audits all supported video id locations", () => {
+    const topLevel = normalizeMetaCreative({
+      creative: {
+        id: "creative-video",
+        object_type: "VIDEO",
+        video_id: "video-top",
+        object_story_spec: { video_data: { video_id: "video-story" } },
+      },
+    });
+    const assetFeed = normalizeMetaCreative({
+      creative: {
+        id: "creative-dynamic-video",
+        asset_feed_spec: { videos: [{ video_id: "video-asset" }] },
+      },
+    });
+
+    expect(topLevel.videoId).toBe("video-top");
+    expect(topLevel.videoIdSource).toBe("creative.video_id");
+    expect(assetFeed.videoId).toBe("video-asset");
+    expect(assetFeed.videoIdSource).toBe("asset_feed_spec.videos");
+  });
+
+  it("falls back from configured video image to creative thumbnail", () => {
+    const creativeImage = normalizeMetaCreative({
+      creative: {
+        id: "creative-video-image",
+        object_type: "VIDEO",
+        image_url: "https://cdn.example/creative.jpg",
+        thumbnail_url: "https://cdn.example/thumbnail.jpg",
+      },
+    });
+    const thumbnail = normalizeMetaCreative({
+      creative: {
+        id: "creative-video-thumbnail",
+        object_type: "VIDEO",
+        thumbnail_url: "https://cdn.example/thumbnail.jpg",
+      },
+    });
+
+    expect(creativeImage.previewUrl).toContain("creative.jpg");
+    expect(creativeImage.metadata.representative_policy).toBe(
+      "video_creative_image",
+    );
+    expect(thumbnail.previewUrl).toContain("thumbnail.jpg");
+    expect(thumbnail.metadata.representative_policy).toBe(
+      "video_thumbnail_fallback",
+    );
+  });
+
+  it("uses a good preferred thumbnail, otherwise the largest area", () => {
+    const preferred = selectBestVideoThumbnail([
+      { width: 3840, height: 2160, uri: "https://cdn.example/largest.jpg" },
+      { width: 1920, height: 1080, uri: "https://cdn.example/preferred.jpg", is_preferred: true },
+    ]);
+    const largest = selectBestVideoThumbnail([
+      { width: 160, height: 160, uri: "https://cdn.example/small.jpg", is_preferred: true },
+      { width: 1280, height: 720, uri: "https://cdn.example/large.jpg" },
+    ]);
+
+    expect(preferred).toMatchObject({
+      url: "https://cdn.example/preferred.jpg",
+      policy: "video_preferred_thumbnail",
+    });
+    expect(largest).toMatchObject({
+      url: "https://cdn.example/large.jpg",
+      policy: "video_high_res_thumbnail",
+    });
+  });
+
+  it("isolates a video thumbnail API error", async () => {
+    const result = await fetchBestVideoThumbnail(
+      "v26.0",
+      "SECRET",
+      "video-1",
+      async () => new Response(JSON.stringify({ error: { code: 100 } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(result).toBeNull();
   });
 
   it("uses the first carousel card as representative preview", () => {
@@ -158,11 +249,42 @@ describe("Meta creative lifecycle", () => {
         "image/jpeg",
       ),
     ).toBe("7/meta_ads/act_123/ad/ad_1/creative_2.jpg");
+    expect(
+      buildCreativeStoragePath(
+        7,
+        "act/123",
+        "ad:1",
+        "creative:2",
+        "image/jpeg",
+        "abcdef1234567890",
+      ),
+    ).toBe("7/meta_ads/act_123/ad/ad_1/creative_2-abcdef123456.jpg");
   });
 
   it("reuses the same creative and refreshes a changed creative", () => {
     expect(canReuseCreativePreview(existing, "creative-1")).toBe(true);
     expect(canReuseCreativePreview(existing, "creative-2")).toBe(false);
+    expect(canReuseCreativePreview(existing, "creative-1", "video")).toBe(
+      false,
+    );
+    expect(canReuseCreativePreview({
+      ...existing,
+      metadata: { video_preview_strategy_version: 2 },
+    }, "creative-1", "video")).toBe(true);
+  });
+
+  it("reads dimensions while limiting downloads to supported images", async () => {
+    const png = new Uint8Array(24);
+    png.set([0x89, 0x50, 0x4e, 0x47], 0);
+    new DataView(png.buffer).setUint32(16, 1280);
+    new DataView(png.buffer).setUint32(20, 720);
+    const result = await downloadPreview(
+      "https://cdn.example/frame.png",
+      async () => new Response(png, {
+        headers: { "content-type": "image/png" },
+      }),
+    );
+    expect(result).toMatchObject({ width: 1280, height: 720, mime: "image/png" });
   });
 
   it("reuses a fresh row but retries stale and failed rows", () => {

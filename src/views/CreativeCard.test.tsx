@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { Creative } from "../types";
-import { CreativeCard } from "./FrontView";
+import { CreativeCard, CreativeRanking } from "./FrontView";
 
 beforeAll(() => {
   window.matchMedia ??= ((query: string) => ({ matches: false, media: query, onchange: null,
@@ -28,7 +28,10 @@ describe("creative ranking cards", () => {
     expect(button.querySelector("img")?.getAttribute("src")).toContain("creative.jpg");
     fireEvent.click(button);
     expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toContain("creative.jpg");
-    fireEvent.click(screen.getByRole("button", { name: "Fechar imagem ampliada" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(button);
+    fireEvent.click(screen.getByTestId("lightbox-backdrop"));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -47,5 +50,39 @@ describe("creative ranking cards", () => {
     fireEvent.error(button.querySelector("img") as HTMLImageElement);
     expect(screen.queryByRole("button", { name: /Ampliar imagem:/ })).toBeNull();
     expect(screen.getByText("2")).not.toBeNull();
+  });
+});
+
+describe("creative ranking expansion", () => {
+  const creatives = Array.from({ length: 10 }, (_, index) => creative({
+    id: `ad-${index + 1}`,
+    name: `Criativo ${index + 1}`,
+    leads: 100 - index,
+    preview_url: `https://storage.example/creative-${index + 1}.jpg`,
+  }));
+
+  it("shows Top 3, expands to at most 9, and collapses without changing rank", () => {
+    const { container } = render(<CreativeRanking creatives={creatives} />);
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(3);
+    expect([...container.querySelectorAll(".rank")].map((node) => node.textContent)).toEqual(["1", "2", "3"]);
+
+    const expand = screen.getByRole("button", { name: "Ver mais criativos" });
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(expand);
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(9);
+    expect([...container.querySelectorAll(".rank")].map((node) => node.textContent)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar menos" }));
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(3);
+    expect([...container.querySelectorAll(".rank")].map((node) => node.textContent)).toEqual(["1", "2", "3"]);
+  });
+
+  it("does not show expansion with three or fewer creatives", () => {
+    const { rerender } = render(<CreativeRanking creatives={creatives.slice(0, 3)} />);
+    expect(screen.queryByRole("button", { name: "Ver mais criativos" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(3);
+
+    rerender(<CreativeRanking creatives={creatives.slice(0, 2)} />);
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(2);
   });
 });

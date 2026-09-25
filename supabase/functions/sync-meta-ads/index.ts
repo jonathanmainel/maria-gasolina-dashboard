@@ -432,6 +432,7 @@ export default {
         startDate: start_date,
         endDate: end_date,
         dryRun: dry_run,
+        refreshVideoPreviewsOnly: refresh_video_previews_only,
       } = validation.value;
 
       const metaAccessToken = Deno.env.get("META_ACCESS_TOKEN");
@@ -745,6 +746,10 @@ export default {
             failed: number;
             would_insert: number;
             would_update: number;
+            video_high_res_resolved: number;
+            video_preferred_thumbnail: number;
+            video_thumbnail_fallback: number;
+            video_preview_failed: number;
             failures: Array<{ ad_id: string; code: string }>;
             error: string;
           };
@@ -762,6 +767,7 @@ export default {
               endDate: end_date,
               adRows: normalizedAdRows,
               dryRun: dry_run,
+              videoRefreshOnly: refresh_video_previews_only,
             }),
           };
         } catch {
@@ -775,6 +781,10 @@ export default {
             failed: 0,
             would_insert: 0,
             would_update: 0,
+            video_high_res_resolved: 0,
+            video_preferred_thumbnail: 0,
+            video_thumbnail_fallback: 0,
+            video_preview_failed: 0,
             failures: [],
             error: "creative_enrichment_failed",
           };
@@ -789,6 +799,7 @@ export default {
             start_date,
             end_date,
             dry_run,
+            refresh_video_previews_only,
           },
 
           dashboard_client: {

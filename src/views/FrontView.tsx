@@ -177,9 +177,7 @@ const months = useMemo(
       <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={campaigns} />
 
       <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
-      <div className="creative-grid">
-        {creatives.slice(0, 8).map((c, i) => <CreativeCard key={c.id} c={c} rank={i + 1} />)}
-      </div>
+      <CreativeRanking creatives={creatives} />
 
       <div className="grid grid-wide" style={{ marginTop: 28 }}>
         <Panel title={`Funil comercial · ${meta.short}`} description="Do lead ao contrato, com as taxas entre etapas" badge={<span className="badge sky">CRM Elo · entrada manual</span>}>
@@ -190,6 +188,40 @@ const months = useMemo(
           <button type="button" className="secondary-button" style={{ marginTop: 16, width: "100%" }} onClick={() => onNavigate("crm")}>Abrir CRM e vendas <ArrowRight size={15} /></button>
         </Panel>
       </div>
+    </div>
+  );
+}
+
+export function CreativeRanking({ creatives }: { creatives: Creative[] }) {
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { setExpanded(false); }, [creatives]);
+  const visible = creatives.slice(0, expanded ? 9 : 3);
+
+  return (
+    <div className="creative-ranking">
+      <div id="creative-ranking-grid" className="creative-grid">
+        {visible.map((creative, index) => (
+          <CreativeCard
+            key={creative.id}
+            c={creative}
+            rank={index + 1}
+            revealed={index >= 3}
+          />
+        ))}
+      </div>
+      {creatives.length > 3 && (
+        <div className="creative-ranking-actions">
+          <button
+            type="button"
+            className="secondary-button creative-ranking-toggle"
+            aria-expanded={expanded}
+            aria-controls="creative-ranking-grid"
+            onClick={() => setExpanded((current) => !current)}
+          >
+            {expanded ? "Mostrar menos" : "Ver mais criativos"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -207,7 +239,7 @@ function ChannelCard({ name, chip, color, t, p }: { name: string; chip: string; 
   );
 }
 
-export function CreativeCard({ c, rank }: { c: Creative; rank: number }) {
+export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank: number; revealed?: boolean }) {
   const tilt = useTilt<HTMLElement>(7);
   const [imageFailed, setImageFailed] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -221,17 +253,20 @@ export function CreativeCard({ c, rank }: { c: Creative; rank: number }) {
     : c.format === "video" ? "Vídeo" : c.format === "carousel" ? "Carrossel" : "Estático";
   return (
     <>
-    <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="creative tilt" style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
-      <div className="creative-art">
+    <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`creative tilt ${rank <= 3 ? "creative-top" : "creative-secondary"}${revealed ? " creative-reveal" : ""}`} style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
+      <div className={`creative-art${format === "video" ? " creative-art-video" : ""}`}>
         {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
           <img src={image} alt="" onError={() => { setImageFailed(true); setZoomed(false); }} />
         </button>}
         <span className="format">{formatLabel}</span>
-        {rank <= 3 && <span className="rank">{rank}</span>}
-        <h4>{c.headline}</h4>
+        <span className={`rank${rank > 3 ? " rank-secondary" : ""}`}>{rank}</span>
+        {!image && <h4>{c.headline}</h4>}
       </div>
       <div className="creative-body">
-        <small>{c.name}</small>
+        <div className="creative-copy">
+          <strong title={c.name}>{c.name}</strong>
+          <small title={c.headline}>{c.headline}</small>
+        </div>
         <div className="creative-stats">
           <div><b>{integer(c.leads)}</b><span>leads</span></div>
           <div><b>{money(c.cpl).replace(",00", "")}</b><span>CPL</span></div>

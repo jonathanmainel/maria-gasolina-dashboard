@@ -3,6 +3,7 @@ export type IngestionRequest = {
   start_date?: string;
   end_date?: string;
   dry_run?: boolean;
+  refresh_video_previews_only?: boolean;
 };
 
 export type ValidatedIngestionRequest = {
@@ -10,6 +11,7 @@ export type ValidatedIngestionRequest = {
   startDate: string;
   endDate: string;
   dryRun: boolean;
+  refreshVideoPreviewsOnly: boolean;
 };
 
 export type IngestionValidationResult =
@@ -44,6 +46,7 @@ export function validateIngestionRequest(
     start_date,
     end_date,
     dry_run,
+    refresh_video_previews_only,
   } = body;
 
   if (!client_slug) {
@@ -86,6 +89,17 @@ export function validateIngestionRequest(
     };
   }
 
+  if (
+    refresh_video_previews_only !== undefined &&
+    typeof refresh_video_previews_only !== "boolean"
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      error: "refresh_video_previews_only must be a boolean.",
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -93,6 +107,7 @@ export function validateIngestionRequest(
       startDate: start_date,
       endDate: end_date,
       dryRun: dry_run,
+      refreshVideoPreviewsOnly: refresh_video_previews_only ?? false,
     },
   };
 }
