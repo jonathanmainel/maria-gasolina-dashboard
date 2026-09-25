@@ -46,6 +46,20 @@ describe("sidebar: FRENTES", () => {
     expect(frentes().join(" ")).not.toMatch(/GA4|Google Analytics/);
   });
 
+  it("dá ao Site o mesmo indicador colorido das outras frentes, na cor sky", () => {
+    renderShell();
+    const dots = ["franchise", "condominium", "organic", "site"].map((front) => {
+      const dot = document.querySelector(`.nav-item .dot.${front}`);
+      return dot ? dot.className : null;
+    });
+    expect(dots).toEqual(["dot franchise", "dot condominium", "dot organic", "dot site"]);
+    // Mesma estrutura das demais frentes: a cor vem da folha de estilo pela
+    // classe do item, não de estilo inline exclusivo do Site.
+    const siteDot = screen.getByRole("button", { name: "Site" }).querySelector(".dot")!;
+    expect(siteDot.className).toBe("dot site");
+    expect(siteDot.getAttribute("style")).toBeNull();
+  });
+
   it("navega para a aba Site", () => {
     const onViewChange = renderShell("executive");
     fireEvent.click(screen.getByRole("button", { name: "Site" }));

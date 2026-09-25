@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  INSIGHT_MIN_SESSIONS, INSIGHT_MIN_SESSION_SHARE, LEAD_EVENT, buildInsights, channelPerformance,
-  eventHighlights, isRateEligible, siteDailySeries, siteMonthlySeries, siteSeries, siteWeeklySeries,
-  topLandingPages,
+  LEAD_EVENT, channelPerformance, eventHighlights, siteDailySeries, siteMonthlySeries,
+  siteSeries, siteWeeklySeries, topLandingPages,
 } from "./site-analytics";
-import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem } from "../types";
+import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsLandingPageItem } from "../types";
 
 const day = (date: string, sessions: number, engaged: number, leads: number): AnalyticsDailyMetric => ({
   date, sessions, engaged_sessions: engaged, active_users: sessions, new_users: Math.round(sessions * 0.8),
@@ -133,33 +132,6 @@ describe("performance por canal", () => {
     expect(channelPerformance([])).toEqual([]);
   });
 });
-
-describe("regra mínima de volume dos rankings por taxa", () => {
-  it("aceita canal com pelo menos a fatia mínima de sessões", () => {
-    const channels = channelPerformance(channelRows);
-    const paidSearch = channels.find((c) => c.channel === "Paid Search")!;
-    expect(paidSearch.session_share!).toBeGreaterThanOrEqual(INSIGHT_MIN_SESSION_SHARE);
-    expect(isRateEligible(paidSearch)).toBe(true);
-  });
-
-  it("descarta canal minúsculo mesmo com taxa altíssima", () => {
-    const channels = channelPerformance(channelRows);
-    const referral = channels.find((c) => c.channel === "Referral")!;
-    expect(referral.lead_rate).toBe(50);
-    expect(referral.sessions).toBeLessThan(INSIGHT_MIN_SESSIONS);
-    expect(isRateEligible(referral)).toBe(false);
-  });
-
-  it("aceita canal de fatia pequena que tem volume absoluto suficiente", () => {
-    const many = Array.from({ length: 40 }, (_, i) => acquisition(`Canal ${i}`, "x / y", 100, 50, 1));
-    const small = channelPerformance([...many, acquisition("Nicho", "x / y", INSIGHT_MIN_SESSIONS, 20, 3)])
-      .find((c) => c.channel === "Nicho")!;
-    expect(small.session_share!).toBeLessThan(INSIGHT_MIN_SESSION_SHARE);
-    expect(small.sessions).toBeGreaterThanOrEqual(INSIGHT_MIN_SESSIONS);
-    expect(isRateEligible(small)).toBe(true);
-  });
-});
-
 const landingPages: AnalyticsLandingPageItem[] = [
   { landing_page: "/seja-um-franqueado", sessions: 3581, engaged_sessions: 1800, active_users: 3000, new_users: 2800, views: 5000, events: 9000, key_events: 40, primary_conversions: null, engagement_rate: (1800 * 100) / 3581, conversion_rate: null },
   { landing_page: "/", sessions: 1468, engaged_sessions: 700, active_users: 1200, new_users: 1100, views: 2000, events: 4000, key_events: 10, primary_conversions: null, engagement_rate: (700 * 100) / 1468, conversion_rate: null },
@@ -211,84 +183,5 @@ describe("eventos do site", () => {
 
   it("não fabrica destaque quando não há eventos", () => {
     expect(eventHighlights([])).toEqual([]);
-  });
-});
-
-const kpis = (over: Partial<AnalyticsKpis> = {}): AnalyticsKpis => ({
-  has_data: true, sessions: 4143, engaged_sessions: 2100, active_users: 3500, new_users: 3300,
-  views: 7934, events: 32148, conversions: 80, revenue: 0, generate_leads: 80,
-  engagement_rate: (2100 * 100) / 4143, views_per_session: 1.9, lead_rate: (80 * 100) / 4143,
-  ...over,
-});
-
-describe("insights do período", () => {
-  const input = { current: kpis(), previous: kpis({ sessions: 3600, generate_leads: 66 }), channels: channelPerformance(channelRows), landingPages };
-
-  it("gera no máximo 4 insights", () => {
-    expect(buildInsights(input).length).toBeLessThanOrEqual(4);
-    expect(buildInsights(input).length).toBeGreaterThanOrEqual(3);
-  });
-
-  it("abre com a variação de sessões e de leads contra o período anterior", () => {
-    const insights = buildInsights(input);
-    expect(insights[0].id).toBe("sessions-trend");
-    expect(insights[0].kind).toBe("Crescimento");
-    expect(insights[0].text).toMatch(/Sessões cresceram 15% em relação ao período anterior\./);
-    expect(insights[1].id).toBe("leads-trend");
-    expect(insights[1].text).toMatch(/Os leads cresceram 21%/);
-  });
-
-  it("marca queda como Atenção e tom negativo", () => {
-    const [first] = buildInsights({ ...input, previous: kpis({ sessions: 6000, generate_leads: 80 }) });
-    expect(first.kind).toBe("Atenção");
-    expect(first.tone).toBe("negative");
-    expect(first.text).toMatch(/Sessões caíram 31%/);
-  });
-
-  it("aponta o canal que concentrou as sessões e o que trouxe os leads", () => {
-    const insights = buildInsights(input, 8);
-    const sessionsInsight = insights.find((i) => i.id === "top-channel-sessions")!;
-    const leadsInsight = insights.find((i) => i.id === "top-channel-leads")!;
-    expect(sessionsInsight.text).toMatch(/^Cross-network concentrou \d+% das sessões do período\.$/);
-    expect(leadsInsight.text).toMatch(/^Paid Search respondeu por 50% dos leads do site\.$/);
-  });
-
-  it("aponta a landing page de entrada com a fatia real de sessões", () => {
-    const insight = buildInsights(input, 8).find((i) => i.id === "top-landing-page")!;
-    expect(insight.kind).toBe("Entrada");
-    expect(insight.text).toMatch(/^\/seja-um-franqueado recebeu 64% das sessões do site\.$/);
-  });
-
-  it("nunca elege um canal irrelevante como melhor taxa de conversão", () => {
-    const insight = buildInsights(input, 8).find((i) => i.id === "best-conversion")!;
-    expect(insight.text).not.toContain("Referral");
-    expect(insight.text).toContain("Paid Search");
-  });
-
-  it("não repete o mesmo canal em sessões e em leads: cede a vaga para um insight de taxa", () => {
-    const dominant = channelPerformance([
-      acquisition("Cross-network", "google / cross-network", 2000, 900, 50),
-      acquisition("Paid Search", "google / cpc", 500, 300, 10),
-    ]);
-    const insights = buildInsights({ ...input, channels: dominant }, 8);
-    expect(insights.find((i) => i.id === "top-channel-sessions")!.text).toContain("Cross-network");
-    expect(insights.find((i) => i.id === "top-channel-leads")).toBeUndefined();
-    expect(insights.find((i) => i.id === "best-conversion")).toBeDefined();
-  });
-
-  it("sem período de comparação ainda entrega insights de composição", () => {
-    const insights = buildInsights({ ...input, previous: null });
-    expect(insights).toHaveLength(4);
-    expect(insights.map((i) => i.id)).toEqual(["top-channel-sessions", "top-channel-leads", "best-conversion", "top-landing-page"]);
-  });
-
-  it("devolve lista vazia quando o período não tem dados", () => {
-    expect(buildInsights({ ...input, current: null })).toEqual([]);
-    expect(buildInsights({ ...input, current: kpis({ has_data: false }) })).toEqual([]);
-  });
-
-  it("sobrevive a aquisição e landing pages vazias", () => {
-    const insights = buildInsights({ ...input, channels: [], landingPages: [] });
-    expect(insights.map((i) => i.id)).toEqual(["sessions-trend", "leads-trend"]);
   });
 });

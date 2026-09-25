@@ -202,7 +202,7 @@ describe("aba Site: gráfico Tráfego e geração de leads", () => {
   });
 });
 
-describe("aba Site: canais, insights, aquisição, landing pages e eventos", () => {
+describe("aba Site: canais, aquisição, landing pages e eventos", () => {
   it("mostra performance por canal com dados reais, em barras e não em tabela", async () => {
     renderSite();
     const panel = await waitFor(() => screen.getByTestId("site-channel-performance"));
@@ -216,14 +216,12 @@ describe("aba Site: canais, insights, aquisição, landing pages e eventos", () 
     expect(rows[0].querySelector(".channel-track span")).not.toBeNull();
   });
 
-  it("gera insights determinísticos do período", async () => {
+  it("não tem mais a seção Insights do período", async () => {
     renderSite();
-    const insights = await waitFor(() => screen.getByTestId("site-insights"));
-    const cards = [...insights.querySelectorAll(".insight")];
-    expect(cards.length).toBeGreaterThanOrEqual(3);
-    expect(cards.length).toBeLessThanOrEqual(4);
-    expect(insights.textContent).toContain("Sessões cresceram 17%");
-    expect(insights.textContent).toContain("Cross-network concentrou");
+    await waitFor(() => expect(screen.getByTestId("site-channel-performance")).not.toBeNull());
+    expect(screen.queryByTestId("site-insights")).toBeNull();
+    expect(document.querySelector(".insight, .insight-grid")).toBeNull();
+    expect(pageText()).not.toContain("Insights do período");
   });
 
   it("monta a tabela de aquisição com Leads e Taxa de conversão, ordenada por sessões", async () => {

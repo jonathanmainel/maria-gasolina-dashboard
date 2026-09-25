@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, AlertCircle, ArrowDownRight, ArrowUpRight, MousePointerClick, Percent, Sparkles, Target, UserPlus } from "lucide-react";
+import { Activity, AlertCircle, MousePointerClick, Percent, Target, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AnalyticsAcquisitionTable, AnalyticsEventsTable, AnalyticsLandingPagesTable } from "../components/AnalyticsTables";
@@ -7,8 +7,8 @@ import { AnimatedNumber, ChartTip, Kpi, Panel, Segmented, Skeleton } from "../co
 import { getAllAnalyticsAcquisition, getAllAnalyticsEvents, getAllAnalyticsLandingPages, getSiteOverview } from "../lib/api";
 import { compact, integer, percent } from "../lib/format";
 import {
-  buildInsights, channelPerformance, eventHighlights, siteSeries, topLandingPages,
-  type ChannelPerformance, type ChartMode, type Insight,
+  channelPerformance, eventHighlights, siteSeries, topLandingPages,
+  type ChannelPerformance, type ChartMode,
 } from "../lib/site-analytics";
 import { useChartColors } from "../lib/use-dashboard";
 import type { AnalyticsLandingPageItem, DateRange } from "../types";
@@ -51,10 +51,6 @@ export function SiteView({ range }: { range: DateRange }) {
   const dailySpark = useMemo(() => siteSeries(daily, "daily"), [daily]);
   const channels = useMemo(() => channelPerformance(acquisition.data?.items ?? []), [acquisition.data]);
   const pages = useMemo(() => landingPages.data?.items ?? [], [landingPages.data]);
-  const insights = useMemo(
-    () => buildInsights({ current, previous, channels, landingPages: pages }),
-    [current, previous, channels, pages],
-  );
   const highlights = useMemo(() => eventHighlights(events.data?.items ?? []), [events.data]);
 
   const chartData = series.map((bucket) => ({
@@ -145,17 +141,6 @@ export function SiteView({ range }: { range: DateRange }) {
           )}
         </Panel>
       </div>
-
-      <div className="section-title"><div><h2>Insights do período</h2><p>Leitura automática dos números do GA4 — sem interpretação manual.</p></div></div>
-      {overview.isLoading || acquisition.isLoading || landingPages.isLoading ? (
-        <div className="grid grid-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={104} />)}</div>
-      ) : !insights.length ? (
-        <div className="empty-state">Ainda não há dados suficientes para gerar insights deste período.</div>
-      ) : (
-        <div className="insight-grid" data-testid="site-insights">
-          {insights.map((insight) => <InsightCard key={insight.id} insight={insight} />)}
-        </div>
-      )}
 
       <div className="section-title">
         <div><h2>Aquisição</h2><p>De onde vêm as sessões e os leads do site.</p></div>
@@ -269,12 +254,3 @@ function TopLandingPages({ items, color }: { items: AnalyticsLandingPageItem[]; 
   );
 }
 
-function InsightCard({ insight }: { insight: Insight }) {
-  const Icon = insight.tone === "positive" ? ArrowUpRight : insight.tone === "negative" ? ArrowDownRight : Sparkles;
-  return (
-    <article className={`insight ${insight.tone}`}>
-      <span className="insight-kind"><Icon size={13} strokeWidth={2.6} />{insight.kind}</span>
-      <p>{insight.text}</p>
-    </article>
-  );
-}
