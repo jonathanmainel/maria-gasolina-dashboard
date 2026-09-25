@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { rankCreatives } from "../lib/creatives";
 import type { Creative } from "../types";
 import { CreativeCard, CreativeRanking } from "./FrontView";
 
@@ -84,5 +85,32 @@ describe("creative ranking expansion", () => {
 
     rerender(<CreativeRanking creatives={creatives.slice(0, 2)} />);
     expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(2);
+  });
+
+  it("anúncios do Google nunca ocupam vaga do Top 9, porque não chegam até aqui", () => {
+    // A seção recebe a lista já filtrada por rankCreatives; o card do Google só
+    // apareceria se o filtro tivesse escapado, então seis peças Meta + Google
+    // filtrado devem render exatamente seis cards.
+    const { container } = render(<CreativeRanking creatives={rankCreatives([
+      ...creatives.slice(0, 6),
+      creative({ id: "g-search", channel: "google_ads", name: "GT+ | SEARCH | MAX.CLIQUES - COND", leads: 999 }),
+      creative({ id: "g-pmax", channel: "google_ads", name: "MG | PERFORMANCE MAX | FRANQ", leads: 998 }),
+    ], "franchise")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver mais criativos" }));
+    expect([...container.querySelectorAll(".rank")].map((node) => node.textContent)).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(screen.queryByText("GT+ | SEARCH | MAX.CLIQUES - COND")).toBeNull();
+    expect(screen.queryByText("MG | PERFORMANCE MAX | FRANQ")).toBeNull();
+    expect(screen.getByText("Criativo 1")).not.toBeNull();
+  });
+
+  it("mostra estado vazio em vez de cair para cards do Google", () => {
+    render(<CreativeRanking creatives={rankCreatives([
+      creative({ id: "g-only", channel: "google_ads", name: "GT+ | SEARCH | MAX.CLIQUES - COND", leads: 500 }),
+    ], "franchise")} />);
+    expect(screen.getByText("Nenhum criativo de Meta Ads com dados neste período.")).not.toBeNull();
+    expect(screen.queryByText("GT+ | SEARCH | MAX.CLIQUES - COND")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ver mais criativos" })).toBeNull();
+    expect(document.querySelector(".creative-grid")).toBeNull();
   });
 });

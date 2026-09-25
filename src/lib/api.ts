@@ -2,6 +2,7 @@ import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem
 import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockAnalyticsLandingPages, mockEntities, mockOverview, mockPmax } from "../data/mock";
 import { supabase } from "./supabase";
 import { getMetaCreativePreviews } from "./creative-previews";
+import { rankedCreativeIds } from "./creatives";
 
 export const CLIENT_SLUG = "maria-gasolina";
 
@@ -432,14 +433,13 @@ export async function getFrontData(range: DateRange): Promise<FrontBundle> {
     ctr: creative.impressions > 0 ? (creative.clicks * 100) / creative.impressions : null,
   }));
 
-  // Artwork is optional. Select only the cards actually rendered in each front;
-  // ranking and every metric above are already final before this enrichment.
-  const cardIds = (["franchise", "condominium"] as const).flatMap((front) => creatives
-    .filter((creative) => creative.front === front)
-    .sort((a, b) => b.leads - a.leads)
-    .slice(0, 8)
-    .filter((creative) => creative.channel === "meta_ads")
-    .map((creative) => creative.id));
+  // A arte é opcional: só os cards que a seção de criativos pode exibir são
+  // enriquecidos. O ranking e todas as métricas acima já estão finais aqui.
+  //
+  // O recorte usa a mesma função da tela (canal e frente primeiro, depois
+  // ordenação e corte), senão um criativo Meta ficaria sem preview só porque
+  // anúncios do Google ocupavam posições acima dele no ranking geral.
+  const cardIds = rankedCreativeIds(creatives, ["franchise", "condominium"]);
   const previews = await getMetaCreativePreviews(cardIds, clientId).catch(() => new Map());
   for (const creative of creatives) {
     if (creative.channel !== "meta_ads") continue;

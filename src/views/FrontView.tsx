@@ -5,6 +5,7 @@ import { AnimatedNumber, BarList, ChartTip, Delta, Funnel, Kpi, Pacing, Panel, S
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthlySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
+import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, rankCreatives } from "../lib/creatives";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CampaignRow, Creative, DateRange, Front } from "../types";
 import { DetailExplorer } from "./DetailExplorer";
@@ -74,7 +75,9 @@ const months = useMemo(
     () => data.campaigns.filter((c) => c.front === front && (channelFilter === "all" || c.channel === channelFilter)),
     [data.campaigns, front, channelFilter],
   );
-  const creatives = useMemo(() => data.creatives.filter((c) => c.front === front).sort((a, b) => b.leads - a.leads), [data.creatives, front]);
+  // Só peças de Meta Ads: o canal é filtrado antes da ordenação, então o
+  // ranking já nasce sem buracos deixados por anúncios do Google.
+  const creatives = useMemo(() => rankCreatives(data.creatives, front), [data.creatives, front]);
   const crm = data.crm[front];
   const accentHex = front === "franchise" ? colors.red : colors.gold;
   const chartData = chartMode === "daily"
@@ -176,7 +179,7 @@ const months = useMemo(
 
       <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={campaigns} />
 
-      <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
+      <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking das peças de Meta Ads por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
       <CreativeRanking creatives={creatives} />
 
       <div className="grid grid-wide" style={{ marginTop: 28 }}>
@@ -195,7 +198,9 @@ const months = useMemo(
 export function CreativeRanking({ creatives }: { creatives: Creative[] }) {
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { setExpanded(false); }, [creatives]);
-  const visible = creatives.slice(0, expanded ? 9 : 3);
+  const visible = creatives.slice(0, expanded ? CREATIVE_RANKING_LIMIT : CREATIVE_RANKING_PREVIEW);
+
+  if (!creatives.length) return <div className="empty-state">Nenhum criativo de Meta Ads com dados neste período.</div>;
 
   return (
     <div className="creative-ranking">
@@ -205,11 +210,11 @@ export function CreativeRanking({ creatives }: { creatives: Creative[] }) {
             key={creative.id}
             c={creative}
             rank={index + 1}
-            revealed={index >= 3}
+            revealed={index >= CREATIVE_RANKING_PREVIEW}
           />
         ))}
       </div>
-      {creatives.length > 3 && (
+      {creatives.length > CREATIVE_RANKING_PREVIEW && (
         <div className="creative-ranking-actions">
           <button
             type="button"
