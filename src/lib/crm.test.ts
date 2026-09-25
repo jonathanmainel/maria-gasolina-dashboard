@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCrmSummary, slowestCommercialStage } from "./crm";
+import { defaultFunnel, defaultResults } from "./manual-funnel";
 import type { FrontDaily, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -207,5 +208,76 @@ describe("estado vazio", () => {
     expect(crm.contracts).toBe(0);
     expect(crm.revenue).toBe(0);
     expect(crm.avg_ticket).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Seed de apresentação: os números que o dashboard mostra enquanto o CRM não
+// tem integração automática. Travados aqui porque são o que vai para a tela.
+// ---------------------------------------------------------------------------
+
+describe("seed manual de apresentação", () => {
+  const franchise = buildCrmSummary("franchise", defaultFunnel.franchise, defaultResults.franchise, { rows: [] });
+  const condominium = buildCrmSummary("condominium", defaultFunnel.condominium, defaultResults.condominium, { rows: [] });
+
+  it("Franquias: 9 contratos, R$ 760.500 e ticket realizado de R$ 84.500", () => {
+    expect(franchise.contracts).toBe(9);
+    expect(franchise.revenue).toBe(760500);
+    expect(franchise.avg_ticket).toBe(84500);
+    expect(franchise.avg_ticket_realized).toBe(true);
+  });
+
+  it("Condomínios: 6 contratos, R$ 108.000 e ticket realizado de R$ 18.000", () => {
+    expect(condominium.contracts).toBe(6);
+    expect(condominium.revenue).toBe(108000);
+    expect(condominium.avg_ticket).toBe(18000);
+    expect(condominium.avg_ticket_realized).toBe(true);
+  });
+
+  it("o pipeline aberto fica plausível nas duas frentes", () => {
+    // Franquias: 24+68+31+22+14+11+7+4 = 181 (sem Contrato nem Implantação).
+    expect(franchise.open_opportunities).toBe(181);
+    // Condomínios: 15+42+18+14+11+6 = 106.
+    expect(condominium.open_opportunities).toBe(106);
+    expect(franchise.avg_cycle_days).toBe(28); // 1+2+3+4+5+6+4+3, sem os 12 de Implantação
+    expect(condominium.avg_cycle_days).toBe(22); // 1+2+3+4+5+7, sem os 10 de Implantação
+  });
+
+  it("o resultado do período não acompanha a coluna Contrato nem a Implantação", () => {
+    expect(franchise.close_stage?.count).toBe(3);
+    expect(franchise.stages.find((stage) => stage.id === "implementation")?.count).toBe(18);
+    expect(franchise.contracts).toBe(9); // nem 3, nem 18
+
+    // E mexer em qualquer uma das duas colunas não move contratos nem receita.
+    (["contract", "implementation"] as const).forEach((id) => {
+      [0, 500].forEach((value) => {
+        const variant = buildCrmSummary(
+          "franchise",
+          { ...defaultFunnel.franchise, stages: { ...defaultFunnel.franchise.stages, [id]: value } },
+          defaultResults.franchise,
+          { rows: [] },
+        );
+        expect(variant.contracts).toBe(9);
+        expect(variant.revenue).toBe(760500);
+        expect(variant.avg_ticket).toBe(84500);
+      });
+    });
+  });
+
+  it("o seed não reintroduz taxa, projeção nem origem de contrato", () => {
+    [franchise, condominium].forEach((crm) => {
+      expect(crm).not.toHaveProperty("conversion_rate");
+      expect(crm).not.toHaveProperty("projected_revenue");
+      expect(crm).not.toHaveProperty("pipeline_value");
+      expect(crm.monthly).toEqual([]); // sem rows de mídia, nada é fabricado
+      expect(crm.sources).toEqual([]);
+    });
+  });
+
+  it("a série mensal continua vindo só da mídia real, nunca do seed", () => {
+    const comMidia = buildCrmSummary("franchise", defaultFunnel.franchise, defaultResults.franchise, { rows });
+    expect(comMidia.monthly).toEqual([{ month: "ago", leads: 100 }, { month: "set", leads: 50 }]);
+    expect(comMidia.sources).toEqual([{ name: "Meta Ads", leads: 110 }, { name: "Google Ads", leads: 40 }]);
+    comMidia.sources.forEach((source) => expect(source).not.toHaveProperty("contracts"));
   });
 });

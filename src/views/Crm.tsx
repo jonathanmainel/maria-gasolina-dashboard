@@ -1,4 +1,4 @@
-import { BadgeDollarSign, Clock3, FileSignature, Info, Layers, PiggyBank, Trophy } from "lucide-react";
+import { BadgeDollarSign, Clock3, FileSignature, Info, Layers, Pencil, PiggyBank, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ManualNumbersPanel } from "../components/ui/editable";
@@ -49,7 +49,11 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
           <h1>Pipeline de hoje e <em>resultado do período</em></h1>
           <p>Onde estão as oportunidades agora, quanto tempo elas passam em cada etapa e quanto a frente fechou no período. A área já está pronta para receber os dados reais do Elo assim que a API deles for liberada.</p>
         </div>
-        <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
+        <div className="crm-head-side">
+          <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
+          {/* Marca discreta de origem: o CRM não é sincronizado automaticamente. */}
+          <span className="crm-source-tag"><Pencil size={11} />Dados comerciais preenchidos manualmente</span>
+        </div>
       </div>
       <div className="crm-note">
         <Info size={18} />

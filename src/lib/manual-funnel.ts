@@ -56,35 +56,41 @@ export const legacyStageMap: Record<Front, Record<number, string>> = {
 const LEGACY_CLOSED_INDEX = 5;
 
 /**
- * Padrões do snapshot: a foto do kanban informada pelo cliente em 25/09/2026.
- * São valores reais de estoque por coluna, não uma curva de funil — repare que
- * "Contato" tem muito mais cards que "Lead" e que "COF" tem cards com
- * "Visita / Call" zerada. Qualquer leitura cumulativa desses números está
- * errada por construção.
+ * Snapshot inicial: foto do kanban usada enquanto o CRM não tem integração
+ * automática. São números manuais e provisórios, escolhidos para o dashboard
+ * fazer sentido em apresentação — e continuam 100% editáveis na tela
+ * "CRM e vendas", que sobrescreve tudo isto no primeiro salvamento.
  *
- * Só valem enquanto nada foi salvo; o editor em CRM e vendas substitui tudo.
+ * Continua sendo ESTOQUE, não funil acumulado: "Contato" tem mais cards que
+ * "Lead" porque leads novos são despachados rápido e o contato se acumula, e
+ * "Implantação" tem mais que "Contrato" porque o card sai da coluna de
+ * fechamento assim que a implantação começa.
  */
 export const defaultFunnel: Record<Front, ManualFunnelInput> = {
   franchise: {
-    stages: { lead: 9, contact: 1962, recall: 474, fqc: 72, visit_call: 0, cof: 194, pre_contract: 0, waiting: 0, contract: 0, implementation: 149 },
-    stage_days: { lead: 0, contact: 0, recall: 0, fqc: 0, visit_call: 0, cof: 0, pre_contract: 0, waiting: 0, implementation: 0 },
+    stages: { lead: 24, contact: 68, recall: 31, fqc: 22, visit_call: 14, cof: 11, pre_contract: 7, waiting: 4, contract: 3, implementation: 18 },
+    stage_days: { lead: 1, contact: 2, recall: 3, fqc: 4, visit_call: 5, cof: 6, pre_contract: 4, waiting: 3, implementation: 12 },
     avg_ticket: 84500,
   },
   condominium: {
-    stages: { lead: 3, contact: 798, recall: 9, fqa: 11, visit_proposal: 547, assembly: 13, contract: 0, implementation: 22 },
-    stage_days: { lead: 0, contact: 0, recall: 0, fqa: 0, visit_proposal: 0, assembly: 0, implementation: 0 },
+    stages: { lead: 15, contact: 42, recall: 18, fqa: 14, visit_proposal: 11, assembly: 6, contract: 2, implementation: 9 },
+    stage_days: { lead: 1, contact: 2, recall: 3, fqa: 4, visit_proposal: 5, assembly: 7, implementation: 10 },
     avg_ticket: 0,
   },
 };
 
 /**
- * Padrão do resultado comercial: zero nas duas frentes. Não há como inferir
- * fechamento nem faturamento do estoque do kanban, então o dashboard declara a
- * ausência e espera o preenchimento em vez de exibir um número inventado.
+ * Resultado do período, também manual e provisório. Independente do snapshot
+ * de propósito: Franquias mostra 9 contratos fechados no período mesmo com
+ * apenas 3 cards parados na coluna "Contrato" e 18 em "Implantação" — são
+ * conceitos diferentes, e nenhum dos dois é calculado a partir do outro.
+ *
+ * O ticket exibido é derivado daqui (receita ÷ contratos): R$ 84.500 em
+ * Franquias e R$ 18.000 em Condomínios.
  */
 export const defaultResults: Record<Front, ManualPeriodResults> = {
-  franchise: { contracts_closed: 0, revenue: 0 },
-  condominium: { contracts_closed: 0, revenue: 0 },
+  franchise: { contracts_closed: 9, revenue: 760500 },
+  condominium: { contracts_closed: 6, revenue: 108000 },
 };
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);

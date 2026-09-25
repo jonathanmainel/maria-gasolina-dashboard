@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+// `?raw` do Vite: lê o snippet sem precisar dos tipos de node no tsconfig.
+import seedSql from "../../supabase/snippets/seed_crm_manual_inputs.sql?raw";
 import { crmStages } from "./crm-stages";
 import { defaultFunnel, defaultResults, legacyStageMap, normalizeFunnel, normalizeResults } from "./manual-funnel";
 import { normalize } from "./manual-inputs";
@@ -134,10 +136,44 @@ describe("normalize() do bloco manual inteiro", () => {
     expect(result.results.franchise).toEqual({ contracts_closed: 4, revenue: 338000 });
   });
 
-  it("o padrão de resultado é zero: fechamento e receita nunca são inventados", () => {
-    expect(defaultResults.franchise).toEqual({ contracts_closed: 0, revenue: 0 });
-    expect(defaultResults.condominium).toEqual({ contracts_closed: 0, revenue: 0 });
+  it("o padrão de resultado é o seed manual de apresentação, independente do snapshot", () => {
+    expect(defaultResults.franchise).toEqual({ contracts_closed: 9, revenue: 760500 });
+    expect(defaultResults.condominium).toEqual({ contracts_closed: 6, revenue: 108000 });
     expect(normalize({}).results).toEqual(defaultResults);
+    // 9 fechamentos no período com só 3 cards parados na coluna "Contrato" e 18
+    // em "Implantação": nenhum dos dois números sai do outro.
+    expect(defaultResults.franchise.contracts_closed).not.toBe(defaultFunnel.franchise.stages.contract);
+    expect(defaultResults.franchise.contracts_closed).not.toBe(defaultFunnel.franchise.stages.implementation);
+  });
+
+  it("o seed do código bate com o snippet de seed do Supabase", () => {
+    // O snippet é operação manual e não roda em teste, mas os dois não podem
+    // divergir: quem mudar um lado tem que mudar o outro.
+    Object.entries(defaultFunnel.franchise.stages).forEach(([id, value]) => {
+      expect(seedSql).toContain(`'${id}', ${value}`);
+    });
+    Object.entries(defaultFunnel.condominium.stages).forEach(([id, value]) => {
+      expect(seedSql).toContain(`'${id}', ${value}`);
+    });
+    expect(seedSql).toContain("'contracts_closed', 9, 'revenue', 760500");
+    expect(seedSql).toContain("'contracts_closed', 6, 'revenue', 108000");
+    expect(seedSql).toContain("'avg_ticket', 84500");
+    // O merge tem que ser raso e só nas duas chaves de CRM.
+    expect(seedSql).toContain("payload = m.payload || jsonb_build_object(");
+    expect(seedSql).not.toMatch(/payload\s*=\s*jsonb_build_object\(/);
+  });
+
+  it("o snapshot padrão traz as 10 e as 8 etapas preenchidas", () => {
+    expect(defaultFunnel.franchise.stages).toEqual({
+      lead: 24, contact: 68, recall: 31, fqc: 22, visit_call: 14,
+      cof: 11, pre_contract: 7, waiting: 4, contract: 3, implementation: 18,
+    });
+    expect(defaultFunnel.condominium.stages).toEqual({
+      lead: 15, contact: 42, recall: 18, fqa: 14,
+      visit_proposal: 11, assembly: 6, contract: 2, implementation: 9,
+    });
+    expect(defaultFunnel.franchise.avg_ticket).toBe(84500);
+    expect(defaultFunnel.condominium.avg_ticket).toBe(0);
   });
 
   it("o snapshot padrão é um estoque de kanban, não uma curva de funil", () => {
@@ -159,8 +195,15 @@ describe("normalizeResults()", () => {
     expect(normalizeResults("franchise", { revenue: 100 }, legacyFranchise)).toEqual({ contracts_closed: 0, revenue: 100 });
   });
 
-  it("sem resultado e sem legado em array, devolve zero", () => {
-    expect(normalizeResults("franchise", undefined, { stages: { lead: 9 } })).toEqual({ contracts_closed: 0, revenue: 0 });
-    expect(normalizeResults("condominium", undefined, undefined)).toEqual({ contracts_closed: 0, revenue: 0 });
+  it("sem resultado e sem legado em array, devolve o padrão da frente", () => {
+    expect(normalizeResults("franchise", undefined, { stages: { lead: 9 } })).toEqual(defaultResults.franchise);
+    expect(normalizeResults("condominium", undefined, undefined)).toEqual(defaultResults.condominium);
+  });
+
+  it("um resultado salvo em zero continua zero: o seed não ressuscita por cima", () => {
+    // Zero informado é um resultado legítimo do período ("não fechamos nada"),
+    // e não pode ser confundido com ausência de dado.
+    expect(normalizeResults("franchise", { contracts_closed: 0, revenue: 0 })).toEqual({ contracts_closed: 0, revenue: 0 });
+    expect(normalizeResults("franchise", { contracts_closed: 0 })).toEqual({ contracts_closed: 0, revenue: 0 });
   });
 });
