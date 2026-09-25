@@ -436,3 +436,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-dashboard-daily/deno.json"
 entrypoint = "./functions/sync-dashboard-daily/index.ts"
+
+[functions.import-network-units]
+enabled = true
+verify_jwt = true
+import_map = "./functions/import-network-units/deno.json"
+entrypoint = "./functions/import-network-units/index.ts"
