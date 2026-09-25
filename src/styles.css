@@ -672,6 +672,49 @@ tbody tr:hover { background: var(--surface-2); }
 .storage-note.warn { border: 1px dashed color-mix(in srgb, var(--gold) 55%, transparent); background: color-mix(in srgb, var(--gold) 9%, transparent); color: var(--text-2); }
 .storage-note.warn svg { color: var(--gold); }
 
+/* ------------------------------------------------- base de unidades da rede */
+/* Bloco compacto: o resumo da base, o seletor e o resultado da validação cabem
+   na coluna estreita de Metas e ajustes sem virar tabela nem card vazio. */
+.units-current { display: grid; gap: 12px; }
+.units-figures { display: flex; gap: 10px; }
+.units-figures > div { flex: 1 1 0; min-width: 0; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface-2); }
+.units-figures strong { display: block; font-size: 20px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.units-figures small { display: block; margin-top: 1px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+.units-meta { display: grid; gap: 6px; margin: 0; }
+.units-meta > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.units-meta dt { color: var(--muted); font-size: 11px; font-weight: 600; flex: 0 0 auto; }
+.units-meta dd { margin: 0; min-width: 0; color: var(--text-2); font-size: 11.5px; font-weight: 650; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.units-meta dd.warn { color: var(--gold); }
+
+.units-upload { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.units-upload label { justify-self: start; height: 36px; padding: 0 14px; font-size: 11.5px; cursor: pointer; }
+.units-upload label[aria-disabled="true"] { opacity: .55; cursor: progress; }
+.units-upload small { color: var(--muted-2); font-size: 10.5px; line-height: 1.5; }
+
+.units-state { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
+.units-state svg { flex: 0 0 auto; margin-top: 1px; }
+.units-state.ok { border-color: color-mix(in srgb, var(--green) 40%, transparent); background: color-mix(in srgb, var(--green) 9%, transparent); }
+.units-state.ok svg { color: var(--green); }
+.units-state.warn { border-color: color-mix(in srgb, var(--gold) 50%, transparent); background: color-mix(in srgb, var(--gold) 9%, transparent); }
+.units-state.warn svg { color: var(--gold); }
+
+.units-preview { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface-2); }
+.units-preview-file { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 11.5px; font-weight: 700; word-break: break-all; }
+.units-preview-file svg { flex: 0 0 auto; color: var(--muted); }
+.units-preview-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.units-preview-list li { color: var(--text-2); font-size: 11.5px; }
+.units-preview-list b { font-variant-numeric: tabular-nums; font-weight: 750; }
+.units-preview-list li.warn { color: var(--gold); }
+.units-hint { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.units-hint svg { flex: 0 0 auto; margin-top: 1px; }
+.units-reasons { margin-top: 10px; }
+.units-reasons ul { display: grid; gap: 5px; margin: 8px 0 0; padding: 0 0 0 14px; }
+.units-reasons li { color: var(--text-2); font-size: 11px; line-height: 1.5; }
+.units-reasons li span { color: var(--muted); }
+.link-button { padding: 0; border: 0; background: none; color: var(--gold); font-size: 11px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.units-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.units-actions .primary-button, .units-actions .secondary-button { flex: 1 1 auto; height: 36px; padding: 0 14px; font-size: 11.5px; }
+
 .demo-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 15px; margin-bottom: 16px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--violet) 55%, transparent); background: color-mix(in srgb, var(--violet) 9%, transparent); color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
 .demo-note svg { flex: 0 0 auto; margin-top: 1px; color: var(--violet); }
 
