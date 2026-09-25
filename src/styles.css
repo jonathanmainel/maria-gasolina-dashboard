@@ -702,13 +702,13 @@ tbody tr:hover { background: var(--surface-2); }
 .event-highlight strong { font-size: 24px; font-weight: 750; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .event-highlight em { color: var(--muted-2); font-size: 10.5px; font-style: normal; }
 
-/* Rodapé da tabela: contagem à direita e "Carregar mais" quando ainda há linhas
-   não desenhadas — o conjunto completo já veio das RPCs paginadas. */
+/* Rodapé padrão das tabelas analíticas: contagem à esquerda, "Ver mais (N)" /
+   "Mostrar menos" à direita. Não é paginação de rede — o conjunto completo já
+   veio das RPCs percorridas até o fim; aqui só se revelam linhas. */
 .table-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); }
 .table-foot .table-count { border-top: 0; }
-.load-more { margin: 0 14px 0 0; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 8px; color: var(--text); background: var(--surface-2); font-size: 11px; font-weight: 700; }
-.load-more:hover { border-color: var(--gold); color: var(--gold); }
-.load-more span { color: var(--muted); font-weight: 600; }
+.table-toggle { flex: 0 0 auto; margin: 0 14px 0 0; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 8px; color: var(--text); background: var(--surface-2); font-size: 11px; font-weight: 700; white-space: nowrap; transition: .2s ease; }
+.table-toggle:hover { border-color: var(--gold); color: var(--gold); }
 
 /* ------------------------------------------------------------ responsive */
 @media (max-width: 1240px) {
@@ -739,7 +739,7 @@ tbody tr:hover { background: var(--surface-2); }
   .grid-4, .grid-6 { grid-template-columns: 1fr; }
   .panel-controls { justify-content: flex-start; }
   .table-foot { flex-direction: column-reverse; align-items: stretch; gap: 0; }
-  .load-more { margin: 10px 14px; justify-content: center; }
+  .table-toggle { margin: 10px 14px; justify-content: center; }
   .kpi { padding: 16px 18px 14px; }
   .kpi-value strong { font-size: 26px; }
   .kpi-spark { width: 110px; height: 40px; bottom: 14px; }

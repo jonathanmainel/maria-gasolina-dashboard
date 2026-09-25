@@ -125,8 +125,8 @@ describe("aba Site: cabeçalho e KPIs executivos", () => {
     const kpis = [...document.querySelectorAll(".grid-6 .kpi")] as HTMLElement[];
     const leads = kpis.find((kpi) => kpi.querySelector(".kpi-top p")?.textContent === "Leads")!;
     const rate = kpis.find((kpi) => kpi.querySelector(".kpi-top p")?.textContent === "Taxa de conversão")!;
-    await waitFor(() => expect(leads.querySelector(".kpi-value strong")!.textContent).toBe("105"));
-    await waitFor(() => expect(rate.querySelector(".kpi-value strong")!.textContent).toBe("5%"));
+    await waitFor(() => expect(leads.querySelector(".kpi-value strong")!.textContent).toBe("105"), { timeout: 4000 });
+    await waitFor(() => expect(rate.querySelector(".kpi-value strong")!.textContent).toBe("5%"), { timeout: 4000 });
     // Nada de "generate_leads" nem "lead_rate" cru na interface.
     expect(pageText()).not.toContain("generate_leads");
     expect(pageText()).not.toContain("lead_rate");
@@ -264,7 +264,9 @@ describe("aba Site: canais, aquisição, landing pages e eventos", () => {
     const highlights = await waitFor(() => screen.getByTestId("site-event-highlights"));
     const cards = [...highlights.querySelectorAll(".event-highlight")];
     expect(cards[0].querySelector("small")!.textContent).toBe("Leads");
-    expect(cards[0].querySelector("strong")!.textContent).toBe("105");
+    // O contador anima de zero ate o valor final; esperar o repouso evita ler
+    // um quadro intermediario.
+    await waitFor(() => expect(cards[0].querySelector("strong")!.textContent).toBe("105"), { timeout: 4000 });
     expect(highlights.textContent).not.toContain("form_submit");
     expect(within(screen.getByTestId("ga4-events-table")).getAllByText("form_submit").length).toBeGreaterThan(0);
   });
@@ -332,22 +334,152 @@ describe("aba Site: carregamento, vazio e erro parcial", () => {
   });
 });
 
-describe("aba Site: paginação das tabelas", () => {
-  it("percorre todas as páginas da RPC antes de montar rankings e tabelas", async () => {
-    const many = Array.from({ length: 60 }, (_, i) => ({
-      ...acquisitionItems[0], channel_group: `Canal ${String(i).padStart(2, "0")}`,
-      source_medium: `origem-${i} / medium`, sessions: 1000 - i, generate_leads: 60 - i,
-    }));
-    getAllAnalyticsAcquisition.mockResolvedValue(page(many));
-    renderSite();
-    const table = await waitFor(() => screen.getByTestId("ga4-acquisition-table"));
-    expect(table.querySelector(".table-count")!.textContent).toBe("Exibindo 25 de 60");
+describe("aba Site: Top 5 e expansão das tabelas", () => {
+  /** 20 canais: sessões decrescem e leads crescem, então os dois critérios dão rankings opostos. */
+  const manyChannels = Array.from({ length: 20 }, (_, i) => ({
+    ...acquisitionItems[0], channel_group: `Canal ${String(i).padStart(2, "0")}`,
+    source_medium: `origem-${i} / medium`, sessions: 1000 - i * 10, generate_leads: i + 1,
+  }));
+  const table = () => screen.getByTestId("ga4-acquisition-table");
+  const acquisitionRows = () => [...table().querySelectorAll("tbody tr")].map((row) => row.querySelector("td")!.textContent);
+  const count = () => table().querySelector(".table-count")!.textContent;
+  const toggle = () => within(table()).queryByRole("button", { name: /Ver mais|Mostrar menos/ });
 
-    fireEvent.click(within(table).getByRole("button", { name: /Carregar mais/ }));
-    await waitFor(() => expect(table.querySelector(".table-count")!.textContent).toBe("Exibindo 50 de 60"));
-    fireEvent.click(within(table).getByRole("button", { name: /Carregar mais/ }));
-    await waitFor(() => expect(table.querySelector(".table-count")!.textContent).toBe("Exibindo 60 de 60"));
-    expect(within(table).queryByRole("button", { name: /Carregar mais/ })).toBeNull();
+  it("abre com 5 linhas, conta corretamente e oferece Ver mais com o total escondido", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    expect(count()).toBe("Exibindo 5 de 20");
+    expect(toggle()!.textContent).toBe("Ver mais (15)");
+    expect(toggle()!.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("Ver mais revela todas as linhas de uma vez e Mostrar menos volta para 5", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(20));
+    expect(count()).toBe("Exibindo 20 de 20");
+    expect(toggle()!.textContent).toBe("Mostrar menos");
+    expect(toggle()!.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    expect(count()).toBe("Exibindo 5 de 20");
+    expect(toggle()!.textContent).toBe("Ver mais (15)");
+  });
+
+  it("não oferece ação quando o dataset cabe no recorte", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels.slice(0, 5)));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    expect(count()).toBe("Exibindo 5 de 5");
+    expect(toggle()).toBeNull();
+
+    cleanup();
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels.slice(0, 3)));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(3));
+    expect(count()).toBe("Exibindo 3 de 3");
+    expect(toggle()).toBeNull();
+  });
+
+  it("ordena o dataset completo antes de cortar o Top 5", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    // Sessões DESC: os 5 maiores são os primeiros canais da lista.
+    await waitFor(() => expect(acquisitionRows()).toEqual(["Canal 00", "Canal 01", "Canal 02", "Canal 03", "Canal 04"]));
+
+    // Leads DESC: os 5 maiores estão no FIM do dataset — impossível de achar se
+    // a ordenação rodasse só sobre as 5 linhas que já estavam visíveis.
+    fireEvent.click(screen.getByRole("tab", { name: "Por leads" }));
+    await waitFor(() => expect(acquisitionRows()).toEqual(["Canal 19", "Canal 18", "Canal 17", "Canal 16", "Canal 15"]));
+  });
+
+  it("trocar a ordenação recolhe a tabela de volta para 5", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(20));
+
+    fireEvent.click(screen.getByRole("tab", { name: "Por leads" }));
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    expect(count()).toBe("Exibindo 5 de 20");
+  });
+
+  it("inverter a direção da coluna mostra os 5 menores daquele critério", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    const header = within(table()).getByRole("button", { name: /^Ordenar por Sessões,/ });
+
+    fireEvent.click(header); // estava em DESC, o primeiro clique inverte para ASC
+    await waitFor(() => expect(acquisitionRows()).toEqual(["Canal 19", "Canal 18", "Canal 17", "Canal 16", "Canal 15"]));
+
+    fireEvent.click(header); // volta para DESC: maior no topo
+    await waitFor(() => expect(acquisitionRows()).toEqual(["Canal 00", "Canal 01", "Canal 02", "Canal 03", "Canal 04"]));
+  });
+
+  it("trocar o período recolhe as tabelas", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    const { rerender } = renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(20));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    rerender(<QueryClientProvider client={client}><SiteView range={{ start: "2026-07-01", end: "2026-07-31" }} /></QueryClientProvider>);
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+  });
+
+  it("landing pages e eventos também abrem com 5, cada tabela com seu próprio estado", async () => {
+    const pagesMany = Array.from({ length: 12 }, (_, i) => ({ ...landingItems[0], landing_page: `/p-${String(i).padStart(2, "0")}`, sessions: 900 - i }));
+    const eventsMany = Array.from({ length: 12 }, (_, i) => ({ ...eventItems[0], event_name: `evento_${String(i).padStart(2, "0")}`, event_count: 900 - i }));
+    getAllAnalyticsLandingPages.mockResolvedValue(page(pagesMany));
+    getAllAnalyticsEvents.mockResolvedValue(page(eventsMany));
+    renderSite();
+
+    const landing = await waitFor(() => screen.getByTestId("ga4-landing-pages-table"));
+    expect(landing.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(landing.querySelector(".table-count")!.textContent).toBe("Exibindo 5 de 12");
+
+    const events = screen.getByTestId("ga4-events-table");
+    expect(events.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(events.querySelector(".table-count")!.textContent).toBe("Exibindo 5 de 12");
+
+    fireEvent.click(within(landing).getByRole("button", { name: "Ver mais (7)" }));
+    await waitFor(() => expect(landing.querySelectorAll("tbody tr")).toHaveLength(12));
+    // Expandir uma tabela não mexe na outra.
+    expect(events.querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
+  it("no mobile os cards seguem a mesma regra de 5", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    const mobileRows = () => table().querySelectorAll(".mobile-rows .mobile-row");
+    expect(mobileRows()).toHaveLength(5);
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(mobileRows()).toHaveLength(20));
+    fireEvent.click(toggle()!);
+    await waitFor(() => expect(mobileRows()).toHaveLength(5));
+  });
+
+  it("não reduz o que é buscado: as RPCs continuam sendo lidas por inteiro", async () => {
+    getAllAnalyticsAcquisition.mockResolvedValue(page(manyChannels));
+    renderSite();
+    await waitFor(() => expect(acquisitionRows()).toHaveLength(5));
+    // As funções de leitura recebem só o período: nenhum limite de 5 chega à API.
+    expect(getAllAnalyticsAcquisition).toHaveBeenCalledWith(range);
+    expect(getAllAnalyticsLandingPages).toHaveBeenCalledWith(range);
+    expect(getAllAnalyticsEvents).toHaveBeenCalledWith(range);
+    // E o dataset completo continua disponível para reordenar.
+    fireEvent.click(screen.getByRole("tab", { name: "Por leads" }));
+    await waitFor(() => expect(acquisitionRows()[0]).toBe("Canal 19"));
+    expect(count()).toBe("Exibindo 5 de 20");
   });
 
   it("avisa quando a leitura atinge o teto de segurança em vez de cortar em silêncio", async () => {

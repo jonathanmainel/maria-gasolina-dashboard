@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { integer, money, percent } from "../lib/format";
+import { ExpandableTableFooter, useExpandableRows } from "./ui/expandable-table";
 import type { CampaignRow } from "../types";
 
 // Tabela de campanhas — o primeiro nível do detalhamento. Mesma estrutura que
@@ -16,7 +17,7 @@ const statusLabel: Record<CampaignRow["status"], string> = {
   PAUSED: "Pausada",
 };
 
-export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com dados neste período." }: { campaigns: CampaignRow[]; emptyLabel?: string }) {
+export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com dados neste período.", resetToken = "" }: { campaigns: CampaignRow[]; emptyLabel?: string; resetToken?: string }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "leads", dir: "desc" });
 
   const sorted = useMemo(() => [...campaigns].sort((a, b) => {
@@ -25,6 +26,9 @@ export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com da
     const r = typeof av === "string" ? av.localeCompare(String(bv), "pt-BR") : Number(av) - Number(bv);
     return sort.dir === "asc" ? r : -r;
   }), [campaigns, sort]);
+
+  // O Top 5 sai do dataset completo já ordenado, nunca das 5 primeiras linhas.
+  const rows = useExpandableRows(sorted, `${resetToken}|${sort.key}|${sort.dir}`);
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
   const th = (key: SortKey, label: string, wide = false) => (
@@ -43,7 +47,7 @@ export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com da
         <table>
           <thead><tr>{th("name", "Campanha", true)}<th>Canal</th><th>Status</th>{th("spend", "Investimento")}{th("impressions", "Impressões")}{th("clicks", "Cliques")}{th("ctr", "CTR")}{th("leads", "Leads")}{th("cpl", "CPL")}</tr></thead>
           <tbody>
-            {sorted.map((c) => (
+            {rows.visibleRows.map((c) => (
               <tr key={c.id}>
                 <td className="name-cell">
                   <div className="entity-name">
@@ -62,14 +66,14 @@ export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com da
         </table>
       </div>
       <div className="mobile-rows">
-        {sorted.map((c) => (
+        {rows.visibleRows.map((c) => (
           <div className="mobile-row" key={c.id}>
             <div className="mobile-primary"><strong>{c.name}</strong><b>{integer(c.leads)} leads</b></div>
             <div className="mobile-details"><span>Invest. <b>{money(c.spend)}</b></span><span>CPL <b>{money(c.cpl)}</b></span><span>CTR <b>{percent(c.ctr)}</b></span><span>Cliques <b>{integer(c.clicks)}</b></span></div>
           </div>
         ))}
       </div>
-      <p className="table-count">{campaigns.length} campanhas · {integer(campaigns.reduce((s, c) => s + c.leads, 0))} leads</p>
+      <ExpandableTableFooter rows={rows} summary={`${integer(campaigns.reduce((s, c) => s + c.leads, 0))} leads`} />
     </div>
   );
 }

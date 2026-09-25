@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronsUpDown, ChevronUp, ImageOff, PlayCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DetailRow } from "../lib/detail-rows";
+import { ExpandableTableFooter, useExpandableRows } from "./ui/expandable-table";
 import { integer, money, percent } from "../lib/format";
 import { viewableImage } from "../lib/media";
 import { ImageLightbox } from "./ImageLightbox";
@@ -17,6 +18,11 @@ interface Props {
   showAssetType?: boolean;
   defaultSortKey?: SortKey;
   defaultSortDirection?: "asc" | "desc";
+  /**
+   * Muda quando o detalhamento passa a mostrar outra coisa (nível, canal,
+   * frente, período) e a tabela precisa voltar ao Top 5.
+   */
+  resetToken?: string;
 }
 
 const sortOptions: Array<{ key: SortKey; label: string }> = [
@@ -30,7 +36,7 @@ const sortOptions: Array<{ key: SortKey; label: string }> = [
 
 export function DataTable({
   items, totalCount, emptyLabel = "Nenhum dado neste período.", showChannel = false, showAssetType = false,
-  defaultSortKey = "spend", defaultSortDirection = "desc",
+  defaultSortKey = "spend", defaultSortDirection = "desc", resetToken = "",
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: defaultSortKey, direction: defaultSortDirection });
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -44,6 +50,9 @@ export function DataTable({
     const result = typeof av === "string" ? av.localeCompare(String(bv), "pt-BR") : Number(av) - Number(bv);
     return sort.direction === "asc" ? result : -result;
   }), [items, sort]);
+
+  // Ordena o dataset inteiro e só então corta: cada coluna vira um Top 5 real.
+  const rows = useExpandableRows(sorted, `${resetToken}|${sort.key}|${sort.direction}`);
 
   const changeSort = (key: SortKey) => setSort((current) => ({
     key,
@@ -85,12 +94,12 @@ export function DataTable({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} onZoom={setZoomed} />)}
+            {rows.visibleRows.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} onZoom={setZoomed} />)}
           </tbody>
         </table>
       </div>
       <div className="mobile-rows">
-        {sorted.map((item) => {
+        {rows.visibleRows.map((item) => {
           const open = expanded === item.key;
           return (
             <article className="mobile-row" key={item.key}>
@@ -116,7 +125,7 @@ export function DataTable({
           );
         })}
       </div>
-      <p className="table-count">Exibindo {items.length} de {totalCount ?? items.length}</p>
+      <ExpandableTableFooter rows={rows} summary={totalCount != null && totalCount !== items.length ? `${totalCount} no total` : undefined} />
       {zoomed?.image_url && <ImageLightbox src={zoomed.image_url} label={zoomed.item_name} onClose={() => setZoomed(null)} />}
     </div>
   );

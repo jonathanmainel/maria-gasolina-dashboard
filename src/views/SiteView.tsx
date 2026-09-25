@@ -36,6 +36,8 @@ export function SiteView({ range }: { range: DateRange }) {
   const [chartMode, setChartMode] = useState<ChartMode>("daily");
   const [chartMetric, setChartMetric] = useState<"leads" | "engagement">("leads");
   const [acquisitionOrder, setAcquisitionOrder] = useState<"sessions" | "generate_leads">("sessions");
+  // Trocar o período troca o dataset das três tabelas: todas voltam ao Top 5.
+  const resetToken = `${range.start}|${range.end}`;
 
   const overview = useQuery({ queryKey: ["site-overview", range.start, range.end], queryFn: () => getSiteOverview(range), retry: 1 });
   const acquisition = useQuery({ queryKey: ["site-acquisition", range.start, range.end], queryFn: () => getAllAnalyticsAcquisition(range), retry: 1 });
@@ -154,7 +156,7 @@ export function SiteView({ range }: { range: DateRange }) {
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar a aquisição: {(acquisition.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : (
         <>
-          <AnalyticsAcquisitionTable items={acquisition.data!.items} orderBy={acquisitionOrder} />
+          <AnalyticsAcquisitionTable items={acquisition.data!.items} orderBy={acquisitionOrder} resetToken={resetToken} />
           {acquisition.data!.truncated && <p className="manual-foot">A leitura da aquisição atingiu o limite de segurança e pode estar incompleta. Reduza o período para ver todas as origens.</p>}
         </>
       )}
@@ -170,7 +172,7 @@ export function SiteView({ range }: { range: DateRange }) {
             <TopLandingPages items={pages} color={colors.sky} />
           </Panel>
           <div style={{ marginTop: 14 }}>
-            <AnalyticsLandingPagesTable items={pages} />
+            <AnalyticsLandingPagesTable items={pages} resetToken={resetToken} />
           </div>
           {landingPages.data!.truncated && <p className="manual-foot">A leitura das landing pages atingiu o limite de segurança e pode estar incompleta. Reduza o período para ver todas as páginas.</p>}
         </>
@@ -203,7 +205,7 @@ export function SiteView({ range }: { range: DateRange }) {
             </div>
           )}
           <div style={{ marginTop: highlights.length > 0 ? 14 : 0 }}>
-            <AnalyticsEventsTable items={events.data!.items} />
+            <AnalyticsEventsTable items={events.data!.items} resetToken={resetToken} />
           </div>
           {events.data!.truncated && <p className="manual-foot">A leitura dos eventos atingiu o limite de segurança e pode estar incompleta. Reduza o período para ver todos os eventos.</p>}
         </>

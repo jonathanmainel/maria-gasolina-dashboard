@@ -83,6 +83,9 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
   }, [isCampaign, query.data, front]);
 
   const count = isCampaign ? campaigns.length : items.length;
+  // Trocar nível, canal, frente ou período substitui o dataset da tabela: o
+  // Top 5 tem de voltar, em vez de deixar 90 linhas abertas de outra análise.
+  const resetToken = `${level}|${channelFilter}|${front}|${range.start}|${range.end}`;
 
   return (
     <Panel
@@ -108,14 +111,14 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
       </div>
 
       {isCampaign ? (
-        <CampaignTable campaigns={campaigns} emptyLabel={active.emptyLabel} />
+        <CampaignTable campaigns={campaigns} emptyLabel={active.emptyLabel} resetToken={resetToken} />
       ) : query.isLoading ? (
         <Skeleton height={240} />
       ) : query.isError ? (
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar este nível: {(query.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : (
         <>
-          <DataTable items={items} emptyLabel={active.emptyLabel} showChannel={channelFilter === "all"} showAssetType={level === "ad"} />
+          <DataTable items={items} emptyLabel={active.emptyLabel} showChannel={channelFilter === "all"} showAssetType={level === "ad"} resetToken={resetToken} />
           {outside > 0 && (
             <p className="manual-foot">
               {integer(outside)} item(ns) pertencem a campanhas sem FRANQ ou COND no nome e ficaram fora das duas frentes.
