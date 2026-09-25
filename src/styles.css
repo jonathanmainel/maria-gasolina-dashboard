@@ -343,9 +343,30 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .funnel3d-row-bottom b { font-size: 19px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text); }
 .funnel3d-row-bottom em { color: var(--muted); font-size: 10.5px; font-style: normal; }
 .funnel3d.dense .funnel3d-row-bottom b { font-size: 16px; }
+/* Implantação é pós-venda: separada por uma linha cheia e marcada com a tag,
+   para nunca ser lida como mais uma etapa de fechamento. */
+.funnel3d-row.post-sale { border-top: 1px solid var(--line-2); margin-top: 2px; }
+.funnel3d-row.post-sale .funnel3d-row-top strong { color: var(--muted); }
+.funnel3d-tag { flex: 0 0 auto; margin-right: auto; padding: 1px 7px; border-radius: 999px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-2); border: 1px solid var(--line-2); }
+/* A barra proporcional fica escondida no desktop (quem mostra o volume lá é o
+   trapézio) e assume no mobile, onde o desenho sai da tela. */
+.funnel3d-row::before { content: ""; position: absolute; inset: 2px auto 2px 0; width: var(--w, 0%); border-radius: 8px; background: color-mix(in srgb, var(--fc) 16%, transparent); opacity: 0; transition: width .9s cubic-bezier(.2,.7,.2,1); pointer-events: none; }
+.funnel3d-row { position: relative; }
+.funnel3d-row > * { position: relative; }
+/* Com 8 a 10 etapas, empilhar o trapézio (mais de 500px) sobre as linhas
+   estoura a tela do celular: abaixo de 640px o desenho sai e cada etapa vira
+   uma linha com a barra proporcional, que continua mostrando o afunilamento
+   sem apertar rótulo nenhum na horizontal. Até 640px o desenho cabe na coluna
+   fixa de 220px ao lado das linhas, como sempre coube. */
 @media (max-width: 640px) {
-  .funnel3d { grid-template-columns: 1fr; gap: 14px; }
-  .funnel3d-shape { max-width: 200px; margin: 0 auto; }
+  .funnel3d { grid-template-columns: 1fr; gap: 10px; }
+  .funnel3d-shape { display: none; }
+  .funnel3d-row { height: auto !important; min-height: 56px; padding: 8px 10px; }
+  .funnel3d-row::before { opacity: 1; }
+  .funnel3d-row-top { align-items: flex-start; flex-wrap: wrap; gap: 4px 8px; }
+  .funnel3d-row-top strong { font-size: 12px; }
+  .funnel3d-row-bottom b { font-size: 17px; }
+  .funnel3d-days { white-space: normal; }
 }
 
 /* -------------------------------------------------------- cycle timeline */
@@ -514,7 +535,11 @@ tbody tr:hover { background: var(--surface-2); }
 /* ------------------------------------------------------------ settings */
 /* Colunas pelo espaço disponível: dois campos por linha em um painel largo viravam
    uma coluna de formulário muito alta ao entrar em edição. */
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+/* Blocos do editor manual: com 20 campos (funil de Franquias) a lista corrida
+   vira uma parede de caixas iguais. */
+.manual-section + .manual-section { margin-top: 18px; }
+.manual-section-title { margin: 0 0 10px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
 .field input { height: 44px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--bg) 40%, transparent); color: var(--text); font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; transition: .2s; }

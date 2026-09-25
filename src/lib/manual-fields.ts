@@ -1,5 +1,5 @@
 import type { NumberFieldSpec } from "../components/ui/editable";
-import { crmStageNames } from "./crm";
+import { closeStage, crmStages, isCommercialClose, isPostSale } from "./crm-stages";
 import type { DeliveryStatus, Front, Goals, ManualFunnelInput } from "../types";
 
 // Descrição dos campos manuais em um só lugar: os mesmos rótulos valem para o
@@ -30,33 +30,56 @@ export const publicationFields: NumberFieldSpec[] = [
   { key: "instant_published", label: "Instant", hint: "Publicações Instant no mês" },
 ];
 
-const stageKey = (index: number) => `stage_${index}`;
-const dayKey = (index: number) => `days_${index}`;
+// Campos do funil: um por etapa (volume), um por etapa com tempo (dias) e o
+// ticket. As chaves carregam o id da etapa, não a posição — assim Franquias
+// (10 etapas) e Condomínios (8) usam o mesmo editor sem números mágicos.
+const stageKey = (id: string) => `stage_${id}`;
+const dayKey = (id: string) => `days_${id}`;
 
 /** Campos do funil de uma frente: volume por etapa, dias por etapa e ticket médio. */
 export function funnelFields(front: Front): NumberFieldSpec[] {
-  const names = crmStageNames[front];
+  const stages = crmStages(front);
+  const close = closeStage(stages);
   return [
-    ...names.map((name, index) => ({ key: stageKey(index), label: name, hint: index === 0 ? "Topo do funil" : `Volume que chegou em "${name}"` })),
-    ...names.slice(0, 5).map((name, index) => ({ key: dayKey(index), label: `Dias em "${name}"`, hint: "Tempo médio de permanência na etapa" })),
-    { key: "avg_ticket", label: "Ticket médio do contrato", hint: "Deixe 0 quando a frente não tem taxa direta", kind: "currency" as const },
+    ...stages.map((stage, index) => ({
+      key: stageKey(stage.id),
+      label: stage.name,
+      hint: stage.role === "top"
+        ? "Topo do funil"
+        : isCommercialClose(stage)
+          ? "Fechamento comercial: base de contratos, receita e conversão"
+          : isPostSale(stage)
+            ? `Pós-venda, depois de "${close?.name ?? "Contrato"}" — não conta como contrato`
+            : `Volume que chegou em "${stage.name}"`,
+      group: index === 0 ? "Volume por etapa" : undefined,
+    })),
+    ...stages.filter((stage) => stage.tracksDays).map((stage, index) => ({
+      key: dayKey(stage.id),
+      label: stage.name,
+      hint: isPostSale(stage) ? "Tempo de implantação — fora do ciclo comercial" : "Tempo médio de permanência na etapa",
+      group: index === 0 ? "Tempo médio por etapa (dias)" : undefined,
+    })),
+    { key: "avg_ticket", label: "Ticket médio do contrato", hint: "Deixe 0 quando a frente não tem taxa direta", kind: "currency" as const, group: "Comercial" },
   ];
 }
 
-export function funnelToValues(input: ManualFunnelInput): Record<string, number> {
+export function funnelToValues(front: Front, input: ManualFunnelInput): Record<string, number> {
   const values: Record<string, number> = { avg_ticket: input.avg_ticket };
-  input.stages.forEach((count, index) => { values[stageKey(index)] = count; });
-  input.stage_days.forEach((days, index) => { values[dayKey(index)] = days; });
+  crmStages(front).forEach((stage) => {
+    values[stageKey(stage.id)] = input.stages[stage.id] ?? 0;
+    if (stage.tracksDays) values[dayKey(stage.id)] = input.stage_days[stage.id] ?? 0;
+  });
   return values;
 }
 
 export function valuesToFunnel(front: Front, values: Record<string, number>): ManualFunnelInput {
-  const names = crmStageNames[front];
-  return {
-    stages: names.map((_, index) => values[stageKey(index)] ?? 0),
-    stage_days: names.slice(0, 5).map((_, index) => values[dayKey(index)] ?? 0),
-    avg_ticket: values.avg_ticket ?? 0,
-  };
+  const stages: Record<string, number> = {};
+  const stageDays: Record<string, number> = {};
+  crmStages(front).forEach((stage) => {
+    stages[stage.id] = values[stageKey(stage.id)] ?? 0;
+    if (stage.tracksDays) stageDays[stage.id] = values[dayKey(stage.id)] ?? 0;
+  });
+  return { stages, stage_days: stageDays, avg_ticket: values.avg_ticket ?? 0 };
 }
 
 // Conversões diretas: os tipos de negócio são registros planos de números, mas o

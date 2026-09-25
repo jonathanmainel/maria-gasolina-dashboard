@@ -180,7 +180,7 @@ export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBette
   );
 }
 
-export interface FunnelStage { name: string; count: number; avg_days?: number; previous_count?: number }
+export interface FunnelStage { id?: string; name: string; kind?: "commercial" | "close" | "post_sale"; count: number; avg_days?: number; previous_count?: number }
 
 // Funil de vendas de verdade: cada etapa é um trapézio que afunila proporcionalmente
 // à queda real de volume (não apenas barras do mesmo formato encolhendo). Partículas
@@ -191,7 +191,9 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
   const [ready, setReady] = useState(false);
   const tilt = useTilt<HTMLDivElement>(5);
   useEffect(() => { const t = window.setTimeout(() => setReady(true), 90); return () => window.clearTimeout(t); }, []);
-  const stageH = dense ? 46 : 60;
+  // A altura por etapa encolhe conforme o funil cresce: com as 10 etapas de
+  // Franquias, 60px fixos passavam de 600px e o funil deixava de caber na tela.
+  const stageH = dense ? Math.max(34, Math.min(46, Math.round(400 / stages.length))) : Math.max(44, Math.min(60, Math.round(540 / stages.length)));
   const gap = 4;
   const rowH = stageH + gap;
   const totalH = stages.length * rowH - gap;
@@ -218,7 +220,7 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
             const [tx0, tx1] = ready ? [rest - topW / 2, rest + topW / 2] : [rest - 6, rest + 6];
             const [bx0, bx1] = ready ? [rest - botW / 2, rest + botW / 2] : [rest - 6, rest + 6];
             return (
-              <g key={s.name}>
+              <g key={s.id ?? s.name}>
                 <polygon points={`${tx0},${y} ${tx1},${y} ${bx1},${y + stageH} ${bx0},${y + stageH}`} fill={`url(#fnl-${i})`} stroke="rgba(255,255,255,.16)" strokeWidth="0.7" style={{ transition: "all .9s cubic-bezier(.2,.7,.2,1)", transitionDelay: `${i * 80}ms` }} />
                 <line x1={tx0} y1={y + 1.4} x2={tx1} y2={y + 1.4} stroke="rgba(255,255,255,.4)" strokeWidth="1" style={{ transition: "all .9s cubic-bezier(.2,.7,.2,1)", transitionDelay: `${i * 80}ms` }} />
               </g>
@@ -231,15 +233,24 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
           const prevStage = i ? stages[i - 1].count : null;
           const rate = prevStage ? (s.count * 100) / prevStage : null;
           const lostHere = prevStage != null ? prevStage - s.count : 0;
+          const postSale = s.kind === "post_sale";
           return (
-            <div className="funnel3d-row" key={s.name} style={{ height: rowH }}>
+            // `--w` desenha a barra proporcional que substitui o trapézio no
+            // mobile, onde a coluna do desenho é escondida para não empilhar
+            // dois blocos altíssimos com 10 etapas.
+            <div
+              className={`funnel3d-row ${postSale ? "post-sale" : ""}`}
+              key={s.id ?? s.name}
+              style={{ height: rowH, "--w": `${Math.max(6, (s.count / max) * 100)}%` } as React.CSSProperties}
+            >
               <div className="funnel3d-row-top">
                 <strong>{s.name}</strong>
+                {postSale && <span className="funnel3d-tag">pós-venda</span>}
                 {s.avg_days != null && s.avg_days > 0 && <span className="funnel3d-days">~{Math.round(s.avg_days)}d nesta etapa</span>}
               </div>
               <div className="funnel3d-row-bottom">
                 <b><AnimatedNumber value={s.count} format={format} /></b>
-                {rate != null ? <em>{rate.toFixed(0)}% seguiu · {format(lostHere)} saíram</em> : <em>topo do funil</em>}
+                {postSale ? <em>lojas em implantação</em> : rate != null ? <em>{rate.toFixed(0)}% seguiu · {format(lostHere)} saíram</em> : <em>topo do funil</em>}
                 {s.previous_count != null && <Delta current={s.count} previous={s.previous_count} />}
               </div>
             </div>
@@ -259,11 +270,11 @@ export function CycleBar({ stages, color, totalDays }: { stages: FunnelStage[]; 
     <div className="cycle-bar-wrap">
       <div className="cycle-bar">
         {segs.map((s, i) => (
-          <div key={s.name} className="cycle-seg" title={`${s.name}: ~${s.avg_days}d`} style={{ width: ready ? `${((s.avg_days ?? 0) / totalDays) * 100}%` : 0, background: `color-mix(in srgb, ${color} ${95 - i * 14}%, transparent)` }} />
+          <div key={s.id ?? s.name} className="cycle-seg" title={`${s.name}: ~${s.avg_days}d`} style={{ width: ready ? `${((s.avg_days ?? 0) / totalDays) * 100}%` : 0, background: `color-mix(in srgb, ${color} ${95 - i * 14}%, transparent)` }} />
         ))}
       </div>
       <div className="cycle-bar-legend">
-        {segs.map((s) => <span key={s.name}><i style={{ background: color }} />{s.name.split(" / ")[0]} <b>{s.avg_days}d</b></span>)}
+        {segs.map((s) => <span key={s.id ?? s.name}><i style={{ background: color }} />{s.name.split(" / ")[0]} <b>{s.avg_days}d</b></span>)}
       </div>
     </div>
   );

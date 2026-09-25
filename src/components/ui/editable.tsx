@@ -20,6 +20,13 @@ export interface NumberFieldSpec {
   label: string;
   hint?: string;
   kind?: FieldKind;
+  /**
+   * Abre um bloco com este título a partir deste campo. Serve para funis longos
+   * (Franquias tem 10 etapas + 9 tempos + ticket): sem os blocos, o editor vira
+   * uma parede de 20 caixas iguais. Sem `group` em nenhum campo, a lista sai
+   * corrida como antes.
+   */
+  group?: string;
 }
 
 // Interno ao módulo: exportar uma função junto com um componente quebra o
@@ -32,6 +39,16 @@ function formatByKind(value: number, kind: FieldKind = "integer") {
 
 function toDraft(values: Record<string, number>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, String(value)]));
+}
+
+/** Quebra a lista nos campos que abrem bloco, preservando a ordem original. */
+function toSections(fields: NumberFieldSpec[]): Array<{ title?: string; fields: NumberFieldSpec[] }> {
+  const sections: Array<{ title?: string; fields: NumberFieldSpec[] }> = [];
+  fields.forEach((field) => {
+    if (field.group || !sections.length) sections.push({ title: field.group, fields: [] });
+    sections[sections.length - 1].fields.push(field);
+  });
+  return sections;
 }
 
 interface Props {
@@ -58,6 +75,8 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
   // Fora do modo de edição o rascunho sempre reflete o valor persistido.
   useEffect(() => { if (!editing) setDraft(toDraft(values)); }, [values, editing]);
   useEffect(() => { if (!saved) return; const timer = window.setTimeout(() => setSaved(false), 2600); return () => window.clearTimeout(timer); }, [saved]);
+
+  const sections = toSections(fields);
 
   const cancel = () => { setDraft(toDraft(values)); setInvalid([]); setError(null); setEditing(false); };
 
@@ -101,35 +120,40 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
   return (
     <Panel title={title} description={description} badge={badge} actions={actions} noTilt>
       {summary}
-      {editing ? (
-        <div className="form-grid">
-          {fields.map((field) => (
-            <div className={`field ${invalid.includes(field.key) ? "field-invalid" : ""}`} key={field.key}>
-              <label htmlFor={`manual-${field.key}`}>{field.label}</label>
-              <input
-                id={`manual-${field.key}`}
-                type="number"
-                min={0}
-                step={field.kind === "currency" ? "0.01" : field.kind === "decimal" ? "0.1" : "1"}
-                inputMode="decimal"
-                value={draft[field.key] ?? ""}
-                disabled={saving}
-                onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
-              />
-              {field.hint && <small>{field.hint}</small>}
+      {sections.map((section, index) => (
+        <div key={section.title ?? index} className="manual-section">
+          {section.title && <h4 className="manual-section-title">{section.title}</h4>}
+          {editing ? (
+            <div className="form-grid">
+              {section.fields.map((field) => (
+                <div className={`field ${invalid.includes(field.key) ? "field-invalid" : ""}`} key={field.key}>
+                  <label htmlFor={`manual-${field.key}`}>{field.label}</label>
+                  <input
+                    id={`manual-${field.key}`}
+                    type="number"
+                    min={0}
+                    step={field.kind === "currency" ? "0.01" : field.kind === "decimal" ? "0.1" : "1"}
+                    inputMode="decimal"
+                    value={draft[field.key] ?? ""}
+                    disabled={saving}
+                    onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                  />
+                  {field.hint && <small>{field.hint}</small>}
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <dl className="manual-readout">
+              {section.fields.map((field) => (
+                <div key={field.key}>
+                  <dt>{field.label}</dt>
+                  <dd>{formatByKind(values[field.key] ?? 0, field.kind)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
-      ) : (
-        <dl className="manual-readout">
-          {fields.map((field) => (
-            <div key={field.key}>
-              <dt>{field.label}</dt>
-              <dd>{formatByKind(values[field.key] ?? 0, field.kind)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      ))}
       {error && <p className="manual-error" role="alert"><AlertCircle size={15} />{error}</p>}
       {saved && <p className="manual-saved"><Check size={15} />Valores salvos. As telas já refletem os novos números.</p>}
       {footNote && <p className="manual-foot">{footNote}</p>}

@@ -1,3 +1,5 @@
+import type { CrmStageKind, CrmStageRole } from "./lib/crm-stages";
+
 export type Source = "google_ads" | "meta_ads";
 export type EntityLevel = "campaign" | "group" | "ad" | "keyword";
 export type PmaxLevel = "asset_group" | "asset";
@@ -286,8 +288,12 @@ export interface OrganicSummary {
 }
 
 export interface CrmStage {
+  /** Id estável da etapa (`lib/crm-stages.ts`), o mesmo usado no payload manual. */
   id: string;
   name: string;
+  /** Semântica da etapa: comercial, fechamento ou pós-venda. Nunca a posição. */
+  kind: CrmStageKind;
+  role?: CrmStageRole;
   count: number;
   avg_days: number;
 }
@@ -295,7 +301,8 @@ export interface CrmStage {
 export interface CrmMonthly {
   month: string;
   leads: number;
-  meetings: number;
+  /** Volume na etapa de visita/call da frente — não existe "reunião" nos dois funis. */
+  visits: number;
   contracts: number;
   revenue: number;
 }
@@ -308,7 +315,9 @@ export interface CrmSource {
 
 export interface CrmSummary {
   front: Front;
+  /** Todas as etapas do funil na ordem visual, incluindo a pós-venda. */
   stages: CrmStage[];
+  /** Volume da etapa de fechamento comercial ("Contrato"). Implantação nunca entra aqui. */
   contracts: number;
   revenue: number;
   avg_ticket: number;
@@ -320,6 +329,12 @@ export interface CrmSummary {
   monthly: CrmMonthly[];
   sources: CrmSource[];
   recent: Array<{ id: string; name: string; city: string; stage: string; source: string; value: number; updated_at: string }>;
+  /** Etapa de fechamento comercial já resolvida, para as telas não procurarem por índice. */
+  close_stage: CrmStage | null;
+  /** Última etapa comercial antes do fechamento — base do card de pipeline. */
+  pipeline_stage: CrmStage | null;
+  /** Etapa de visita/call da frente, quando existir. */
+  visit_stage: CrmStage | null;
 }
 
 export interface Goals {
@@ -368,10 +383,14 @@ export interface GeoCity {
  * daqui — o usuário nunca digita uma métrica que o dashboard sabe calcular.
  */
 export interface ManualFunnelInput {
-  /** Volume em cada etapa, na ordem de `crmStageNames[front]` (6 posições). */
-  stages: number[];
-  /** Dias médios de permanência nas 5 primeiras etapas. */
-  stage_days: number[];
+  /**
+   * Volume por etapa, indexado pelo id da etapa em `lib/crm-stages.ts`.
+   * Deixou de ser array posicional: o funil de Franquias tem 10 etapas e o de
+   * Condomínios 8, e um array não diz qual posição é o fechamento comercial.
+   */
+  stages: Record<string, number>;
+  /** Dias médios de permanência, por id de etapa (só etapas com `tracksDays`). */
+  stage_days: Record<string, number>;
   /** Ticket médio do contrato fechado, em BRL. 0 quando a frente não tem taxa direta. */
   avg_ticket: number;
 }

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { demoDelivery, demoGoals } from "../data/demo";
 import { CLIENT_SLUG, isDemoMode } from "./api";
+import { defaultFunnel, normalizeFunnel } from "./manual-funnel";
 import { supabase } from "./supabase";
-import type { Front, ManualBusinessData, ManualFunnelInput, ManualStorage } from "../types";
+import type { Front, ManualBusinessData, ManualStorage } from "../types";
 
 // ---------------------------------------------------------------------------
 // Onde os dados de negócio manuais ficam guardados
@@ -29,10 +30,9 @@ const LOCAL_KEY = "mg-dashboard-manual-v1";
 /** Códigos do PostgREST/Postgres para "tabela não existe". */
 const MISSING_TABLE = new Set(["PGRST205", "PGRST202", "42P01"]);
 
-export const defaultFunnel: Record<Front, ManualFunnelInput> = {
-  franchise: { stages: [420, 260, 130, 67, 36, 18], stage_days: [3, 6, 9, 12, 17], avg_ticket: 84500 },
-  condominium: { stages: [180, 126, 79, 49, 27, 16], stage_days: [5, 9, 12, 16, 20], avg_ticket: 0 },
-};
+// Padrões e migração do funil moram em `manual-funnel.ts`, junto do mapa de
+// etapas legadas; re-exportado aqui porque as telas leem o padrão por este módulo.
+export { defaultFunnel } from "./manual-funnel";
 
 export const defaultManualData: ManualBusinessData = {
   goals: demoGoals,
@@ -63,19 +63,9 @@ export function normalize(raw: unknown): ManualBusinessData {
     });
     return out as T;
   };
-  const funnel = (front: Front): ManualFunnelInput => {
-    const fallback = defaultFunnel[front];
-    const partial = (source.funnel?.[front] ?? {}) as Partial<ManualFunnelInput>;
-    const list = (value: unknown, size: number, base: number[]) =>
-      Array.isArray(value) && value.length === size && value.every(isFiniteNumber)
-        ? (value as number[]).map((n) => Math.max(0, n))
-        : base;
-    return {
-      stages: list(partial.stages, fallback.stages.length, fallback.stages),
-      stage_days: list(partial.stage_days, fallback.stage_days.length, fallback.stage_days),
-      avg_ticket: isFiniteNumber(partial.avg_ticket) ? Math.max(0, partial.avg_ticket) : fallback.avg_ticket,
-    };
-  };
+  // O funil tem regra própria (ids de etapa + migração do modelo antigo de 6
+  // posições), então a normalização dele vive em `manual-funnel.ts`.
+  const funnel = (front: Front) => normalizeFunnel(front, source.funnel?.[front]);
   return {
     goals: numbers(defaultManualData.goals, source.goals),
     funnel: { franchise: funnel("franchise"), condominium: funnel("condominium") },

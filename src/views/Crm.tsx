@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ManualNumbersPanel } from "../components/ui/editable";
 import { BarList, ChartTip, CycleBar, Funnel, Kpi, Panel, Segmented } from "../components/ui/primitives";
+import { slowestCommercialStage } from "../lib/crm";
+import { isPostSale } from "../lib/crm-stages";
 import { integer, money, percent } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { funnelFields, funnelToValues, valuesToFunnel } from "../lib/manual-fields";
@@ -22,17 +24,23 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
   const accent = front === "franchise" ? colors.red : colors.gold;
   const contractsGoal = front === "franchise" ? goals.contracts_franchise : goals.contracts_condominium;
   const totalPotential = crm.revenue + crm.projected_revenue;
-  const slowestStage = useMemo(() => [...crm.stages].sort((a, b) => b.avg_days - a.avg_days)[0], [crm.stages]);
+  // Não existe "reunião" nos dois funis: cada frente tem a própria etapa de
+  // visita ("Visita / Call" e "Visita / Proposta"), localizada pelo papel.
+  const visitLabel = crm.visit_stage?.name ?? "Visitas";
+  const highlightStage = crm.visit_stage ?? crm.stages.find(isPostSale) ?? null;
+  // Implantação é pós-venda: não disputa "etapa mais demorada" nem "maior perda".
+  const commercialStages = useMemo(() => crm.stages.filter((stage) => !isPostSale(stage)), [crm.stages]);
+  const slowestStage = useMemo(() => slowestCommercialStage(crm.stages), [crm.stages]);
   const biggestDrop = useMemo(() => {
     let worst = { name: "", pct: 0 };
-    crm.stages.forEach((stage, index) => {
+    commercialStages.forEach((stage, index) => {
       if (!index) return;
-      const previous = crm.stages[index - 1].count;
+      const previous = commercialStages[index - 1].count;
       const lostPct = previous ? ((previous - stage.count) * 100) / previous : 0;
       if (lostPct > worst.pct) worst = { name: stage.name, pct: lostPct };
     });
     return worst;
-  }, [crm.stages]);
+  }, [commercialStages]);
 
   return (
     <div className="view-enter" key={front}>
@@ -54,12 +62,13 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
       </div>
 
       <div className="grid grid-6">
-        <Kpi label={front === "franchise" ? "Contratos assinados" : "Lojas contratadas"} value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={`meta do mês: ${integer(contractsGoal)}`} />
+        <Kpi label="Contratos" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={`meta do mês: ${integer(contractsGoal)}`} />
         <Kpi label="Receita em taxa de franquia" value={crm.avg_ticket > 0 ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.avg_ticket > 0 ? `ticket médio ${money(crm.avg_ticket)}` : "modelo sem taxa direta"} />
-        <Kpi label="Conversão lead → contrato" value={crm.conversion_rate} format={percent} accent="sky" icon={<Percent size={16} />} hideDelta foot="calculada sobre o topo do funil" />
-        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days > 0 ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="soma do tempo das etapas" />
-        <Kpi label="Pipeline em proposta" value={crm.avg_ticket > 0 ? crm.pipeline_value : null} format={money} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={`${integer(crm.stages[4].count)} propostas abertas`} />
-        <Kpi label={crm.stages[3].name} value={crm.stages[3].count} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="volume no período" />
+        <Kpi label="Conversão lead → contrato" value={crm.conversion_rate} format={percent} accent="sky" icon={<Percent size={16} />} hideDelta foot="Contrato sobre o topo do funil" />
+        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days > 0 ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="etapas até o contrato" />
+        <Kpi label={crm.pipeline_stage ? `Pipeline em ${crm.pipeline_stage.name.toLowerCase()}` : "Pipeline aberto"} value={crm.avg_ticket > 0 ? crm.pipeline_value : null} format={money} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={crm.pipeline_stage ? `${integer(crm.pipeline_stage.count)} em "${crm.pipeline_stage.name}"` : "sem etapa anterior ao contrato"} />
+        {/* Etapa de visita da frente, ou a pós-venda quando a frente não tiver visita — sempre por semântica, nunca por posição. */}
+        <Kpi label={highlightStage?.name ?? "—"} value={highlightStage?.count ?? 0} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot={highlightStage && isPostSale(highlightStage) ? "pós-venda · não conta como contrato" : "volume no período"} />
       </div>
 
       {!readOnly && (
@@ -70,7 +79,7 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
             description="Só os valores-base: receita, conversão, ciclo, pipeline e projeção são calculados a partir daqui"
             badge={<span className="badge sky">Entrada manual</span>}
             fields={funnelFields(front)}
-            values={funnelToValues(manual.data.funnel[front])}
+            values={funnelToValues(front, manual.data.funnel[front])}
             onSave={(next) => saveManual.mutateAsync({
               ...manual.data,
               funnel: { ...manual.data.funnel, [front]: valuesToFunnel(front, next) },
@@ -82,7 +91,7 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
       )}
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
-        <Panel title={`Funil · ${meta.short}`} description="O funil afunila de acordo com a queda real de volume; os pontos escoando mostram o fluxo contínuo de leads">
+        <Panel title={`Funil · ${meta.short}`} description="Todas as etapas do CRM na ordem real. Implantação aparece depois do contrato como pós-venda e não conta como fechamento.">
           {biggestDrop.name && (
             <div className="crm-note" style={{ marginBottom: 16 }}>
               <Info size={18} />
@@ -98,9 +107,9 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
           <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo total: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
             {crm.avg_cycle_days > 0 ? (
               <>
-                <CycleBar stages={crm.stages} color={meta.color} totalDays={crm.avg_cycle_days} />
+                <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days} />
                 <div className="grid grid-2" style={{ gap: 10, marginTop: 16 }}>
-                  <MiniCrmStat label="Ciclo total" value={`${crm.avg_cycle_days} dias`} sub="soma do tempo informado em cada etapa" />
+                  <MiniCrmStat label="Ciclo total" value={`${crm.avg_cycle_days} dias`} sub="soma do tempo das etapas até o contrato" />
                   <MiniCrmStat label="Etapa mais demorada" value={slowestStage?.name ?? "—"} sub={slowestStage ? `~${slowestStage.avg_days} dias` : undefined} />
                 </div>
               </>
@@ -126,25 +135,25 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
         {/* O gráfico passou para a coluna larga: seis meses em três séries não cabiam
             bem em um terço da largura, e a comparação de receita, que é só três barras,
             não precisava de dois terços. */}
-        <Panel className="fill-chart" title="Mês a mês" description="Leads reais de mídia, com reuniões, contratos e receita projetados pela taxa informada">
+        <Panel className="fill-chart" title="Mês a mês" description="Leads reais de mídia, com visitas, contratos e receita projetados pela taxa informada">
           {crm.monthly.length ? (
             <>
               <div className="chart-box h-320">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={crm.monthly.map((m) => ({ label: m.month, Leads: m.leads, Reuniões: m.meetings, Contratos: m.contracts, Receita: m.revenue }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                  <ComposedChart data={crm.monthly.map((m) => ({ label: m.month, Leads: m.leads, [visitLabel]: m.visits, Contratos: m.contracts, Receita: m.revenue }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={colors.grid} vertical={false} />
                     <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: colors.tick, fontSize: 10.5 }} dy={8} />
                     <YAxis yAxisId="l" tickLine={false} axisLine={false} width={40} tick={{ fill: colors.tick, fontSize: 10 }} />
                     {crm.avg_ticket > 0 && <YAxis yAxisId="r" orientation="right" tickLine={false} axisLine={false} width={56} tick={{ fill: colors.tick, fontSize: 10 }} tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />}
                     <Tooltip content={<ChartTip format={(n, k) => (k === "Receita" ? money(n) : integer(n))} />} cursor={{ fill: "rgba(255,255,255,.04)" }} />
                     <Bar yAxisId="l" dataKey="Leads" fill={colors.grid === "#e6ebef" ? "#c9d2d9" : "rgba(255,255,255,.14)"} radius={[6, 6, 0, 0]} maxBarSize={22} />
-                    <Bar yAxisId="l" dataKey="Reuniões" fill={colors.sky} radius={[6, 6, 0, 0]} maxBarSize={22} />
+                    <Bar yAxisId="l" dataKey={visitLabel} fill={colors.sky} radius={[6, 6, 0, 0]} maxBarSize={22} />
                     <Bar yAxisId="l" dataKey="Contratos" fill={accent} radius={[6, 6, 0, 0]} maxBarSize={22} />
                     {crm.avg_ticket > 0 && <Line yAxisId="r" type="monotone" dataKey="Receita" stroke={colors.green} strokeWidth={2.5} dot={{ r: 3 }} />}
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
-              <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: "rgba(128,128,128,.4)" }} />Leads</span><span><i style={{ background: colors.sky }} />Reuniões</span><span><i style={{ background: accent }} />Contratos</span>{crm.avg_ticket > 0 && <span><i style={{ background: colors.green }} />Receita</span>}</div>
+              <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: "rgba(128,128,128,.4)" }} />Leads</span><span><i style={{ background: colors.sky }} />{visitLabel}</span><span><i style={{ background: accent }} />Contratos</span>{crm.avg_ticket > 0 && <span><i style={{ background: colors.green }} />Receita</span>}</div>
             </>
           ) : (
             <div className="empty-state">Nenhum lead de mídia no período selecionado.</div>
