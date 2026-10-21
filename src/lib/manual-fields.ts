@@ -78,13 +78,14 @@ export function resultFields(front: Front): NumberFieldSpec[] {
   ];
 }
 
-export const resultsToValues = (results: ManualPeriodResults) => ({ ...results }) as unknown as Record<string, number>;
+export const resultsToValues = (results: ManualPeriodResults | null) => ({ ...results }) as unknown as Record<string, number>;
 export const valuesToResults = (values: Record<string, number>): ManualPeriodResults => ({
   contracts_closed: Math.max(0, Math.round(values.contracts_closed ?? 0)),
   revenue: Math.max(0, values.revenue ?? 0),
 });
 
-export function funnelToValues(front: Front, input: ManualFunnelInput): Record<string, number> {
+export function funnelToValues(front: Front, input: ManualFunnelInput | null): Record<string, number> {
+  if (!input) return {};
   const values: Record<string, number> = { avg_ticket: input.avg_ticket };
   crmStages(front).forEach((stage) => {
     values[stageKey(stage.id)] = input.stages[stage.id] ?? 0;

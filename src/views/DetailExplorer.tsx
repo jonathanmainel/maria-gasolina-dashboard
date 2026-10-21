@@ -11,14 +11,15 @@ import {
   type ChannelFilter, type DetailLevel, type DetailRow,
 } from "../lib/detail-rows";
 import { integer } from "../lib/format";
-import type { CampaignRow, DateRange, EntityItem, Front } from "../types";
+import type { CampaignRow, CommercialFront, DateRange, EntityItem } from "../types";
+import { isPendingFront } from "../lib/fronts";
 
 // Bloco único de detalhamento. O canal vem do filtro do topo da página — não há
 // seletor de plataforma aqui dentro, então é estruturalmente impossível ver
 // "Google Ads" no topo e "Meta Ads" no detalhamento.
 
 interface Props {
-  front: Front;
+  front: CommercialFront;
   range: DateRange;
   channelFilter: ChannelFilter;
   campaigns: CampaignRow[];
@@ -30,6 +31,7 @@ interface LevelData {
 }
 
 export function DetailExplorer({ front, range, channelFilter, campaigns }: Props) {
+  const dataAvailable = !isPendingFront(front);
   const [requested, setRequested] = useState<DetailLevel>("campaign");
   // O nível vive no render, não no estado: trocar de canal com uma aba
   // incompatível aberta (Palavras-chave → Meta Ads) cai em Campanhas sem
@@ -41,7 +43,7 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
 
   const query = useQuery<LevelData>({
     queryKey: ["detail", channelFilter, level, range.start, range.end],
-    enabled: !isCampaign,
+    enabled: dataAvailable && !isCampaign,
     refetchInterval: level === "ad" ? 5 * 60 * 1000 : false,
     queryFn: async () => {
       const detailLevel = level as Exclude<DetailLevel, "campaign">;
@@ -78,7 +80,7 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
 
   const { items, outside } = useMemo(() => {
     // Campanhas já chegam filtradas por frente e canal na página.
-    if (isCampaign) return { items: [], outside: 0 };
+    if (isCampaign || isPendingFront(front)) return { items: [], outside: 0 };
     return sliceByFront(query.data?.rows ?? [], front);
   }, [isCampaign, query.data, front]);
 
@@ -92,7 +94,7 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
       className="detail-panel"
       title="Detalhamento"
       description="Campanhas e os níveis abaixo delas, no canal e no período selecionados no topo"
-      badge={<span className="badge ghost">{integer(count)} {isCampaign ? "campanhas" : "itens"}</span>}
+      badge={<span className="badge ghost">{dataAvailable ? `${integer(count)} ${isCampaign ? "campanhas" : "itens"}` : "Sem dados associados"}</span>}
       noTilt
     >
       <div className="seg seg-wrap seg-scroll" role="tablist" style={{ marginBottom: 14 }}>
@@ -110,7 +112,9 @@ export function DetailExplorer({ front, range, channelFilter, campaigns }: Props
         ))}
       </div>
 
-      {isCampaign ? (
+      {!dataAvailable ? (
+        <div className="empty-state">{isCampaign ? "Nenhuma campanha vinculada a esta frente." : "Dados ainda não disponíveis para esta frente."}</div>
+      ) : isCampaign ? (
         <CampaignTable campaigns={campaigns} emptyLabel={active.emptyLabel} resetToken={resetToken} />
       ) : query.isLoading ? (
         <Skeleton height={240} />

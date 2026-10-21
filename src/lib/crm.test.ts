@@ -41,7 +41,7 @@ describe("snapshot do kanban", () => {
   it("aceita uma etapa posterior com mais cards que a anterior", () => {
     const byId = Object.fromEntries(crm.stages.map((stage) => [stage.id, stage.count]));
     expect(byId.contact).toBe(1962);
-    expect(byId.contact).toBeGreaterThan(byId.lead);
+    expect(byId.contact).toBeGreaterThan(byId.lead!);
     expect(byId.lead).toBe(9);
   });
 
@@ -279,5 +279,29 @@ describe("seed manual de apresentação", () => {
     expect(comMidia.monthly).toEqual([{ month: "ago", leads: 100 }, { month: "set", leads: 50 }]);
     expect(comMidia.sources).toEqual([{ name: "Meta Ads", leads: 110 }, { name: "Google Ads", leads: 40 }]);
     comMidia.sources.forEach((source) => expect(source).not.toHaveProperty("contracts"));
+  });
+});
+
+
+describe("ausencia comercial separada de resultados mensurados", () => {
+  it.each(["franchise", "condominium"] as const)("%s: ausencia e null; etapas e leads de midia permanecem", (front) => {
+    const empty = buildCrmSummary(front, null, null, { rows });
+    expect(empty.snapshot_available).toBe(false); expect(empty.results_available).toBe(false);
+    for (const value of [empty.contracts, empty.revenue, empty.open_opportunities, empty.avg_ticket, empty.avg_cycle_days]) expect(value).toBeNull();
+    expect(empty.stages.every((stage) => stage.count === null && stage.avg_days === null)).toBe(true);
+    expect(empty.stages.map((stage) => stage.name)).toEqual(buildCrmSummary(front, SNAPSHOT, RESULTS, { rows }).stages.map((stage) => stage.name));
+    expect(empty.monthly).toEqual(build().monthly); expect(empty.sources).toEqual(build().sources);
+  });
+  it("zero explicitamente informado continua zero e nao ausencia", () => {
+    const measured = buildCrmSummary("franchise", { stages: {}, stage_days: {}, avg_ticket: 0 }, NO_RESULTS, { rows: [] });
+    expect(measured.snapshot_available).toBe(true); expect(measured.results_available).toBe(true);
+    expect(measured.contracts).toBe(0); expect(measured.revenue).toBe(0); expect(measured.open_opportunities).toBe(0);
+    expect(measured.stages.every((stage) => stage.count === 0)).toBe(true);
+  });
+  it("resultado e snapshot possuem disponibilidade independente", () => {
+    const snapshot = buildCrmSummary("franchise", SNAPSHOT, null, { rows });
+    expect(snapshot.open_opportunities).toBe(build().open_opportunities); expect(snapshot.contracts).toBeNull();
+    const result = buildCrmSummary("franchise", null, RESULTS, { rows });
+    expect(result.contracts).toBe(4); expect(result.revenue).toBe(338000); expect(result.open_opportunities).toBeNull();
   });
 });

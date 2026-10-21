@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCrmSummary } from "../lib/crm";
 import { crmStageNames } from "../lib/crm-stages";
 import { defaultFunnel, defaultResults } from "../lib/manual-funnel";
 import type { DashboardData } from "../lib/use-dashboard";
 import { CrmView } from "./Crm";
+import { ManualNumbersPanel } from "../components/ui/editable";
+
+const mode = vi.hoisted(() => ({ demo: false }));
+vi.mock("../lib/api", async (original) => ({ ...await original<typeof import("../lib/api")>(), get isDemoMode() { return mode.demo; } }));
 
 vi.mock("../lib/goals", () => ({ useGoals: () => ({ contracts_franchise: 6, contracts_condominium: 8 }) }));
 vi.mock("../lib/manual-inputs", () => ({
@@ -20,7 +24,7 @@ beforeAll(() => {
   })) as unknown as typeof window.matchMedia;
   window.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); mode.demo = false; });
 
 // Estoque real do kanban: "Contato" com 1962 cards e "Lead" com 9, "COF" com
 // 194 e "Visita / Call" zerada, "Implantação" com 149 e "Contrato" vazio.
@@ -141,7 +145,8 @@ describe("snapshot e resultado não se misturam na tela", () => {
   });
 });
 
-describe("editor manual", () => {
+describe("editor manual em demonstracao", () => {
+  beforeEach(() => { mode.demo = true; });
   it("expõe uma caixa para cada etapa do kanban", () => {
     render(<CrmView data={data} />);
     fireEvent.click(screen.getAllByRole("button", { name: /Editar dados/ })[0]);
@@ -159,4 +164,34 @@ describe("editor manual", () => {
     expect(screen.getByLabelText("Contratos fechados no período")).not.toBeNull();
     expect(screen.getByLabelText("Receita do período")).not.toBeNull();
   });
+});
+
+
+describe("CRM operacional sem registros comerciais", () => {
+  it("mantem etapas e navegacao sem indicadores ficticios nem editor manual", () => {
+    const empty = { ...data, crm: {
+      franchise: buildCrmSummary("franchise", null, null, { rows: [] }),
+      condominium: buildCrmSummary("condominium", null, null, { rows: [] }),
+    } };
+    render(<CrmView data={empty} />);
+    expect(funnelNames()).toEqual(crmStageNames("franchise"));
+    expect([...document.querySelectorAll(".kpi-value strong")].map((node) => node.textContent)).toEqual(Array(6).fill("—"));
+    expect([...document.querySelectorAll(".funnel3d-row-bottom b")].every((node) => node.textContent === "—")).toBe(true);
+    expect(document.querySelector(".funnel3d-shape")).toBeNull();
+    expect(screen.getAllByText("Aguardando integração com CRM Elo.").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Editar dados/ })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Condomínios" }));
+    expect(funnelNames()).toEqual(crmStageNames("condominium"));
+    expect([...document.querySelectorAll(".kpi-value strong")].every((node) => node.textContent === "—")).toBe(true);
+  });
+});
+
+
+it("editor demonstrativo distingue ausência de informação de zero informado", () => {
+  render(<ManualNumbersPanel title="Resultado demonstrativo" fields={[
+    { key: "contracts", label: "Contratos" },
+    { key: "revenue", label: "Receita", kind: "currency" },
+    { key: "known_zero", label: "Zero informado" },
+  ]} values={{ known_zero: 0 }} onSave={async () => undefined} />);
+  expect([...document.querySelectorAll(".manual-readout dd")].map((node) => node.textContent)).toEqual(["—", "—", "0"]);
 });

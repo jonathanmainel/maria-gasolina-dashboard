@@ -5,28 +5,17 @@ import { defaultFunnel, defaultResults, normalizeFunnel, normalizeResults } from
 import { supabase } from "./supabase";
 import type { Front, ManualBusinessData, ManualStorage } from "../types";
 
-// ---------------------------------------------------------------------------
-// Onde os dados de negócio manuais ficam guardados
-//
-// O CRM Elo ainda não expõe API de leitura, então os valores-base do funil
-// comercial e as publicações do Instagram no mês são digitados no próprio
-// dashboard. Persistência:
-//
-//   1. `public.dashboard_manual_inputs` no Supabase (uma linha por cliente e
-//      escopo, payload em jsonb) — ver a migration de mesmo nome. É a fonte
-//      compartilhada entre os usuários do cliente.
-//   2. `localStorage` como fallback: usado no modo demonstração, quando o
-//      Supabase não está configurado e quando a tabela ainda não foi aplicada
-//      no projeto. Nesse caso a interface avisa que o valor é só deste
-//      navegador, em vez de fingir que salvou para todo mundo.
-//
-// O formato é um bloco jsonb único e não um esquema normalizado de propósito:
-// quando o CRM real entrar, basta parar de ler este escopo e trocar a origem
-// em `buildCrmSummary` — nada de pipeline de ingestão precisa mudar.
-// ---------------------------------------------------------------------------
+// Configuracoes manuais (metas e conteudos) continuam no Supabase/localStorage.
+// Dados comerciais legados foram desativados na operacao: seus valores nunca
+// sao normalizados, exibidos ou gravados novamente. O futuro provedor Elo pode
+// alimentar os contratos de CRM existentes sem depender deste armazenamento.
+// Exemplos comerciais e seu editor usam exclusivamente o modo demo explicito,
+// em chave local separada. A chave antiga permanece intacta e recuperavel.
 
 export const MANUAL_SCOPE = "business";
-const LOCAL_KEY = "mg-dashboard-manual-v1";
+const LEGACY_LOCAL_KEY = "mg-dashboard-manual-v1";
+const LOCAL_KEY = `mg-dashboard-settings-v2:${CLIENT_SLUG}`;
+const DEMO_LOCAL_KEY = `mg-dashboard-demo-v1:${CLIENT_SLUG}`;
 /** Códigos do PostgREST/Postgres para "tabela não existe". */
 const MISSING_TABLE = new Set(["PGRST205", "PGRST202", "42P01"]);
 
@@ -36,9 +25,14 @@ export { defaultFunnel, defaultResults } from "./manual-funnel";
 
 export const defaultManualData: ManualBusinessData = {
   goals: demoGoals,
-  funnel: defaultFunnel,
-  results: defaultResults,
+  funnel: { franchise: null, condominium: null },
+  results: { franchise: null, condominium: null },
   delivery: demoDelivery,
+};
+
+// Os exemplos comerciais existem somente no modo demonstrativo explicito.
+export const demoManualData: ManualBusinessData = {
+  ...defaultManualData, funnel: defaultFunnel, results: defaultResults,
 };
 
 export interface ManualDataResult {
@@ -51,9 +45,9 @@ export interface ManualDataResult {
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 /** Normaliza o payload vindo do banco/localStorage contra os padrões, campo a campo. Exportada para teste. */
-export function normalize(raw: unknown): ManualBusinessData {
+export function normalize(raw: unknown, demo = isDemoMode): ManualBusinessData {
   const source = (raw ?? {}) as Partial<ManualBusinessData>;
-  // Copia apenas as chaves conhecidas do padrão, descartando NaN, negativos e
+  // Configuracoes: copia apenas as chaves conhecidas do padrão, descartando NaN, negativos e
   // campos estranhos vindos de um payload antigo ou corrompido.
   const numbers = <T extends object>(fallback: T, value: unknown): T => {
     const partial = (value ?? {}) as Record<string, unknown>;
@@ -64,13 +58,12 @@ export function normalize(raw: unknown): ManualBusinessData {
     });
     return out as T;
   };
-  // O funil tem regra própria (ids de etapa + migração do modelo antigo de 6
-  // posições), então a normalização dele vive em `manual-funnel.ts`.
-  const funnel = (front: Front) => normalizeFunnel(front, source.funnel?.[front]);
+  // Conversao do legado comercial apenas para exemplos explicitamente demo.
+  const funnel = (front: Front) => demo && source.funnel?.[front] !== null ? normalizeFunnel(front, source.funnel?.[front]) : null;
   // O resultado do período recebe o funil bruto junto porque, num payload do
   // modelo antigo, o total de contratos assinados morava na última posição do
   // array de etapas — é o único caminho de migração; fora dele, nada é inferido.
-  const results = (front: Front) => normalizeResults(front, source.results?.[front], source.funnel?.[front]);
+  const results = (front: Front) => demo && source.results?.[front] !== null ? normalizeResults(front, source.results?.[front], source.funnel?.[front]) : null;
   return {
     goals: numbers(defaultManualData.goals, source.goals),
     funnel: { franchise: funnel("franchise"), condominium: funnel("condominium") },
@@ -81,16 +74,24 @@ export function normalize(raw: unknown): ManualBusinessData {
   };
 }
 
+// A chave legada nao e removida: permanece recuperavel. Na operacao, somente
+// metas/entregas sao aproveitadas; campos comerciais nunca entram na normalizacao.
 function readLocal(): ManualBusinessData {
-  try {
-    const raw = window.localStorage.getItem(LOCAL_KEY);
-    if (raw) return normalize(JSON.parse(raw));
-  } catch { /* storage indisponível ou payload corrompido: cai no padrão */ }
-  return defaultManualData;
+  for (const key of isDemoMode ? [DEMO_LOCAL_KEY] : [LOCAL_KEY, LEGACY_LOCAL_KEY]) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw) return normalize(JSON.parse(raw));
+    } catch { /* tenta a proxima fonte de configuracoes, sem alterar o original */ }
+  }
+  return isDemoMode ? demoManualData : defaultManualData;
+}
+
+function storagePayload(data: ManualBusinessData) {
+  return isDemoMode ? data : { goals: data.goals, delivery: data.delivery };
 }
 
 function writeLocal(data: ManualBusinessData) {
-  try { window.localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch { /* ignora quota/modo privado */ }
+  try { window.localStorage.setItem(isDemoMode ? DEMO_LOCAL_KEY : LOCAL_KEY, JSON.stringify(storagePayload(data))); } catch { /* quota/modo privado */ }
 }
 
 async function clientId(): Promise<number | null> {
@@ -139,7 +140,7 @@ export async function saveManualData(next: ManualBusinessData): Promise<ManualDa
 
   const { error } = await supabase
     .from("dashboard_manual_inputs")
-    .upsert({ client_id: id, scope: MANUAL_SCOPE, payload, updated_at: new Date().toISOString() }, { onConflict: "client_id,scope" });
+    .upsert({ client_id: id, scope: MANUAL_SCOPE, payload: storagePayload(payload), updated_at: new Date().toISOString() }, { onConflict: "client_id,scope" });
 
   if (error) {
     if (MISSING_TABLE.has(error.code)) {
@@ -152,12 +153,12 @@ export async function saveManualData(next: ManualBusinessData): Promise<ManualDa
   return { data: payload, storage: "supabase" };
 }
 
-export const manualDataKey = ["manual-business-data"] as const;
+export const manualDataKey = ["manual-business-data", CLIENT_SLUG, "commercial-empty-v2"] as const;
 
 export function useManualData() {
   const query = useQuery({ queryKey: manualDataKey, queryFn: loadManualData, staleTime: 60_000, retry: 1 });
   return {
-    data: query.data?.data ?? defaultManualData,
+    data: query.data?.data ?? (isDemoMode ? demoManualData : defaultManualData),
     storage: query.data?.storage ?? "local",
     fallbackReason: query.data?.fallbackReason,
     isLoading: query.isLoading,

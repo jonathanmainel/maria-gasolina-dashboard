@@ -12,6 +12,8 @@ const getAllAnalyticsLandingPages = vi.fn();
 const getAllAnalyticsEvents = vi.fn();
 
 vi.mock("../lib/api", () => ({
+  CLIENT_SLUG: "maria-gasolina",
+  isDemoMode: false,
   getSiteOverview: (...args: unknown[]) => getSiteOverview(...args),
   getAllAnalyticsAcquisition: (...args: unknown[]) => getAllAnalyticsAcquisition(...args),
   getAllAnalyticsLandingPages: (...args: unknown[]) => getAllAnalyticsLandingPages(...args),

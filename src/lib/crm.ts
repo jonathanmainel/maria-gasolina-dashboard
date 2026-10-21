@@ -72,8 +72,8 @@ export interface CrmContext {
 
 export function buildCrmSummary(
   front: Front,
-  input: ManualFunnelInput,
-  results: ManualPeriodResults,
+  input: ManualFunnelInput | null,
+  results: ManualPeriodResults | null,
   context: CrmContext,
 ): CrmSummary {
   const definitions = crmStages(front);
@@ -84,30 +84,32 @@ export function buildCrmSummary(
     name: definition.name,
     kind: definition.kind,
     role: definition.role,
-    count: Math.max(0, Math.round(input.stages?.[definition.id] ?? 0)),
-    avg_days: definition.tracksDays ? Math.max(0, input.stage_days?.[definition.id] ?? 0) : 0,
+    count: input ? Math.max(0, Math.round(input.stages?.[definition.id] ?? 0)) : null,
+    avg_days: input ? (definition.tracksDays ? Math.max(0, input.stage_days?.[definition.id] ?? 0) : 0) : null,
   }));
 
   // Oportunidades abertas: cards nas colunas comerciais. O fechamento e a
   // pós-venda ficam de fora — não estão mais em negociação.
-  const openOpportunities = stages
+  const openOpportunities = input ? stages
     .filter((stage) => stage.kind === "commercial")
-    .reduce((sum, stage) => sum + stage.count, 0);
+    .reduce((sum, stage) => sum + (stage.count ?? 0), 0) : null;
 
   // Ciclo comercial: só as etapas anteriores ao fechamento. O tempo de
   // Implantação continua visível etapa a etapa, mas fora do ciclo de venda.
-  const avgCycleDays = cycleStages(stages).reduce((sum, stage) => sum + stage.avg_days, 0);
+  const avgCycleDays = input ? cycleStages(stages).reduce((sum, stage) => sum + (stage.avg_days ?? 0), 0) : null;
 
   // --- B) RESULTADO DO PERÍODO -------------------------------------------
-  const contracts = Math.max(0, Math.round(results?.contracts_closed ?? 0));
-  const revenue = Math.max(0, results?.revenue ?? 0);
+  const contracts = results ? Math.max(0, Math.round(results.contracts_closed)) : null;
+  const revenue = results ? Math.max(0, results.revenue) : null;
   // Ticket realizado quando há resultado; senão a referência digitada no funil,
   // deixando claro pela flag qual dos dois está em cena.
-  const realized = contracts > 0 && revenue > 0;
-  const avgTicket = realized ? revenue / contracts : Math.max(0, input.avg_ticket);
+  const realized = contracts != null && revenue != null && contracts > 0 && revenue > 0;
+  const avgTicket = realized ? revenue! / contracts! : input ? Math.max(0, input.avg_ticket) : null;
 
   return {
     front,
+    snapshot_available: input !== null,
+    results_available: results !== null,
     stages,
     open_opportunities: openOpportunities,
     contracts,
@@ -129,6 +131,6 @@ export function buildCrmSummary(
 /** Etapa comercial que mais demora. Pós-venda fica de fora por definição. */
 export function slowestCommercialStage(stages: CrmStage[]): CrmStage | null {
   return stages
-    .filter((stage) => !isPostSale(stage) && stage.avg_days > 0)
-    .reduce<CrmStage | null>((worst, stage) => (worst && worst.avg_days >= stage.avg_days ? worst : stage), null);
+    .filter((stage) => !isPostSale(stage) && (stage.avg_days ?? 0) > 0)
+    .reduce<CrmStage | null>((worst, stage) => (worst && (worst.avg_days ?? 0) >= (stage.avg_days ?? 0) ? worst : stage), null);
 }

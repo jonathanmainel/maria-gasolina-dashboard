@@ -5,6 +5,7 @@ import { ManualNumbersPanel } from "../components/ui/editable";
 import { BarList, ChartTip, CycleBar, Funnel, Kpi, Panel, Segmented } from "../components/ui/primitives";
 import { slowestCommercialStage } from "../lib/crm";
 import { isPostSale } from "../lib/crm-stages";
+import { isDemoMode } from "../lib/api";
 import { integer, money } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import {
@@ -37,7 +38,7 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
   // Coluna com mais oportunidades paradas hoje. É concentração de estoque, não
   // taxa de perda: a diferença entre duas colunas vizinhas não significa nada.
   const busiest = useMemo(
-    () => crm.stages.filter((stage) => stage.kind === "commercial" && stage.count > 0).sort((a, b) => b.count - a.count)[0],
+    () => crm.stages.filter((stage) => stage.kind === "commercial" && stage.count != null && stage.count > 0).sort((a, b) => (b.count ?? 0) - (a.count ?? 0))[0],
     [crm.stages],
   );
 
@@ -45,39 +46,35 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
     <div className="view-enter" key={front}>
       <div className="view-head">
         <div>
-          <span className="eyebrow"><i style={{ background: "var(--sky)" }} />CRM Elo · entrada manual</span>
+          <span className="eyebrow"><i style={{ background: "var(--sky)" }} />CRM Elo · {isDemoMode ? "demonstração" : "integração pendente"}</span>
           <h1>Pipeline de hoje e <em>resultado do período</em></h1>
           <p>Onde estão as oportunidades agora, quanto tempo elas passam em cada etapa e quanto a frente fechou no período. A área já está pronta para receber os dados reais do Elo assim que a API deles for liberada.</p>
         </div>
         <div className="crm-head-side">
           <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
           {/* Marca discreta de origem: o CRM não é sincronizado automaticamente. */}
-          <span className="crm-source-tag"><Pencil size={11} />Dados comerciais preenchidos manualmente</span>
+          <span className="crm-source-tag"><Pencil size={11} />{isDemoMode ? "Dados comerciais demonstrativos" : "Aguardando integração com CRM Elo."}</span>
         </div>
       </div>
       <div className="crm-note">
         <Info size={18} />
-        <span>
-          <b>Dois blocos diferentes, preenchidos à mão.</b> As etapas são uma <b>foto do kanban</b>: quantas oportunidades estão em cada
-          coluna agora — e não um funil acumulado, por isso uma etapa pode ter mais cards do que a anterior. Já <b>contratos fechados</b> e
-          <b> receita</b> são o <b>resultado do período</b> e têm campo próprio: um negócio fechado normalmente já saiu da coluna
-          &ldquo;Contrato&rdquo; para &ldquo;Implantação&rdquo;, então a ocupação dela não mede faturamento. Sem API do Elo, o dashboard não
-          deduz um a partir do outro.
-        </span>
+        {isDemoMode ? <span>
+          <b>Dados comerciais de demonstração.</b> Os exemplos abaixo não representam resultados reais do cliente.
+        </span> : <span>Aguardando integração com CRM Elo.</span>}
       </div>
 
       <div className="grid grid-6">
-        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={`informado · meta do mês: ${integer(contractsGoal)}`} />
-        <Kpi label="Receita no período" value={crm.revenue > 0 ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.revenue > 0 ? (crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : "informada") : "informe o resultado do período"} />
+        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={crm.results_available ? `informado · meta do mês: ${integer(contractsGoal)}` : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Receita no período" value={(crm.revenue != null && crm.revenue > 0) ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={(crm.revenue != null && crm.revenue > 0) ? (crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : "informada") : crm.results_available ? "informe o resultado do período" : "Aguardando integração com CRM Elo."} />
         <Kpi label="Oportunidades abertas" value={crm.open_opportunities} format={integer} accent="sky" icon={<Layers size={16} />} hideDelta foot="cards nas etapas comerciais hoje" />
-        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days > 0 ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
+        <Kpi label="Ciclo médio de venda" value={(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
         {/* Pipeline em contagem de oportunidades: multiplicar estoque por ticket e
             chamar de receita esperada suporia uma probabilidade que não existe. */}
-        <Kpi label={crm.pipeline_stage ? `Em ${crm.pipeline_stage.name.toLowerCase()}` : "Antes do contrato"} value={crm.pipeline_stage?.count ?? 0} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="oportunidades na última etapa antes do contrato" />
-        <Kpi label={crm.visit_stage?.name ?? "Visitas"} value={crm.visit_stage?.count ?? 0} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="oportunidades nesta etapa hoje" />
+        <Kpi label={crm.pipeline_stage ? `Em ${crm.pipeline_stage.name.toLowerCase()}` : "Antes do contrato"} value={crm.pipeline_stage?.count ?? null} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="oportunidades na última etapa antes do contrato" />
+        <Kpi label={crm.visit_stage?.name ?? "Visitas"} value={crm.visit_stage?.count ?? null} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="oportunidades nesta etapa hoje" />
       </div>
 
-      {!readOnly && (
+      {!readOnly && isDemoMode && (
         <div className="grid grid-wide" style={{ marginTop: 14 }}>
           <div>
             <ManualStorageNote storage={manual.storage} reason={manual.fallbackReason} />
@@ -119,34 +116,35 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
               <span>A maior concentração de oportunidades abertas está em <b>{busiest.name}</b>, com {integer(busiest.count)} card(s). Como as colunas são estoques independentes, isso indica acúmulo — não uma taxa de perda para a etapa seguinte.</span>
             </div>
           )}
+          {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando integração com CRM Elo.</p>}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
         {/* Coluna lateral: ciclo e resultado dividem a altura do pipeline. */}
         <div className="panel-stack">
-          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days > 0 ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : "Preencha o tempo de cada etapa para ver o ciclo"}>
-            {crm.avg_cycle_days > 0 ? (
+          <Panel title="Tempo médio por etapa" description={(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando integração com CRM Elo."}>
+            {(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? (
               <>
-                <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days} />
+                <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days!} />
                 <div className="grid grid-2" style={{ gap: 10, marginTop: 16 }}>
                   <MiniCrmStat label="Ciclo total" value={`${crm.avg_cycle_days} dias`} sub="soma do tempo das etapas até o contrato" />
                   <MiniCrmStat label="Etapa mais demorada" value={slowestStage?.name ?? "—"} sub={slowestStage ? `~${slowestStage.avg_days} dias` : undefined} />
                 </div>
               </>
             ) : (
-              <div className="empty-state">Nenhum tempo de etapa informado ainda.</div>
+              <div className="empty-state">{crm.snapshot_available ? "Nenhum tempo de etapa informado ainda." : "Aguardando integração com CRM Elo."}</div>
             )}
           </Panel>
           <Panel title="Resultado do período" description="Fechamento e faturamento informados para o período de referência">
-            {crm.contracts > 0 || crm.revenue > 0 ? (
+            {(crm.contracts != null && crm.contracts > 0) || (crm.revenue != null && crm.revenue > 0) ? (
               <div className="proj-compare">
-                <div className="proj-bar"><span>Contratos fechados</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, contractsGoal > 0 ? (crm.contracts * 100) / contractsGoal : 100)}%` }} /></div><b>{integer(crm.contracts)}</b></div>
-                <div className="proj-bar"><span>Receita</span><div className="proj-track"><div className="proj-fill won" style={{ width: crm.revenue > 0 ? "100%" : "0%" }} /></div><b>{money(crm.revenue)}</b></div>
+                <div className="proj-bar"><span>Contratos fechados</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, contractsGoal > 0 ? ((crm.contracts ?? 0) * 100) / contractsGoal : 100)}%` }} /></div><b>{integer(crm.contracts)}</b></div>
+                <div className="proj-bar"><span>Receita</span><div className="proj-track"><div className="proj-fill won" style={{ width: (crm.revenue != null && crm.revenue > 0) ? "100%" : "0%" }} /></div><b>{money(crm.revenue)}</b></div>
                 <div className="proj-total"><span>{crm.avg_ticket_realized ? "Ticket realizado" : "Ticket de referência"}</span><strong>{money(crm.avg_ticket)}</strong></div>
               </div>
             ) : (
               <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
-                <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Nenhum resultado informado para o período</strong>
-                <span>Contratos fechados e receita não saem da foto do kanban: preencha o bloco de resultado do período.</span>
+                <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crm.results_available ? "Nenhum resultado informado para o período" : "Aguardando integração com CRM Elo."}</strong>
+                <span>{crm.results_available ? "Contratos fechados e receita não saem da foto do kanban." : "Os indicadores serão exibidos quando houver registros comerciais reais."}</span>
               </div>
             )}
           </Panel>

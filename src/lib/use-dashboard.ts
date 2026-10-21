@@ -42,7 +42,7 @@ export function useDashboard(range: DateRange) {
       instagram: { current: organicSummary(orgCur, "instagram"), previous: organicSummary(orgPrev, "instagram") },
       facebook: { current: organicSummary(orgCur, "facebook"), previous: organicSummary(orgPrev, "facebook") },
       posts: organic.data?.posts ?? [],
-      // Snapshot do kanban + resultado do período, ambos manuais; leads mensais reais de mídia.
+      // Na operacao os blocos comerciais sao null ate o Elo; leads de midia permanecem independentes.
       crm: { franchise: crm("franchise"), condominium: crm("condominium") },
       delivery: manual.data.delivery,
       goals: manual.data.goals,
@@ -81,7 +81,4 @@ export function useChartColors() {
   };
 }
 
-export const frontMeta: Record<Front, { label: string; short: string; accent: "red" | "gold"; color: string; description: string; leadWord: string }> = {
-  franchise: { label: "Expansão de franquias", short: "Franquias", accent: "red", color: "var(--red)", description: "Tráfego pago para captar candidatos a franqueado", leadWord: "candidatos" },
-  condominium: { label: "Captação de condomínios", short: "Condomínios", accent: "gold", color: "var(--gold)", description: "Tráfego pago para captar indicações de síndicos e condomínios", leadWord: "indicações" },
-};
+export { frontMeta } from "./fronts";
