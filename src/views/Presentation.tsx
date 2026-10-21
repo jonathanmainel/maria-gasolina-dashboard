@@ -4,6 +4,7 @@ import { lazy, Suspense } from "react";
 const BrazilMap = lazy(() => import("../components/three/BrazilMap").then((m) => ({ default: m.BrazilMap })));
 import { AnimatedNumber, Funnel, Kpi, Pacing, Ring } from "../components/ui/primitives";
 import { brandLogoUrl } from "../lib/app-path";
+import { isDemoMode } from "../lib/api";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { monthProgress } from "../lib/metrics";
@@ -54,7 +55,7 @@ export function Presentation({ data, range, onExit }: { data: DashboardData; ran
         <div className="present-top">
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <img src={brandLogoUrl} alt="" />
-            <div className="t"><small>Maria Gasolina Express · {period}</small><strong>{titles[slide]}</strong></div>
+            <div className="t"><small>Maria Gasolina Express · {period}</small><strong>{titles[slide]}</strong>{isDemoMode && <small role="status">Modo demonstração · indicadores de mídia, orgânico e CRM ilustrativos</small>}</div>
           </div>
           <div className="r">Relatório GT+<b>Dia {month.elapsed} de {month.daysInMonth}</b></div>
         </div>
@@ -76,6 +77,7 @@ export function Presentation({ data, range, onExit }: { data: DashboardData; ran
 const titles = { executive: <>O crescimento da rede, <em>em uma tela</em></>, franchise: <>Expansão de <em>franquias</em></>, condominium: <>Captação de <em>condomínios</em></>, organic: <>Presença <em>orgânica</em></>, crm: <>Pipeline atual e <em>resultado</em></> };
 
 function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange }) {
+  const organicAvailable = data.organicOrigin === "supabase" || isDemoMode;
   const goals = useGoals();
   const month = monthProgress(range);
   const monthRows = data.current.filter((r) => r.date.slice(0, 7) === range.end.slice(0, 7));
@@ -91,7 +93,7 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
           <Kpi label="Investimento" value={data.all.current.spend} previous={data.all.previous.spend} format={money} accent="red" />
           <Kpi label="Leads gerados" value={data.all.current.leads} previous={data.all.previous.leads} format={integer} accent="gold" />
           <Kpi label="Custo por lead" value={data.all.current.cpl} previous={data.all.previous.cpl} format={money} accent="green" lowerIsBetter />
-          <Kpi label="Novos seguidores" value={data.instagram.current.new_followers + data.facebook.current.new_followers} previous={data.instagram.previous.new_followers + data.facebook.previous.new_followers} format={integer} accent="violet" />
+          <Kpi label="Novos seguidores" value={organicAvailable ? data.instagram.current.new_followers + data.facebook.current.new_followers : null} previous={organicAvailable ? data.instagram.previous.new_followers + data.facebook.previous.new_followers : null} format={integer} accent="violet" hideDelta={!organicAvailable} foot={organicAvailable ? undefined : "Integração orgânica pendente"} />
         </div>
         <section className="panel hero" style={{ minHeight: 0 }}>{mapCities.length > 0 && <Suspense fallback={null}><BrazilMap cities={mapCities} /></Suspense>}<div className="hero-copy"><span className="eyebrow"><i style={{ background: "var(--red)" }} />Rede em expansão</span><h2>Onde a Maria Gasolina já está</h2></div></section>
       </div>
@@ -128,13 +130,16 @@ function FrontSlide({ data, front, goals, range }: { data: DashboardData; front:
           <div className="ring-row" style={{ marginTop: 18 }}><Ring value={((b.current.cpl ?? 0) * 100) / (front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} label="CPL em relação ao alvo" sub={`${money(b.current.cpl)} de ${money(front === "franchise" ? goals.cpl_franchise : goals.cpl_condominium)} · abaixo é melhor`} color="var(--green)" /></div>
         </section>
         <section className="panel"><div className="panel-head"><div><h3>Criativos campeões</h3></div></div><div className="creative-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>{creatives.map((c, i) => <CreativeCard key={c.id} c={c} rank={i + 1} />)}</div></section>
-        <section className="panel"><div className="panel-head"><div><h3>Pipeline por etapa</h3><p>CRM Elo · foto do kanban</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline por etapa</h3><p>{crm.snapshot_available ? "CRM Elo · foto do kanban" : "Aguardando integração com CRM Elo."}</p></div></div><Funnel stages={crm.stages} color={meta.color} format={integer} dense /></section>
       </div>
     </div>
   );
 }
 
 function OrganicSlide({ data }: { data: DashboardData }) {
+  if (data.organicOrigin !== "supabase" && !isDemoMode) return (
+    <section className="panel"><div className="empty-state" role="status" style={{ flexDirection: "column", gap: 8 }}><h3>Integração orgânica pendente</h3><p>Dados reais de Instagram e Facebook ainda não disponíveis.</p></div></section>
+  );
   const ig = data.instagram;
   const posts = [...data.posts].sort((a, b) => b.engagement_rate * b.reach - a.engagement_rate * a.reach).slice(0, 3);
   return (
@@ -170,14 +175,14 @@ function CrmSlide({ data }: { data: DashboardData }) {
     <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 18, minHeight: 0 }}>
       <div className="grid grid-4">
         <Kpi label="Contratos de franquia no período" value={f.contracts} format={integer} accent="red" hideDelta />
-        <Kpi label="Receita de franquia no período" value={f.revenue > 0 ? f.revenue : null} format={money} accent="green" hideDelta />
+        <Kpi label="Receita de franquia no período" value={(f.revenue != null && f.revenue > 0) ? f.revenue : null} format={money} accent="green" hideDelta />
         <Kpi label="Contratos de condomínio no período" value={c.contracts} format={integer} accent="gold" hideDelta />
         {/* Oportunidades abertas: contagem de cards, não receita esperada. */}
-        <Kpi label="Oportunidades abertas" value={f.open_opportunities + c.open_opportunities} format={integer} accent="sky" hideDelta />
+        <Kpi label="Oportunidades abertas" value={f.open_opportunities != null && c.open_opportunities != null ? f.open_opportunities + c.open_opportunities : null} format={integer} accent="sky" hideDelta />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Franquias</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
-        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Condomínios</h3></div><span className="badge sky">CRM Elo · entrada manual</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Franquias</h3></div><span className="badge sky">{isDemoMode ? "CRM Elo · demonstração" : "Aguardando integração com CRM Elo."}</span></div><Funnel stages={f.stages} color="var(--red)" format={integer} dense /></section>
+        <section className="panel"><div className="panel-head"><div><h3>Pipeline · Condomínios</h3></div><span className="badge sky">{isDemoMode ? "CRM Elo · demonstração" : "Aguardando integração com CRM Elo."}</span></div><Funnel stages={c.stages} color="var(--gold)" format={integer} dense /></section>
       </div>
     </div>
   );

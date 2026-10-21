@@ -170,10 +170,13 @@ export interface DateRange {
 // v2 — frentes, orgânico, CRM e metas
 // ---------------------------------------------------------------------------
 
+// Frentes com dados, métricas e funis existentes. Não ampliar sem um contrato de dados.
 export type Front = "franchise" | "condominium";
+export type PendingFront = "company" | "gym" | "hospital";
+export type CommercialFront = Front | PendingFront;
 export type Channel = "google_ads" | "meta_ads";
 export type Platform = "instagram" | "facebook";
-export type AppView = "executive" | "franchise" | "condominium" | "organic" | "site" | "crm" | "settings";
+export type AppView = "executive" | CommercialFront | "organic" | "site" | "crm" | "settings";
 
 export interface FrontDaily {
   date: string;
@@ -300,8 +303,8 @@ export interface CrmStage {
    * ter mais cards que uma anterior, e a diferença entre duas colunas não
    * significa "quantos se perderam".
    */
-  count: number;
-  avg_days: number;
+  count: number | null;
+  avg_days: number | null;
 }
 
 /** Só leads reais de mídia. Contratos e receita mensais não são inferíveis. */
@@ -330,20 +333,22 @@ export interface CrmSource {
  */
 export interface CrmSummary {
   front: Front;
+  snapshot_available: boolean;
+  results_available: boolean;
   /** [SNAPSHOT] Todas as etapas na ordem visual, incluindo a pós-venda. */
   stages: CrmStage[];
   /** [SNAPSHOT] Oportunidades abertas hoje: soma das etapas comerciais antes do fechamento. */
-  open_opportunities: number;
+  open_opportunities: number | null;
   /** [RESULTADO] Contratos fechados no período, informados à mão. */
-  contracts: number;
+  contracts: number | null;
   /** [RESULTADO] Receita do período, informada à mão. */
-  revenue: number;
+  revenue: number | null;
   /** Ticket: realizado (receita ÷ contratos) quando há resultado, senão a referência digitada. */
-  avg_ticket: number;
+  avg_ticket: number | null;
   /** true quando `avg_ticket` veio do resultado do período, não da referência manual. */
   avg_ticket_realized: boolean;
   /** [SNAPSHOT] Soma do tempo médio das etapas até o fechamento. */
-  avg_cycle_days: number;
+  avg_cycle_days: number | null;
   /** Leads reais de mídia por mês. Sem contratos nem receita inferidos. */
   monthly: CrmMonthly[];
   /** Leads reais por canal de mídia. Não é origem de contrato. */
@@ -505,9 +510,9 @@ export interface ManualFunnelInput {
  * CRM, o número de fechamentos e o faturamento só podem ser informados.
  */
 export interface ManualPeriodResults {
-  /** Contratos fechados no período. Ausente = 0, nunca inferido do snapshot. */
+  /** Contratos informados no periodo, inclusive zero. Bloco ausente = null. */
   contracts_closed: number;
-  /** Receita do período, em BRL. Ausente = 0, nunca inferida. */
+  /** Receita informada em BRL, inclusive zero. Bloco ausente = null. */
   revenue: number;
 }
 
@@ -515,9 +520,9 @@ export interface ManualPeriodResults {
 export interface ManualBusinessData {
   goals: Goals;
   /** [SNAPSHOT] Foto do kanban por frente. */
-  funnel: Record<Front, ManualFunnelInput>;
+  funnel: Record<Front, ManualFunnelInput | null>;
   /** [RESULTADO] Fechamentos e receita do período por frente. */
-  results: Record<Front, ManualPeriodResults>;
+  results: Record<Front, ManualPeriodResults | null>;
   delivery: DeliveryStatus;
 }
 

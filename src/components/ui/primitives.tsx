@@ -180,7 +180,7 @@ export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBette
   );
 }
 
-export interface FunnelStage { id?: string; name: string; kind?: "commercial" | "close" | "post_sale"; count: number; avg_days?: number; previous_count?: number }
+export interface FunnelStage { id?: string; name: string; kind?: "commercial" | "close" | "post_sale"; count: number | null; avg_days?: number | null; previous_count?: number }
 
 // Perfil do pipeline: cada etapa é um trapézio cuja largura acompanha quantas
 // oportunidades estão NAQUELA coluna agora. É um estoque, não uma progressão —
@@ -188,9 +188,10 @@ export interface FunnelStage { id?: string; name: string; kind?: "commercial" | 
 // isso em vez de forçar um afunilamento que não existe nos dados. Partículas
 // escoam pelo centro e o card reage à posição do mouse com um leve tilt 3D.
 export function Funnel({ stages, color, format, dense = false }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean }) {
-  const max = Math.max(...stages.map((s) => s.count), 1);
+  const measured = stages.every((s) => s.count != null);
+  const max = Math.max(...stages.map((s) => s.count ?? 0), 1);
   // Base da participação: só as colunas ainda em negociação.
-  const openTotal = stages.filter((s) => s.kind === "commercial").reduce((sum, s) => sum + s.count, 0);
+  const openTotal = stages.filter((s) => s.kind === "commercial").reduce((sum, s) => sum + (s.count ?? 0), 0);
   const [ready, setReady] = useState(false);
   const tilt = useTilt<HTMLDivElement>(5);
   useEffect(() => { const t = window.setTimeout(() => setReady(true), 90); return () => window.clearTimeout(t); }, []);
@@ -202,8 +203,8 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
   const totalH = stages.length * rowH - gap;
   const shapeW = 220;
   return (
-    <div className={`funnel3d tilt ${dense ? "dense" : ""}`} style={{ "--fc": color } as React.CSSProperties} ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave}>
-      <div className="funnel3d-shape">
+    <div className={`funnel3d tilt ${dense ? "dense" : ""}`} style={{ "--fc": color, ...(!measured ? { gridTemplateColumns: "1fr" } : {}) } as React.CSSProperties} ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave}>
+      {measured && <div className="funnel3d-shape">
         <div className="funnel3d-flow" aria-hidden>{Array.from({ length: 6 }).map((_, i) => <span key={i} style={{ left: `${16 + i * 13}%`, animationDelay: `${i * 0.55}s` }} />)}</div>
         <svg viewBox={`0 0 ${shapeW} ${totalH}`} preserveAspectRatio="none" aria-hidden>
           <defs>
@@ -215,8 +216,8 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
             ))}
           </defs>
           {stages.map((s, i) => {
-            const topW = Math.max(shapeW * 0.1, (s.count / max) * shapeW);
-            const nextCount = stages[i + 1]?.count ?? s.count * 0.93;
+            const topW = Math.max(shapeW * 0.1, ((s.count ?? 0) / max) * shapeW);
+            const nextCount = stages[i + 1]?.count ?? (s.count ?? 0) * 0.93;
             // Sem `Math.min(topW, ...)`: o estoque pode crescer de uma coluna
             // para a outra e o desenho precisa alargar em vez de mentir.
             const botW = Math.max(shapeW * 0.08, (nextCount / max) * shapeW);
@@ -232,14 +233,14 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
             );
           })}
         </svg>
-      </div>
+      </div>}
       <div className="funnel3d-rows">
         {stages.map((s) => {
           const postSale = s.kind === "post_sale";
           // Participação no pipeline aberto. A taxa de passagem entre colunas
           // vizinhas não existe aqui: são estoques independentes, e a diferença
           // entre duas colunas não é "quantos se perderam".
-          const share = openTotal > 0 && s.kind === "commercial" ? (s.count * 100) / openTotal : null;
+          const share = measured && openTotal > 0 && s.kind === "commercial" ? ((s.count ?? 0) * 100) / openTotal : null;
           return (
             // `--w` desenha a barra proporcional que substitui o trapézio no
             // mobile, onde a coluna do desenho é escondida para não empilhar
@@ -247,7 +248,7 @@ export function Funnel({ stages, color, format, dense = false }: { stages: Funne
             <div
               className={`funnel3d-row ${postSale ? "post-sale" : ""}`}
               key={s.id ?? s.name}
-              style={{ height: rowH, "--w": `${Math.max(6, (s.count / max) * 100)}%` } as React.CSSProperties}
+              style={{ height: rowH, "--w": s.count == null ? "0%" : `${Math.max(6, (s.count / max) * 100)}%` } as React.CSSProperties}
             >
               <div className="funnel3d-row-top">
                 <strong>{s.name}</strong>

@@ -34,9 +34,40 @@ const frentes = () => {
 };
 
 describe("sidebar: FRENTES", () => {
-  it("lista Franquias, Condomínios, Orgânico e Site nessa ordem", () => {
+  it("agrupa Place e Expansão e preserva Orgânico e Site", () => {
     renderShell();
-    expect(frentes()).toEqual(["Franquias", "Condomínios", "Orgânico", "Site"]);
+    expect(frentes()).toEqual(["Place", "Expansão", "Orgânico", "Site"]);
+    fireEvent.click(screen.getByRole("button", { name: "Place" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expansão" }));
+    expect(frentes()).toEqual(["Place", "Condomínios", "Empresas", "Academias", "Hospitais", "Expansão", "Franquias", "Orgânico", "Site"]);
+  });
+
+  it.each([
+    ["condominium", "Condomínios", "Place"], ["company", "Empresas", "Place"],
+    ["gym", "Academias", "Place"], ["hospital", "Hospitais", "Place"],
+    ["franchise", "Franquias", "Expansão"],
+  ] as const)("abre a categoria e marca o link direto %s", (view, label, category) => {
+    const navigate = renderShell(view);
+    expect(screen.getByRole("button", { name: category }).getAttribute("aria-expanded")).toBe("true");
+    const link = screen.getByRole("button", { name: label });
+    expect(link.getAttribute("aria-current")).toBe("page");
+    fireEvent.click(link);
+    expect(navigate).toHaveBeenCalledWith(view);
+  });
+
+  it("recolhe a categoria ativa sem mudar a página e alterna categorias independentemente", () => {
+    const navigate = renderShell("company");
+    const place = screen.getByRole("button", { name: "Place" });
+    const expansion = screen.getByRole("button", { name: "Expansão" });
+    expect(document.getElementById(place.getAttribute("aria-controls")!)?.hidden).toBe(false);
+    fireEvent.click(place);
+    expect(place.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: "Empresas" })).toBeNull();
+    fireEvent.click(expansion);
+    expect(expansion.getAttribute("aria-expanded")).toBe("true");
+    expect(place.getAttribute("aria-expanded")).toBe("false");
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("navigation", { name: "Navegação principal" })).not.toBeNull();
   });
 
   it("chama o Site pelo nome curto, sem GA4 nem Google Analytics no menu", () => {
@@ -48,6 +79,8 @@ describe("sidebar: FRENTES", () => {
 
   it("dá ao Site o mesmo indicador colorido das outras frentes, na cor sky", () => {
     renderShell();
+    fireEvent.click(screen.getByRole("button", { name: "Place" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expansão" }));
     const dots = ["franchise", "condominium", "organic", "site"].map((front) => {
       const dot = document.querySelector(`.nav-item .dot.${front}`);
       return dot ? dot.className : null;

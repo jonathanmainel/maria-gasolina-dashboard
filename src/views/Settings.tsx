@@ -74,7 +74,7 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
           <div className="section-title">
             <div>
               <h2>Dados de negócio sem origem automática</h2>
-              <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O funil comercial é editado dentro de CRM e vendas.</p>
+              <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O CRM comercial aguarda integração com Elo.</p>
             </div>
           </div>
           <ManualNumbersPanel

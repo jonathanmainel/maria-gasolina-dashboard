@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented, Sparkline, useTilt } from "../components/ui/primitives";
 import { NetworkHero } from "../components/NetworkHero";
+import { isDemoMode } from "../lib/api";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { dailySeries, monthProgress } from "../lib/metrics";
@@ -21,22 +22,25 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const monthSpend = monthRows.reduce((s, r) => s + r.spend, 0);
   const monthLeadsF = monthRows.filter((r) => r.front === "franchise").reduce((s, r) => s + r.leads, 0);
   const monthLeadsC = monthRows.filter((r) => r.front === "condominium").reduce((s, r) => s + r.leads, 0);
-  const newFollowers = instagram.current.new_followers + facebook.current.new_followers;
-  const prevFollowers = instagram.previous.new_followers + facebook.previous.new_followers;
+  // Apenas fontes reais entram na visao operacional. Demonstracao exige modo explicito.
+  const organicAvailable = data.organicOrigin === "supabase" || isDemoMode;
+  const newFollowers = organicAvailable ? instagram.current.new_followers + facebook.current.new_followers : null;
+  const prevFollowers = organicAvailable ? instagram.previous.new_followers + facebook.previous.new_followers : null;
   const sparkSpend = series.map((d) => d.spend);
   const sparkLeads = series.map((d) => d.leads);
   const sparkCpl = series.map((d) => d.cpl ?? 0);
   const orgSpark = useMemo(() => {
+    if (!organicAvailable) return [];
     const m = new Map<string, number>();
     data.organicRows.forEach((r) => m.set(r.date, (m.get(r.date) ?? 0) + r.new_followers));
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
-  }, [data.organicRows]);
+  }, [data.organicRows, organicAvailable]);
   const chartData = series.map((d) => ({ label: shortDate(d.date), Franquias: metric === "leads" ? d.franchise : metric === "spend" ? d.spend_franchise : d.franchise ? d.spend_franchise / d.franchise : null, Condomínios: metric === "leads" ? d.condominium : metric === "spend" ? d.spend_condominium : d.condominium ? d.spend_condominium / d.condominium : null }));
   const fmt = (n: number) => (metric === "leads" ? integer(n) : money(n));
   const channelMix = [
     { name: "Meta Ads", value: data.current.filter((r) => r.channel === "meta_ads").reduce((s, r) => s + r.leads, 0), color: colors.meta, hint: money(data.current.filter((r) => r.channel === "meta_ads").reduce((s, r) => s + r.spend, 0)) },
     { name: "Google Ads", value: data.current.filter((r) => r.channel === "google_ads").reduce((s, r) => s + r.leads, 0), color: colors.google, hint: money(data.current.filter((r) => r.channel === "google_ads").reduce((s, r) => s + r.spend, 0)) },
-    { name: "Orgânico (DMs + perfil)", value: instagram.current.dms + facebook.current.dms, color: colors.violet, hint: "sem custo de mídia" },
+    ...(organicAvailable ? [{ name: "Orgânico (DMs + perfil)", value: instagram.current.dms + facebook.current.dms, color: colors.violet, hint: "sem custo de mídia" }] : []),
   ];
 
   // Tendências: metade recente do período contra a metade anterior, para enxergar
@@ -57,10 +61,10 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   // contratos fechados nele (quem fechou hoje entrou meses atrás).
   const crmFranchise = data.crm.franchise;
   const crmCondominium = data.crm.condominium;
-  const salesContracts = crmFranchise.contracts + crmCondominium.contracts;
-  const salesRevenue = crmFranchise.revenue + crmCondominium.revenue;
-  const salesOpen = crmFranchise.open_opportunities + crmCondominium.open_opportunities;
-  const openByStage = crmFranchise.stages.filter((stage) => stage.kind === "commercial" && stage.count > 0);
+  const salesContracts = crmFranchise.contracts != null && crmCondominium.contracts != null ? crmFranchise.contracts + crmCondominium.contracts : null;
+  const salesRevenue = crmFranchise.revenue != null && crmCondominium.revenue != null ? crmFranchise.revenue + crmCondominium.revenue : null;
+  const salesOpen = crmFranchise.open_opportunities != null && crmCondominium.open_opportunities != null ? crmFranchise.open_opportunities + crmCondominium.open_opportunities : null;
+  const openByStage = crmFranchise.stages.filter((stage) => stage.kind === "commercial" && stage.count != null && stage.count > 0);
 
   return (
     <div className="view-enter">
@@ -71,6 +75,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           <p>Expansão de franquias, captação de condomínios e presença orgânica lado a lado, com o ritmo do mês contra as metas.</p>
         </div>
       </div>
+
+      {isDemoMode && <div className="demo-note" role="status"><AlertTriangle size={16} /><span><b>Modo demonstração.</b> Os indicadores de mídia, orgânico e CRM são ilustrativos.</span></div>}
 
       {data.unclassified.campaigns.length > 0 && (
         <div className="demo-note">
@@ -87,7 +93,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         <Kpi label="Investimento em mídia" value={all.current.spend} previous={all.previous.spend} format={money} accent="red" icon={<Wallet size={17} />} spark={sparkSpend} />
         <Kpi label="Leads gerados (todas as frentes)" value={all.current.leads} previous={all.previous.leads} format={integer} accent="gold" icon={<Target size={17} />} spark={sparkLeads} />
         <Kpi label="Custo por lead médio" value={all.current.cpl} previous={all.previous.cpl} format={money} accent="green" icon={<Zap size={17} />} lowerIsBetter spark={sparkCpl} />
-        <Kpi label="Novos seguidores (IG + FB)" value={newFollowers} previous={prevFollowers} format={integer} accent="violet" icon={<UserPlus size={17} />} spark={orgSpark} />
+        <Kpi label="Novos seguidores (IG + FB)" value={newFollowers} previous={prevFollowers} format={integer} accent="violet" icon={<UserPlus size={17} />} spark={orgSpark} hideDelta={!organicAvailable} foot={organicAvailable ? undefined : "Integração orgânica pendente"} />
       </div>
 
       <div className="grid grid-hero" style={{ marginTop: 14 }}>
@@ -113,7 +119,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         <Kpi label="Investimento" value={sum(spendB)} previous={sum(spendA)} format={money} accent="red" icon={<Wallet size={15} />} spark={sparkSpend} foot="metade recente vs. anterior" lowerIsBetter />
         <Kpi label="Leads" value={sum(leadsB)} previous={sum(leadsA)} format={integer} accent="gold" icon={<Target size={15} />} spark={sparkLeads} foot="metade recente vs. anterior" />
         <Kpi label="Custo por lead" value={avg(cplB)} previous={avg(cplA)} format={money} accent="green" icon={<Zap size={15} />} spark={sparkCpl} foot="média: recente vs. anterior" lowerIsBetter />
-        <Kpi label="Novos seguidores" value={sum(followB)} previous={sum(followA)} format={integer} accent="violet" icon={<UserPlus size={15} />} spark={orgSpark} foot="metade recente vs. anterior" />
+        <Kpi label="Novos seguidores" value={organicAvailable ? sum(followB) : null} previous={organicAvailable ? sum(followA) : null} format={integer} accent="violet" icon={<UserPlus size={15} />} spark={orgSpark} hideDelta={!organicAvailable} foot={organicAvailable ? "metade recente vs. anterior" : "Integração orgânica pendente"} />
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 14 }}>
@@ -121,45 +127,47 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         <FrontCard front="condominium" totals={condominium.current} previous={condominium.previous} spark={dailySeries(condominium.rows).map((d) => d.leads)} onClick={() => onNavigate("condominium")} />
         <article ref={organicTilt.ref} onMouseMove={organicTilt.onMouseMove} onMouseLeave={organicTilt.onMouseLeave} className="front-card tilt organic" onClick={() => onNavigate("organic")} role="link" tabIndex={0}>
           <div className="front-card-head"><h3><i />Orgânico · Instagram e Facebook</h3><ArrowRight size={18} /></div>
+          {organicAvailable ? <>
           <div className="front-main"><strong><AnimatedNumber value={instagram.current.followers + facebook.current.followers} format={compact} /></strong><small>seguidores somados</small></div>
           <Sparkline className="front-spark" points={orgSpark} color="#9b7bff" />
           <div className="front-meta">
-            <div><small>Novos seguidores</small><b>{integer(newFollowers)}</b></div>
+            <div><small>Novos seguidores</small><b>{newFollowers == null ? "—" : integer(newFollowers)}</b></div>
             <div><small>Engajamento IG</small><b>{percent(instagram.current.engagement_rate)}</b></div>
             <div><small>DMs recebidas</small><b>{integer(instagram.current.dms + facebook.current.dms)}</b></div>
           </div>
+          </> : <div className="empty-state" role="status">Integração orgânica pendente. Dados reais de Instagram e Facebook ainda não disponíveis.</div>}
         </article>
       </div>
 
       <div className="section-title" style={{ marginTop: 22 }}>
         <div><h2>Vendas</h2><p>Resultado informado do período e pipeline parado hoje no CRM Elo — dois números de naturezas diferentes, lado a lado sem se misturarem.</p></div>
-        <span className="badge sky">CRM Elo · entrada manual</span>
+        <span className="badge sky">{isDemoMode ? "CRM Elo · demonstração" : "Aguardando integração com CRM Elo."}</span>
       </div>
       <div className="grid grid-4">
-        <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={`${crmFranchise.contracts} franquias · ${crmCondominium.contracts} condomínios`} />
-        <Kpi label="Receita no período" value={salesRevenue > 0 ? salesRevenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={salesRevenue > 0 ? "informada nas duas frentes" : "informe em CRM e vendas"} />
-        <Kpi label="Oportunidades abertas" value={salesOpen} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={`${crmFranchise.open_opportunities} franquias · ${crmCondominium.open_opportunities} condomínios`} />
-        <Kpi label="Ticket médio · franquias" value={crmFranchise.avg_ticket > 0 ? crmFranchise.avg_ticket : null} format={money} accent="red" icon={<Target size={16} />} hideDelta foot={crmFranchise.avg_ticket_realized ? "realizado: receita ÷ contratos" : "referência informada"} />
+        <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={salesContracts == null ? "Aguardando integração com CRM Elo." : `${integer(crmFranchise.contracts)} franquias · ${integer(crmCondominium.contracts)} condomínios`} />
+        <Kpi label="Receita no período" value={(salesRevenue != null && salesRevenue > 0) ? salesRevenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={(salesRevenue != null && salesRevenue > 0) ? "informada nas duas frentes" : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Oportunidades abertas" value={salesOpen} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={`${integer(crmFranchise.open_opportunities)} franquias · ${integer(crmCondominium.open_opportunities)} condomínios`} />
+        <Kpi label="Ticket médio · franquias" value={(crmFranchise.avg_ticket != null && crmFranchise.avg_ticket > 0) ? crmFranchise.avg_ticket : null} format={money} accent="red" icon={<Target size={16} />} hideDelta foot={crmFranchise.avg_ticket_realized ? "realizado: receita ÷ contratos" : crmFranchise.avg_ticket == null ? "Aguardando integração com CRM Elo." : "referência informada"} />
       </div>
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
         <Panel title="Pipeline aberto por etapa · Franquias" description="Oportunidades paradas em cada coluna do kanban hoje. É estoque: a diferença entre duas colunas não é perda de uma para a outra.">
           {openByStage.length ? (
-            <BarList items={openByStage.map((stage) => ({ name: stage.name, value: stage.count, color: colors.red }))} format={integer} />
+            <BarList items={openByStage.map((stage) => ({ name: stage.name, value: stage.count!, color: colors.red }))} format={integer} />
           ) : (
-            <div className="empty-state">Nenhuma oportunidade aberta informada.</div>
+            <div className="empty-state">{crmFranchise.snapshot_available ? "Nenhuma oportunidade aberta informada." : "Aguardando integração com CRM Elo."}</div>
           )}
         </Panel>
         <Panel className="fill-body" title="Resultado do período" description="Contratos fechados e receita informados para o período de referência">
-          {salesContracts > 0 || salesRevenue > 0 ? (
+          {(salesContracts != null && salesContracts > 0) || (salesRevenue != null && salesRevenue > 0) ? (
             <div className="proj-compare">
-              <div className="proj-bar"><span>Franquias</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, salesContracts > 0 ? (crmFranchise.contracts * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmFranchise.contracts)}</b></div>
-              <div className="proj-bar"><span>Condomínios</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, salesContracts > 0 ? (crmCondominium.contracts * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmCondominium.contracts)}</b></div>
+              <div className="proj-bar"><span>Franquias</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, (salesContracts != null && salesContracts > 0) ? ((crmFranchise.contracts ?? 0) * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmFranchise.contracts)}</b></div>
+              <div className="proj-bar"><span>Condomínios</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, (salesContracts != null && salesContracts > 0) ? ((crmCondominium.contracts ?? 0) * 100) / salesContracts : 0)}%` }} /></div><b>{integer(crmCondominium.contracts)}</b></div>
               <div className="proj-total"><span>Receita somada no período</span><strong>{money(salesRevenue)}</strong></div>
             </div>
           ) : (
             <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
-              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>Nenhum resultado informado</strong>
-              <span>Contratos fechados e receita são digitados em CRM e vendas: não saem da foto do kanban nem dos leads de mídia.</span>
+              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crmFranchise.results_available && crmCondominium.results_available ? "Nenhum resultado informado" : "Aguardando integração com CRM Elo."}</strong>
+              <span>Os resultados comerciais serão exibidos quando houver registros associados. Não são inferidos dos leads de mídia.</span>
             </div>
           )}
         </Panel>
@@ -187,7 +195,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
         </Panel>
         {/* Coluna lateral: os dois painéis se esticam para fechar com a altura do gráfico. */}
         <div className="panel-stack">
-          <Panel title="Origem dos leads" description="Volume por canal no período">
+          <Panel title="Origem dos leads" description={organicAvailable ? "Volume por canal no período" : "Volume de mídia paga no período"}>
             <BarList items={channelMix} format={integer} />
           </Panel>
           <Panel title="Eficiência por frente" description="CPL e taxa de conversão de clique em lead">

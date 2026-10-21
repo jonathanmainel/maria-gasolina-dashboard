@@ -147,7 +147,7 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
               {section.fields.map((field) => (
                 <div key={field.key}>
                   <dt>{field.label}</dt>
-                  <dd>{formatByKind(values[field.key] ?? 0, field.kind)}</dd>
+                  <dd>{values[field.key] == null ? "—" : formatByKind(values[field.key], field.kind)}</dd>
                 </div>
               ))}
             </dl>

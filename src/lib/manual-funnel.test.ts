@@ -116,12 +116,12 @@ describe("payload no formato atual (registro por id)", () => {
   });
 });
 
-describe("normalize() do bloco manual inteiro", () => {
+describe("normalize() do bloco manual em demonstracao explicita", () => {
   it("um payload salvo com o modelo antigo continua carregando, em dois blocos", () => {
-    const result = normalize({ funnel: { franchise: legacyFranchise, condominium: legacyCondominium } });
-    expect(result.funnel.condominium.stages.assembly).toBe(49);
-    expect(result.results.franchise.contracts_closed).toBe(18);
-    expect(result.results.condominium.contracts_closed).toBe(16);
+    const result = normalize({ funnel: { franchise: legacyFranchise, condominium: legacyCondominium } }, true);
+    expect(result.funnel.condominium!.stages.assembly).toBe(49);
+    expect(result.results.franchise!.contracts_closed).toBe(18);
+    expect(result.results.condominium!.contracts_closed).toBe(16);
     expect(result.goals).toBeDefined();
     expect(result.delivery).toBeDefined();
   });
@@ -130,16 +130,16 @@ describe("normalize() do bloco manual inteiro", () => {
     const result = normalize({
       funnel: { franchise: { stages: { lead: 9, contact: 1962, contract: 0 }, stage_days: {}, avg_ticket: 84500 } },
       results: { franchise: { contracts_closed: 4, revenue: 338000 } },
-    });
-    expect(result.funnel.franchise.stages.contact).toBe(1962);
-    expect(result.funnel.franchise.stages.contract).toBe(0);
+    }, true);
+    expect(result.funnel.franchise!.stages.contact).toBe(1962);
+    expect(result.funnel.franchise!.stages.contract).toBe(0);
     expect(result.results.franchise).toEqual({ contracts_closed: 4, revenue: 338000 });
   });
 
   it("o padrão de resultado é o seed manual de apresentação, independente do snapshot", () => {
     expect(defaultResults.franchise).toEqual({ contracts_closed: 9, revenue: 760500 });
     expect(defaultResults.condominium).toEqual({ contracts_closed: 6, revenue: 108000 });
-    expect(normalize({}).results).toEqual(defaultResults);
+    expect(normalize({}, true).results).toEqual(defaultResults);
     // 9 fechamentos no período com só 3 cards parados na coluna "Contrato" e 18
     // em "Implantação": nenhum dos dois números sai do outro.
     expect(defaultResults.franchise.contracts_closed).not.toBe(defaultFunnel.franchise.stages.contract);
