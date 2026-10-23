@@ -2,10 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { getFrontData, getOrganic } from "./api";
 import { buildCrmSummary } from "./crm";
+import { useCommercialData } from "./commercial-data";
+import { commercialFronts } from "./fronts";
+import { isDemoMode } from "./api";
 import { useManualData } from "./manual-inputs";
 import { byFront, inRange, organicSummary, previousRange, totals } from "./metrics";
 import { useTheme } from "../theme";
-import type { DateRange, Front, FrontDaily, OrganicDaily } from "../types";
+import type { DateRange, Front, CommercialFront, CrmSummary, FrontDaily, OrganicDaily } from "../types";
 
 export function useDashboard(range: DateRange) {
   // A chave inclui o intervalo inteiro: trocar o período descarta o cache antigo
@@ -15,6 +18,7 @@ export function useDashboard(range: DateRange) {
   const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range), refetchInterval: 5 * 60 * 1000 });
   const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range) });
   const manual = useManualData();
+  const commercial = useCommercialData(range);
   const prev = useMemo(() => previousRange(range), [range]);
 
   const computed = useMemo(() => {
@@ -25,7 +29,12 @@ export function useDashboard(range: DateRange) {
     const orgCur = org.filter((r) => r.date >= range.start && r.date <= range.end);
     const orgPrev = org.filter((r) => r.date >= prev.start && r.date <= prev.end);
     const front = (f: Front) => ({ current: totals(byFront(cur, f)), previous: totals(byFront(before, f)), rows: byFront(cur, f), prevRows: byFront(before, f) });
-    const crm = (f: Front) => buildCrmSummary(f, manual.data.funnel[f], manual.data.results[f], { rows: byFront(cur, f) });
+    const crm = Object.fromEntries(Object.values(commercialFronts).map(({ id }) => {
+      const entry = commercial.entries[id];
+      const rows = id === "franchise" || id === "condominium" ? byFront(cur, id) : [];
+      const origin = isDemoMode ? "example" as const : "manual" as const;
+      return [id, { ...buildCrmSummary(id, entry.snapshot, entry.result, { rows }), snapshot_origin: entry.snapshot ? origin : "unavailable", results_origin: entry.result ? origin : "unavailable", snapshot_updated_at: entry.snapshotUpdatedAt, results_updated_at: entry.resultUpdatedAt, results_period: entry.result ? range : null }];
+    })) as Record<CommercialFront, CrmSummary>;
     return {
       current: cur,
       previous: before,
@@ -42,13 +51,14 @@ export function useDashboard(range: DateRange) {
       instagram: { current: organicSummary(orgCur, "instagram"), previous: organicSummary(orgPrev, "instagram") },
       facebook: { current: organicSummary(orgCur, "facebook"), previous: organicSummary(orgPrev, "facebook") },
       posts: organic.data?.posts ?? [],
-      // Na operacao os blocos comerciais sao null ate o Elo; leads de midia permanecem independentes.
-      crm: { franchise: crm("franchise"), condominium: crm("condominium") },
+      // Registros comerciais isolados por frente e período; mídia permanece independente.
+      crm,
+      commercial,
       delivery: manual.data.delivery,
       goals: manual.data.goals,
       manualStorage: manual.storage,
     };
-  }, [fronts.data, organic.data, manual.data, manual.storage, range, prev]);
+  }, [fronts.data, organic.data, manual.data, manual.storage, commercial.entries, commercial.access, commercial.isLoading, commercial.isError, range, prev]);
 
   return {
     ...computed,

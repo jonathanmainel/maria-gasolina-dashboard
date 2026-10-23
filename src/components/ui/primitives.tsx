@@ -189,7 +189,7 @@ export interface FunnelStage { id?: string; name: string; kind?: "commercial" | 
 // uma etapa posterior pode ser mais larga que a anterior, e o desenho mostra
 // isso em vez de forçar um afunilamento que não existe nos dados. Partículas
 // escoam pelo centro e o card reage à posição do mouse com um leve tilt 3D.
-export function Funnel({ stages, color, format, dense = false, pipelineTotal }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean; pipelineTotal?: number }) {
+export function Funnel({ stages, color, format, dense = false, fitHeight = false, pipelineTotal }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean; fitHeight?: boolean; pipelineTotal?: number }) {
   const measured = stages.every((s) => s.count != null);
   const max = Math.max(...stages.map((s) => s.count ?? 0), 1);
   // Base da participação: só as colunas ainda em negociação.
@@ -205,7 +205,7 @@ export function Funnel({ stages, color, format, dense = false, pipelineTotal }: 
   const totalH = stages.length * rowH - gap;
   const shapeW = 220;
   return (
-    <div className={`funnel3d tilt ${dense ? "dense" : ""}`} style={{ "--fc": color, ...(!measured ? { gridTemplateColumns: "1fr" } : {}) } as React.CSSProperties} ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave}>
+    <div className={`funnel3d tilt ${dense ? "dense" : ""} ${fitHeight ? "funnel-fit" : ""}`} style={{ "--fc": color, "--stage-count": stages.length, ...(!measured ? { gridTemplateColumns: "1fr" } : {}) } as React.CSSProperties} ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave}>
       {measured && <div className="funnel3d-shape">
         <div className="funnel3d-flow" aria-hidden>{Array.from({ length: 6 }).map((_, i) => <span key={i} style={{ left: `${16 + i * 13}%`, animationDelay: `${i * 0.55}s` }} />)}</div>
         <svg viewBox={`0 0 ${shapeW} ${totalH}`} preserveAspectRatio="none" aria-hidden>
@@ -250,7 +250,7 @@ export function Funnel({ stages, color, format, dense = false, pipelineTotal }: 
             <div
               className={`funnel3d-row ${postSale ? "post-sale" : ""}`}
               key={s.id ?? s.name}
-              style={{ height: rowH, "--w": s.count == null ? "0%" : `${Math.max(6, (s.count / max) * 100)}%` } as React.CSSProperties}
+              style={{ height: fitHeight ? undefined : rowH, "--w": s.count == null ? "0%" : `${Math.max(6, (s.count / max) * 100)}%` } as React.CSSProperties}
             >
               <div className="funnel3d-row-top">
                 <strong>{s.name}</strong>

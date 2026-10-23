@@ -50,14 +50,16 @@ describe("frentes sem fonte associada", () => {
   it.each([["company", "Empresas"], ["gym", "Academias"], ["hospital", "Hospitais"]] as const)("%s ignora dados de outras frentes, inclusive quando fornecidos", (front, label) => {
     show(front);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(label);
-    expect(screen.getByRole("status").textContent).toContain("Dados ainda não disponíveis");
+    expect(screen.getAllByRole("status").map(node => node.textContent).join(" ")).toContain("Dados ainda não disponíveis");
     expect(document.querySelectorAll(".kpi-value strong")).toHaveLength(6);
     document.querySelectorAll(".kpi-value strong").forEach((value) => expect(value.textContent).toBe("—"));
     expect(screen.getByText("Nenhuma campanha vinculada a esta frente.")).not.toBeNull();
     expect(screen.queryByText(/Campanha existente/)).toBeNull();
     expect(document.querySelector(".recharts-wrapper")).toBeNull();
     expect(document.querySelector(".creative-ranking")).toBeNull();
-    expect(screen.queryByText(/Funil comercial/)).toBeNull();
+    expect(screen.getByText(/Funil comercial/)).not.toBeNull();
+    expect(document.querySelectorAll(".funnel3d-row-bottom b")).toHaveLength(8);
+    document.querySelectorAll(".funnel3d-row-bottom b").forEach(value => expect(value.textContent).toBe("—"));
     expect(document.body.textContent).not.toMatch(/R\$|0 leads|0 campanhas/);
     expect(useGoals).not.toHaveBeenCalled();
   });

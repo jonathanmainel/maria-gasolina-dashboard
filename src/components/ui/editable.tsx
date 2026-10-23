@@ -20,6 +20,8 @@ export interface NumberFieldSpec {
   label: string;
   hint?: string;
   kind?: FieldKind;
+  /** Campo comercial desconhecido pode permanecer ausente, sem virar zero. */
+  optional?: boolean;
   /**
    * Abre um bloco com este título a partir deste campo. Serve para funis longos
    * (Franquias tem 10 etapas + 9 tempos + ticket): sem os blocos, o editor vira
@@ -62,9 +64,11 @@ interface Props {
   summary?: ReactNode;
   footNote?: ReactNode;
   saveLabel?: string;
+  /** Somente leitura: preserva valores e impede abrir/enviar o editor. */
+  readOnly?: boolean;
 }
 
-export function ManualNumbersPanel({ title, description, badge, fields, values, onSave, summary, footNote, saveLabel = "Salvar" }: Props) {
+export function ManualNumbersPanel({ title, description, badge, fields, values, onSave, summary, footNote, saveLabel = "Salvar", readOnly = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>(() => toDraft(values));
   const [invalid, setInvalid] = useState<string[]>([]);
@@ -76,16 +80,19 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
   useEffect(() => { if (!editing) setDraft(toDraft(values)); }, [values, editing]);
   useEffect(() => { if (!saved) return; const timer = window.setTimeout(() => setSaved(false), 2600); return () => window.clearTimeout(timer); }, [saved]);
 
+  useEffect(() => { if (readOnly) { setEditing(false); setInvalid([]); setError(null); setSaved(false); } }, [readOnly]);
+
   const sections = toSections(fields);
 
   const cancel = () => { setDraft(toDraft(values)); setInvalid([]); setError(null); setEditing(false); };
 
   const submit = async () => {
-    if (saving) return;
+    if (saving || readOnly) return;
     const parsed: Record<string, number> = {};
     const bad: string[] = [];
     fields.forEach((field) => {
       const raw = (draft[field.key] ?? "").replace(",", ".").trim();
+      if (raw === "" && field.optional) return;
       const value = raw === "" ? Number.NaN : Number(raw);
       if (!Number.isFinite(value) || value < 0) { bad.push(field.key); return; }
       parsed[field.key] = field.kind === "currency" || field.kind === "decimal" ? Math.round(value * 100) / 100 : Math.round(value);
@@ -106,7 +113,7 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
     }
   };
 
-  const actions = editing ? (
+  const actions = readOnly ? undefined : editing ? (
     <div className="manual-actions">
       <button type="button" className="secondary-button" onClick={cancel} disabled={saving}><X size={15} />Cancelar</button>
       <button type="button" className="primary-button" onClick={() => void submit()} disabled={saving} aria-busy={saving}>
@@ -123,7 +130,7 @@ export function ManualNumbersPanel({ title, description, badge, fields, values, 
       {sections.map((section, index) => (
         <div key={section.title ?? index} className="manual-section">
           {section.title && <h4 className="manual-section-title">{section.title}</h4>}
-          {editing ? (
+          {editing && !readOnly ? (
             <div className="form-grid">
               {section.fields.map((field) => (
                 <div className={`field ${invalid.includes(field.key) ? "field-invalid" : ""}`} key={field.key}>

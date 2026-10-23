@@ -18,7 +18,7 @@ for (const [front, label] of [["company", "Empresas"], ["gym", "Academias"], ["h
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(route(front));
     await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Place", exact: true })).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("button", { name: "Places", exact: true })).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
     const content = page.getByTestId("unavailable-front");
     await expect(content.locator(".kpi-value strong")).toHaveText(["—", "—", "—", "—", "—", "—"]);
@@ -43,7 +43,7 @@ test("desktop: teclado, categorias independentes e URLs anteriores", async ({ pa
   const runtime = errors(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(route("company"));
-  const place = page.getByRole("button", { name: "Place", exact: true });
+  const place = page.getByRole("button", { name: "Places", exact: true });
   const expansion = page.getByRole("button", { name: "Expansão", exact: true });
   await place.focus(); await page.keyboard.press("Enter");
   await expect(place).toHaveAttribute("aria-expanded", "false");
@@ -79,7 +79,7 @@ test("mobile: navegação, links diretos, foco e ausência de overflow", async (
   const open = page.getByRole("button", { name: "Abrir navegação" });
   await expect(page.locator("#dashboard-sidebar")).toHaveAttribute("inert", "");
   await open.click();
-  await expect(page.getByRole("button", { name: "Place", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "Places", exact: true })).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("button", { name: "Empresas", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Empresas", exact: true })).toBeVisible();
   await expect(open).toHaveAttribute("aria-expanded", "false");
@@ -102,7 +102,7 @@ test("mobile: navegação, links diretos, foco e ausência de overflow", async (
   await page.screenshot({ path: testInfo.outputPath("navigation-mobile.png") });
 });
 
-for (const [front, category, heading] of [["franchise", "Expansão", "Candidatos a franqueado,"], ["condominium", "Place", "Indicações de condomínios,"]]) {
+for (const [front, category, heading] of [["franchise", "Expansão", "Candidatos a franqueado,"], ["condominium", "Places", "Indicações de condomínios,"]]) {
   test(`compatibilidade: endereço direto ${front}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(route(front));

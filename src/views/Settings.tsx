@@ -8,6 +8,7 @@ import {
 } from "../lib/manual-fields";
 import { useManualData, useSaveManualData } from "../lib/manual-inputs";
 import { useTheme } from "../theme";
+import type { CommercialAccess } from "../lib/commercial-access";
 import type { ManualBusinessData } from "../types";
 
 /** Aviso de onde os dados manuais estão sendo gravados de fato. */
@@ -31,13 +32,17 @@ export function ManualStorageNote({ storage, reason }: { storage: "supabase" | "
   );
 }
 
-export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPresent: () => void }) {
+export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string; onPresent: () => void; access?: CommercialAccess }) {
   const { data, storage, fallbackReason } = useManualData();
   const saveManual = useSaveManualData();
   const [copied, setCopied] = useState(false);
   const { theme, setTheme } = useTheme();
 
-  const persist = (patch: Partial<ManualBusinessData>) => saveManual.mutateAsync({ ...data, ...patch });
+  const editable = !!access?.canEdit;
+  const persist = (patch: Partial<ManualBusinessData>) => {
+    if (!editable) return Promise.reject(new Error("Seu perfil não permite editar metas e configurações."));
+    return saveManual.mutateAsync({ ...data, ...patch });
+  };
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -57,6 +62,9 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
       </div>
 
       <ManualStorageNote storage={storage} reason={fallbackReason} />
+      {!editable && <p className="commercial-access-note" role="status">{access?.policyReady
+        ? "Seu perfil permite somente leitura de metas e configurações."
+        : "Edição de metas e configurações bloqueada até a liberação das permissões operacionais."}</p>}
 
       {/* Duas colunas de altura equivalente: as metas e o bloco de conteúdos sobem
           para o lado dos painéis utilitários em vez de deixar um card de metas
@@ -70,6 +78,7 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
             values={goalsToValues(data.goals)}
             onSave={(next) => persist({ goals: valuesToGoals(next) })}
             saveLabel="Salvar metas"
+            readOnly={!editable}
           />
           <div className="section-title">
             <div>
@@ -84,10 +93,11 @@ export function SettingsView({ shareUrl, onPresent }: { shareUrl: string; onPres
             values={deliveryToValues(data.delivery)}
             onSave={(next) => persist({ delivery: valuesToDelivery(next) })}
             saveLabel="Salvar conteúdos"
+            readOnly={!editable}
           />
         </div>
         <div className="panel-stack">
-          <NetworkUnitsPanel />
+          <fieldset disabled={!editable} aria-label="Importação da base de unidades" style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}><NetworkUnitsPanel /></fieldset>
           <Panel title="Compartilhar somente leitura" description="Link para fundadores e diretoria abrirem sem criar conta" noTilt>
             <div className="share-box">
               <code>{shareUrl}</code>

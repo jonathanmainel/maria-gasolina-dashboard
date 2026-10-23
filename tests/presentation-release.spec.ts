@@ -50,7 +50,8 @@ test('commercial switch and consultation reload preserve media and operational s
   await expect(page.locator('.crm-note').first()).toContainText('Dados comerciais ilustrativos');
   await expect(page.locator('.funnel3d-row')).toHaveCount(10);
   await expect(page.locator('.kpi').filter({hasText:'Receita no período'})).toContainText('760.500,00');
-  await page.getByRole('tab',{name:'Condomínios',exact:true}).click();
+  await page.getByRole('tab',{name:'Places',exact:true}).click();
+  await expect(page.getByLabel('Frente comercial')).toHaveValue('condominium');
   await expect(page.locator('.funnel3d-row')).toHaveCount(8);
   await expect(page.locator('.kpi').filter({hasText:'Receita no período'})).toContainText('108.000,00');
   await page.getByRole('button',{name:'Recarregar dados',exact:true}).click();

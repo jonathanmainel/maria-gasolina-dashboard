@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { presentationLayout, presentationSlides } from "./presentation-layout";
 import type { Creative } from "../types";
+import { commercialFronts } from "./fronts";
+import { crmStages } from "./crm-stages";
 describe('viewport presentation pagination',()=>{
+  it('deriva as cinco frentes e todas as etapas do registro e dos dois modelos compartilhados',()=>{
+    const slides=presentationSlides([],1366,768);
+    for(const {id} of Object.values(commercialFronts)) {
+      const pages=slides.filter(slide=>slide.kind==='crm'&&slide.front===id);
+      expect(pages.length).toBeGreaterThan(0);
+      const represented=pages.flatMap(page=>crmStages(id).slice(page.offset!,page.offset!+page.count!).map(stage=>stage.id));
+      expect(represented).toEqual(crmStages(id).map(stage=>stage.id));
+    }
+  });
   it.each([[1366,768],[1440,900],[1920,1080],[2560,1440],[3840,2160],[3440,1440]])('uses dedicated creative pages in %sx%s',(w,h)=>{
     expect(presentationLayout(w,h).creativeCount).toBe(3);
   });

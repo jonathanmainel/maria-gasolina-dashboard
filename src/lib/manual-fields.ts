@@ -1,6 +1,6 @@
 import type { NumberFieldSpec } from "../components/ui/editable";
 import { closeStage, crmStages, isCommercialClose, isPostSale } from "./crm-stages";
-import type { DeliveryStatus, Front, Goals, ManualFunnelInput, ManualPeriodResults } from "../types";
+import type { DeliveryStatus, CommercialFront, Goals, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // Descrição dos campos manuais em um só lugar: os mesmos rótulos valem para o
 // editor em Metas e ajustes e para o editor do funil dentro de CRM e vendas.
@@ -41,7 +41,7 @@ const stageKey = (id: string) => `stage_${id}`;
 const dayKey = (id: string) => `days_${id}`;
 
 /** Campos do funil de uma frente: volume por etapa, dias por etapa e ticket médio. */
-export function funnelFields(front: Front): NumberFieldSpec[] {
+export function funnelFields(front: CommercialFront): NumberFieldSpec[] {
   const stages = crmStages(front);
   const close = closeStage(stages);
   return [
@@ -57,11 +57,13 @@ export function funnelFields(front: Front): NumberFieldSpec[] {
     })),
     ...stages.filter((stage) => stage.tracksDays).map((stage, index) => ({
       key: dayKey(stage.id),
+      kind: "decimal" as const,
+      optional: true,
       label: stage.name,
       hint: isPostSale(stage) ? "Tempo de implantação — fora do ciclo comercial" : "Tempo médio de permanência na etapa",
       group: index === 0 ? "Tempo médio por etapa (dias)" : undefined,
     })),
-    { key: "avg_ticket", label: "Ticket de referência do contrato", hint: "Usado enquanto não houver receita do período informada. 0 quando a frente não tem taxa direta", kind: "currency" as const, group: "Referência" },
+    { key: "avg_ticket", label: "Ticket de referência do contrato", hint: "Opcional. Deixe vazio se desconhecido; informe 0 apenas quando conhecido.", kind: "currency" as const, optional: true, group: "Referência" },
   ];
 }
 
@@ -70,8 +72,8 @@ export function funnelFields(front: Front): NumberFieldSpec[] {
  * propósito, para deixar explícito que estes números são digitados e não saem
  * da foto do kanban.
  */
-export function resultFields(front: Front): NumberFieldSpec[] {
-  const unit = front === "franchise" ? "franquia" : "condomínio";
+export function resultFields(front: CommercialFront): NumberFieldSpec[] {
+  const unit = "esta frente";
   return [
     { key: "contracts_closed", label: "Contratos fechados no período", hint: `Negócios de ${unit} efetivamente fechados — não é a ocupação da coluna "Contrato"` },
     { key: "revenue", label: "Receita do período", hint: "Faturamento reconhecido no período. Deixe 0 quando a frente não tem taxa direta", kind: "currency" as const },
@@ -84,24 +86,24 @@ export const valuesToResults = (values: Record<string, number>): ManualPeriodRes
   revenue: Math.max(0, values.revenue ?? 0),
 });
 
-export function funnelToValues(front: Front, input: ManualFunnelInput | null): Record<string, number> {
+export function funnelToValues(front: CommercialFront, input: ManualFunnelInput | null): Record<string, number> {
   if (!input) return {};
-  const values: Record<string, number> = { avg_ticket: input.avg_ticket };
+  const values: Record<string, number> = input.avg_ticket == null ? {} : { avg_ticket: input.avg_ticket };
   crmStages(front).forEach((stage) => {
     values[stageKey(stage.id)] = input.stages[stage.id] ?? 0;
-    if (stage.tracksDays) values[dayKey(stage.id)] = input.stage_days[stage.id] ?? 0;
+    if (stage.tracksDays && input.stage_days[stage.id] != null) values[dayKey(stage.id)] = input.stage_days[stage.id];
   });
   return values;
 }
 
-export function valuesToFunnel(front: Front, values: Record<string, number>): ManualFunnelInput {
+export function valuesToFunnel(front: CommercialFront, values: Record<string, number>): ManualFunnelInput {
   const stages: Record<string, number> = {};
   const stageDays: Record<string, number> = {};
   crmStages(front).forEach((stage) => {
     stages[stage.id] = values[stageKey(stage.id)] ?? 0;
-    if (stage.tracksDays) stageDays[stage.id] = values[dayKey(stage.id)] ?? 0;
+    if (stage.tracksDays && values[dayKey(stage.id)] != null) stageDays[stage.id] = values[dayKey(stage.id)];
   });
-  return { stages, stage_days: stageDays, avg_ticket: values.avg_ticket ?? 0 };
+  return { stages, stage_days: stageDays, ...(values.avg_ticket == null ? {} : { avg_ticket: values.avg_ticket }) };
 }
 
 // Conversões diretas: os tipos de negócio são registros planos de números, mas o

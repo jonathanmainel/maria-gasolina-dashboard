@@ -334,7 +334,12 @@ export interface CrmSource {
  * estoque instantâneo, e inventá-los seria pior do que declarar a ausência.
  */
 export interface CrmSummary {
-  front: Front;
+  front: CommercialFront;
+  snapshot_origin?: "manual" | "example" | "unavailable";
+  results_origin?: "manual" | "example" | "unavailable";
+  snapshot_updated_at?: string | null;
+  results_updated_at?: string | null;
+  results_period?: DateRange | null;
   snapshot_available: boolean;
   results_available: boolean;
   /** [SNAPSHOT] Todas as etapas na ordem visual, incluindo a pós-venda. */
@@ -500,7 +505,7 @@ export interface ManualFunnelInput {
    * direta. Serve de referência quando não há resultado informado no período —
    * o ticket exibido passa a ser receita ÷ contratos assim que houver.
    */
-  avg_ticket: number;
+  avg_ticket?: number;
 }
 
 /**

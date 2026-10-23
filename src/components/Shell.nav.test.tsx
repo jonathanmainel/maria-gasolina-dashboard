@@ -38,15 +38,15 @@ const frentes = () => {
 describe("sidebar: FRENTES", () => {
   it("agrupa Place e Expansão e preserva Orgânico e Site", () => {
     renderShell();
-    expect(frentes()).toEqual(["Place", "Expansão", "Orgânico", "Site"]);
-    fireEvent.click(screen.getByRole("button", { name: "Place" }));
+    expect(frentes()).toEqual(["Places", "Expansão", "Orgânico", "Site"]);
+    fireEvent.click(screen.getByRole("button", { name: "Places" }));
     fireEvent.click(screen.getByRole("button", { name: "Expansão" }));
-    expect(frentes()).toEqual(["Place", "Condomínios", "Empresas", "Academias", "Hospitais", "Expansão", "Franquias", "Orgânico", "Site"]);
+    expect(frentes()).toEqual(["Places", "Condomínios", "Empresas", "Academias", "Hospitais", "Expansão", "Franquias", "Orgânico", "Site"]);
   });
 
   it.each([
-    ["condominium", "Condomínios", "Place"], ["company", "Empresas", "Place"],
-    ["gym", "Academias", "Place"], ["hospital", "Hospitais", "Place"],
+    ["condominium", "Condomínios", "Places"], ["company", "Empresas", "Places"],
+    ["gym", "Academias", "Places"], ["hospital", "Hospitais", "Places"],
     ["franchise", "Franquias", "Expansão"],
   ] as const)("abre a categoria e marca o link direto %s", (view, label, category) => {
     const navigate = renderShell(view);
@@ -59,7 +59,7 @@ describe("sidebar: FRENTES", () => {
 
   it("recolhe a categoria ativa sem mudar a página e alterna categorias independentemente", () => {
     const navigate = renderShell("company");
-    const place = screen.getByRole("button", { name: "Place" });
+    const place = screen.getByRole("button", { name: "Places" });
     const expansion = screen.getByRole("button", { name: "Expansão" });
     expect(document.getElementById(place.getAttribute("aria-controls")!)?.hidden).toBe(false);
     fireEvent.click(place);
@@ -81,7 +81,7 @@ describe("sidebar: FRENTES", () => {
 
   it("dá ao Site o mesmo indicador colorido das outras frentes, na cor sky", () => {
     renderShell();
-    fireEvent.click(screen.getByRole("button", { name: "Place" }));
+    fireEvent.click(screen.getByRole("button", { name: "Places" }));
     fireEvent.click(screen.getByRole("button", { name: "Expansão" }));
     const dots = ["franchise", "condominium", "organic", "site"].map((front) => {
       const dot = document.querySelector(`.nav-item .dot.${front}`);
