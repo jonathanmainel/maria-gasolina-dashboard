@@ -322,8 +322,9 @@ function ChannelCard({ name, chip, color, t, p }: { name: string; chip: string; 
 export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank: number; revealed?: boolean }) {
   const tilt = useTilt<HTMLElement>(7);
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageRatio, setImageRatio] = useState<number | null>(null);
   const [zoomed, setZoomed] = useState(false);
-  useEffect(() => { setImageFailed(false); }, [c.preview_url]);
+  useEffect(() => { setImageFailed(false); setImageRatio(null); }, [c.preview_url]);
   const image = c.channel === "meta_ads" && !imageFailed ? viewableImage(c.preview_url ?? null) : null;
   const format = c.channel === "meta_ads" ? c.creative_type : null;
   const formatLabel = format === "dynamic" ? "Dinâmico"
@@ -334,9 +335,9 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
   return (
     <>
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`creative tilt ${rank <= 3 ? "creative-top" : "creative-secondary"}${revealed ? " creative-reveal" : ""}`} style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
-      <div className={`creative-art${format === "video" ? " creative-art-video" : ""}`}>
+      <div className={`creative-art${format === "video" ? " creative-art-video" : ""}${image ? " creative-art-has-preview" : ""}`} style={imageRatio ? { aspectRatio: imageRatio } : undefined}>
         {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
-          <img src={image} alt="" onError={() => { setImageFailed(true); setZoomed(false); }} />
+          <img src={image} alt="" onLoad={event => { const { naturalWidth, naturalHeight } = event.currentTarget; if (naturalWidth > 0 && naturalHeight > 0) setImageRatio(naturalWidth / naturalHeight); }} onError={() => { setImageFailed(true); setZoomed(false); }} />
         </button>}
         <span className="format">{formatLabel}</span>
         <span className={`rank${rank > 3 ? " rank-secondary" : ""}`}>{rank}</span>

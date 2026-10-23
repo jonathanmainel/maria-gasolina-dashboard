@@ -1,3 +1,4 @@
+import { DataRefreshPanel } from "../components/DataRefreshPanel";
 import { AlertTriangle, ArrowRight, BadgeDollarSign, FileSignature, PiggyBank, Target, UserPlus, Wallet, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -75,6 +76,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           <p>Expansão de franquias, captação de condomínios e presença orgânica lado a lado, com o ritmo do mês contra as metas.</p>
         </div>
       </div>
+
+      <DataRefreshPanel range={range} />
 
       {isDemoMode && <div className="demo-note" role="status"><AlertTriangle size={16} /><span><b>Modo demonstração.</b> Os indicadores de mídia, orgânico e CRM são ilustrativos.</span></div>}
 

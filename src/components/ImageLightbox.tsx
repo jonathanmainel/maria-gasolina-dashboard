@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // Visualização ampliada de um recurso de imagem. Vai para `document.body` pelo
@@ -15,11 +15,16 @@ interface Props {
 }
 
 export function ImageLightbox({ src, label, onClose }: Props) {
+  const [lowResolution, setLowResolution] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setLowResolution(false); setFailed(false); }, [src]);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Foco no botão de fechar ao abrir; ao fechar, volta para a miniatura.
     const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -29,6 +34,7 @@ export function ImageLightbox({ src, label, onClose }: Props) {
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
       previous?.focus?.();
     };
   }, [onClose]);
@@ -43,8 +49,8 @@ export function ImageLightbox({ src, label, onClose }: Props) {
           <X size={18} />
         </button>
         <figure>
-          <img src={src} alt={label} />
-          <figcaption>{label}</figcaption>
+          {failed ? <p role="status">Não foi possível carregar esta imagem. Feche e recarregue os dados para tentar novamente.</p> : <img src={src} alt={label} onLoad={event => setLowResolution(Math.max(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight) < 600)} onError={() => setFailed(true)} />}
+          <figcaption>{label}{lowResolution && !failed && <small>Miniatura de baixa resolução. A ampliação não adiciona detalhes à imagem original.</small>}</figcaption>
         </figure>
       </div>
     </div>,

@@ -22,6 +22,9 @@ const CACHE_MS = 5 * 60 * 1000;
 const BATCH_SIZE = 100;
 const signedCache = new Map<string, { url: string; expiresAt: number }>();
 
+/** Invalidate only in-memory signed previews when the member requests fresh data. */
+export function clearCreativePreviewCache() { signedCache.clear(); }
+
 function batches<T>(items: T[]): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += BATCH_SIZE) result.push(items.slice(i, i + BATCH_SIZE));
