@@ -39,7 +39,7 @@ export function PlaceComparisonView({ origin, data, range, channelFilter, onChan
   );
   return <div className="view-enter place-comparison" data-testid="place-comparison">
     <div className="view-head">
-      <div><span className="eyebrow"><i style={{ background: "var(--gold)" }} />Place</span><h1 ref={heading} tabIndex={-1}>Comparar frentes</h1><p>{shortDate(range.start)} a {shortDate(range.end)} · mesmo período e filtro de plataforma para as duas frentes.</p></div>
+      <div><span className="eyebrow"><i style={{ background: "var(--gold)" }} />Places</span><h1 ref={heading} tabIndex={-1}>Comparar frentes</h1><p>{shortDate(range.start)} a {shortDate(range.end)} · mesmo período e filtro de plataforma para as duas frentes.</p></div>
       <button type="button" className="secondary-button" onClick={onClose}><ArrowLeft size={16} />Encerrar comparação</button>
     </div>
     <div className="place-comparison-toolbar">

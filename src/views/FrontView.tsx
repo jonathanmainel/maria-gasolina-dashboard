@@ -1,8 +1,8 @@
-import { isDemoMode } from "../lib/api";
+import { CommercialFunnelPanel } from "../components/CommercialFunnelPanel";
 import { AlertCircle, ArrowLeftRight, ArrowRight, Eye, Info, MousePointerClick, Percent, Target, Wallet, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AnimatedNumber, BarList, ChartTip, Delta, Funnel, Kpi, Pacing, Panel, Segmented, Skeleton, useTilt } from "../components/ui/primitives";
+import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented, Skeleton, useTilt } from "../components/ui/primitives";
 import { compact, integer, money, percent } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
@@ -46,7 +46,7 @@ export function FrontView({ front, data, range, onNavigate }: FrontViewProps) {
   return <>
     {/* Manter a análise montada preserva escala, detalhamento e demais filtros locais. */}
     <div hidden={comparing || blocked} data-testid="front-individual">
-      {isPendingFront(front) ? <UnavailableFrontView key={front} front={front} range={range} {...controls} /> : data?.[front] ? <ConnectedFrontView front={front} data={data} range={range} onNavigate={onNavigate} {...controls} /> : null}
+      {isPendingFront(front) ? <UnavailableFrontView key={front} front={front} range={range} summary={data?.crm?.[front]} {...controls} /> : data?.[front] ? <ConnectedFrontView front={front} data={data} range={range} onNavigate={onNavigate} {...controls} /> : null}
     </div>
     {!comparing && blocked && (data?.isError ? (
       <div className="screen-state error" style={{ minHeight: "60vh" }}><AlertCircle size={30} /><h1>Não foi possível carregar os dados</h1><p>{data.error?.message ?? "Tente novamente em alguns instantes."}</p><button type="button" className="primary-button" onClick={data.refetch}>Tentar novamente</button></div>
@@ -70,7 +70,7 @@ function FrontHeader({ front, channelFilter, onChannelChange, onCompare, compare
   </div>;
 }
 
-function UnavailableFrontView({ front, range, channelFilter, onChannelChange, onCompare, compareButton }: { front: PendingFront; range: DateRange } & FrontControls) {
+function UnavailableFrontView({ front, range, channelFilter, onChannelChange, onCompare, compareButton, summary }: { front: PendingFront; range: DateRange; summary?: import("../types").CrmSummary } & FrontControls) {
   const [chartMode, setChartMode] = useState<"daily" | "weekly" | "monthly">("daily");
   const meta = commercialFronts[front];
   const empty = <div className="empty-state">Dados ainda não disponíveis para esta frente.</div>;
@@ -97,6 +97,7 @@ function UnavailableFrontView({ front, range, channelFilter, onChannelChange, on
     <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={[]} />
     <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Os criativos serão exibidos quando houver anúncios associados.</p></div></div>
     <CreativeRanking creatives={[]} emptyLabel="Nenhum criativo vinculado a esta frente." />
+    <div style={{ marginTop: 24 }}><CommercialFunnelPanel front={front} summary={summary} /></div>
   </div>;
 }
 
@@ -258,13 +259,10 @@ const weeks = useMemo(
       <CreativeRanking creatives={creatives} />
 
       <div className="grid grid-wide" style={{ marginTop: 28 }}>
-        <Panel title={`Funil comercial · ${meta.short}`} description="Do lead ao contrato, com as taxas entre etapas" badge={<span className="badge sky">{isDemoMode ? "CRM Elo · demonstração" : crm.snapshot_available ? "CRM Elo" : "Integração pendente"}</span>}>
-          {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando integração com CRM Elo.</p>}
-          <Funnel stages={crm.stages} color={meta.color} format={integer} dense />
-        </Panel>
+        <CommercialFunnelPanel front={front} summary={crm} />
         <Panel className="fill-body" title="Onde os leads entram" description="Participação de cada origem no funil">
           <BarList items={crm.sources.map((s, i) => ({ name: s.name, value: s.leads, color: [colors.meta, colors.google, colors.instagram, colors.gold][i] }))} format={integer} />
-          <button type="button" className="secondary-button" style={{ marginTop: 16, width: "100%" }} onClick={() => onNavigate("crm")}>Abrir CRM e vendas <ArrowRight size={15} /></button>
+          <button type="button" className="secondary-button" style={{ marginTop: 16, width: "100%" }} onClick={() => onNavigate("crm")}>Abrir Vendas <ArrowRight size={15} /></button>
         </Panel>
       </div>
     </div>

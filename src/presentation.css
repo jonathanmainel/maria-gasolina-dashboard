@@ -107,3 +107,9 @@ body:has(.topbar-refresh-button[aria-busy="true"]) .content-inner { opacity: .78
   .present.responsive-present .grid-3 .kpi-top p { font-size: 9px; }
 }
 @media (prefers-reduced-motion: reduce) { .content-inner { transition: none; } }
+
+.presentation-commercial-head { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+.presentation-commercial-head .presentation-source { margin:0; }
+.presentation-commercial-head .commercial-selection { align-items:center; gap:8px; }
+.presentation-commercial-head .sales-front-select { font-size:10px; }
+@media(max-width:640px) { .presentation-commercial-head { flex-wrap:wrap; } }

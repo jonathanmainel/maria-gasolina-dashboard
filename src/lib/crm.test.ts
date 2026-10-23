@@ -1,3 +1,4 @@
+import { crmStages } from "./crm-stages";
 import { describe, expect, it } from "vitest";
 import { buildCrmSummary, slowestCommercialStage } from "./crm";
 import { defaultFunnel, defaultResults } from "./manual-funnel";
@@ -182,7 +183,7 @@ describe("funil de Condomínios", () => {
 });
 
 describe("estado vazio", () => {
-  it("não quebra nem produz NaN sem snapshot e sem resultado", () => {
+  it("preserva zeros informados sem inventar tempos desconhecidos", () => {
     const empty = buildCrmSummary("condominium", { stages: {}, stage_days: {}, avg_ticket: 0 }, NO_RESULTS, { rows: [] });
     expect(empty.stages).toHaveLength(8);
     expect(empty.stages.every((stage) => stage.count === 0)).toBe(true);
@@ -190,10 +191,15 @@ describe("estado vazio", () => {
     expect(empty.contracts).toBe(0);
     expect(empty.revenue).toBe(0);
     expect(empty.avg_ticket).toBe(0);
-    expect(empty.avg_cycle_days).toBe(0);
+    expect(empty.avg_cycle_days).toBeNull();
     expect(empty.monthly).toEqual([]);
     expect(empty.sources).toEqual([]);
     expect(slowestCommercialStage(empty.stages)).toBeNull();
+  });
+
+  it("tempos explicitamente zerados formam ciclo conhecido de zero dias", () => {
+    const stage_days = Object.fromEntries(crmStages("condominium").filter(stage => stage.tracksDays).map(stage => [stage.id, 0]));
+    expect(buildCrmSummary("condominium", { stages: {}, stage_days }, null, { rows: [] }).avg_cycle_days).toBe(0);
   });
 
   it("valores negativos são travados em zero nos dois blocos", () => {

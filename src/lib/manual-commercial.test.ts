@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { demoManualData, loadManualData, normalize, saveManualData } from "./manual-inputs";
-const state = vi.hoisted(() => ({ demo: false, remote: false, payload: null as unknown, writes: [] as Array<Record<string, unknown>>, filters: [] as unknown[] }));
+const state = vi.hoisted(() => ({ demo: false, remote: false, ready: false, role: "viewer", writeError: null as null | {code:string;message:string}, payload: null as unknown, writes: [] as Array<Record<string, unknown>>, filters: [] as unknown[] }));
 vi.mock("./api", () => ({ CLIENT_SLUG: "maria-gasolina", get isDemoMode() { return state.demo; } }));
+vi.mock("./commercial-access", () => ({ loadCommercialAccess: async () => ({
+  role:state.role, policyReady:state.ready, canEdit:state.ready && ["editor","admin"].includes(state.role), clientId:1,userId:"test-author",
+}) }));
 vi.mock("./supabase", () => {
   const client = { from(table: string) {
     const chain = {
       select: () => chain,
       eq: (key: string, value: unknown) => { state.filters.push([table, key, value]); return chain; },
       maybeSingle: async () => ({ data: table === "dashboard_clients" ? { id: 1 } : state.payload == null ? null : { payload: state.payload }, error: null }),
-      upsert: async (value: Record<string, unknown>) => { state.writes.push(value); return { error: null }; },
+      upsert: async (value: Record<string, unknown>) => { state.writes.push(value); return { error: state.writeError }; },
     };
     return chain;
   } };
@@ -20,7 +23,7 @@ const settingsKey = "mg-dashboard-settings-v2:maria-gasolina";
 const demoKey = "mg-dashboard-demo-v1:maria-gasolina";
 const legacy = { ...demoManualData, goals: { ...demoManualData.goals, media_budget: 12345 }, delivery: { ...demoManualData.delivery, posts_published: 8 } };
 const ownedKeys = [legacyKey, settingsKey, demoKey, "mg-dashboard-theme", "sb-test-auth-token", "other-client-cache"];
-beforeEach(() => { state.demo = false; state.remote = false; state.payload = null; state.writes = []; state.filters = []; });
+beforeEach(() => { state.demo = false; state.remote = false; state.ready=false; state.role="viewer"; state.writeError=null; state.payload = null; state.writes = []; state.filters = []; });
 afterEach(() => { for (const key of ownedKeys) localStorage.removeItem(key); });
 
 describe("limpeza e invalidacao comercial limitada a Maria Gasolina", () => {
@@ -41,6 +44,7 @@ describe("limpeza e invalidacao comercial limitada a Maria Gasolina", () => {
   });
   it("salvar metas nao reintroduz comercio no novo cache nem altera a chave legada", async () => {
     const raw = JSON.stringify(legacy); localStorage.setItem(legacyKey, raw);
+    state.remote=true; state.ready=true; state.role="editor";
     await saveManualData(legacy);
     const saved = JSON.parse(localStorage.getItem(settingsKey)!);
     expect(saved).not.toHaveProperty("funnel"); expect(saved).not.toHaveProperty("results");
@@ -71,7 +75,7 @@ describe("limpeza e invalidacao comercial limitada a Maria Gasolina", () => {
     expect(result.data.results.franchise).toBeNull(); expect(state.payload).toBe(legacy); expect(state.writes).toEqual([]);
   });
   it("salvamento remoto de configuracoes limita cliente e exclui blocos comerciais", async () => {
-    state.remote = true;
+    state.remote = true; state.ready=true; state.role="editor";
     await saveManualData(legacy);
     expect(state.writes).toHaveLength(1);
     expect(state.writes[0]).toMatchObject({ client_id: 1, scope: "business", payload: { goals: legacy.goals, delivery: legacy.delivery } });
@@ -91,5 +95,29 @@ describe("ausencia explicita e prioridade das configuracoes", () => {
     const result = await loadManualData();
     expect(result.data.goals.media_budget).toBe(43210); expect(result.data.results.franchise).toBeNull();
     expect(localStorage.getItem(legacyKey)).toBe(raw);
+  });
+});
+
+describe("permissões de persistência de metas e configurações",()=>{
+  it.each(["viewer","editor","admin"])("%s não grava antes da liberação operacional",async role=>{
+    state.remote=true;state.role=role;
+    await expect(saveManualData(legacy)).rejects.toThrow("bloqueada");
+    expect(state.writes).toEqual([]);expect(localStorage.getItem(settingsKey)).toBeNull();
+  });
+  it("viewer não grava mesmo com política liberada",async()=>{
+    state.remote=true;state.ready=true;
+    await expect(saveManualData(legacy)).rejects.toThrow("somente leitura");expect(state.writes).toEqual([]);
+  });
+  it.each(["editor","admin"])("%s grava no cliente autorizado e mantém valores",async role=>{
+    state.remote=true;state.ready=true;state.role=role;
+    const result=await saveManualData(legacy);
+    expect(result.storage).toBe("supabase");expect(state.writes[0].client_id).toBe(1);
+    expect(result.data.goals).toEqual(legacy.goals);
+  });
+  it.each(["42501","42P01"])("falha %s não vira sucesso local",async code=>{
+    state.remote=true;state.ready=true;state.role="editor";state.writeError={code,message:"gravação recusada"};
+    const raw=JSON.stringify(legacy);localStorage.setItem(legacyKey,raw);
+    await expect(saveManualData(legacy)).rejects.toMatchObject({code});
+    expect(localStorage.getItem(settingsKey)).toBeNull();expect(localStorage.getItem(legacyKey)).toBe(raw);
   });
 });

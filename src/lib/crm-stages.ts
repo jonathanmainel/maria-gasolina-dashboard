@@ -1,4 +1,5 @@
-import type { Front } from "../types";
+import { commercialFronts, type CrmModel } from "./fronts";
+import type { CommercialFront } from "../types";
 
 // ---------------------------------------------------------------------------
 // Definição central das etapas do CRM
@@ -18,14 +19,14 @@ import type { Front } from "../types";
 export type CrmStageKind =
   /** Etapa do processo comercial, antes do fechamento. */
   | "commercial"
-  /** Fechamento comercial: é esta etapa que define contratos, receita e conversão. */
+  /** Coluna do fechamento no snapshot; contratos e receita do período são registros separados. */
   | "close"
   /** Depois do contrato assinado. Visível no funil, fora de todo KPI comercial. */
   | "post_sale";
 
 /**
  * Papel adicional que outras telas precisam localizar sem contar posições.
- * `top` é a entrada do funil (base da conversão) e `visit` é a etapa de
+ * `top` identifica a coluna de entrada, sem inferir conversão, e `visit` é a etapa de
  * visita/call — o equivalente mais próximo de "reunião" que existe nas duas
  * frentes, com nomes diferentes em cada uma.
  */
@@ -46,8 +47,8 @@ export interface CrmStageDefinition {
  * Ordem exata dos dois funis. A ordem do array é a ordem visual do funil — a
  * única coisa que a posição ainda determina.
  */
-export const crmStageDefinitions: Record<Front, CrmStageDefinition[]> = {
-  franchise: [
+export const crmModels: Record<CrmModel, CrmStageDefinition[]> = {
+  expansion: [
     { id: "lead", name: "Lead", kind: "commercial", tracksDays: true, role: "top" },
     { id: "contact", name: "Contato", kind: "commercial", tracksDays: true },
     { id: "recall", name: "Recall", kind: "commercial", tracksDays: true },
@@ -59,7 +60,7 @@ export const crmStageDefinitions: Record<Front, CrmStageDefinition[]> = {
     { id: "contract", name: "Contrato", kind: "close", tracksDays: false },
     { id: "implementation", name: "Implantação", kind: "post_sale", tracksDays: true },
   ],
-  condominium: [
+  places: [
     { id: "lead", name: "Lead", kind: "commercial", tracksDays: true, role: "top" },
     { id: "contact", name: "Contato", kind: "commercial", tracksDays: true },
     { id: "recall", name: "Recall", kind: "commercial", tracksDays: true },
@@ -79,12 +80,14 @@ export const isPostSale = (stage: StageLike) => stage.kind === "post_sale";
 /** Tudo o que acontece até o contrato, inclusive ele: o processo comercial. */
 export const isCommercialStage = (stage: StageLike) => stage.kind !== "post_sale";
 
-export const crmStages = (front: Front) => crmStageDefinitions[front];
+export const crmStageDefinitions = Object.fromEntries(Object.values(commercialFronts).map((front) => [front.id, crmModels[front.funnelModel]])) as Record<CommercialFront, CrmStageDefinition[]>;
+
+export const crmStages = (front: CommercialFront) => crmStageDefinitions[front];
 
 /** Rótulos na ordem do funil. Usado por rotulagem e testes de nomenclatura. */
-export const crmStageNames = (front: Front) => crmStages(front).map((stage) => stage.name);
+export const crmStageNames = (front: CommercialFront) => crmStages(front).map((stage) => stage.name);
 
-/** Entrada do funil: denominador da conversão e base da série mensal. */
+/** Coluna de entrada do snapshot; não representa os leads captados no período. */
 export function topStage<T extends StageLike>(stages: T[]): T {
   return stages.find((stage) => stage.role === "top") ?? stages[0];
 }

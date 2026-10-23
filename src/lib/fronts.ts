@@ -2,11 +2,13 @@ import { Building2, BriefcaseBusiness, Dumbbell, Hospital, Rocket, type LucideIc
 import type { CommercialFront, Front, PendingFront } from "../types";
 
 export type CommercialCategory = "place" | "expansion";
+export type CrmModel = "places" | "expansion";
 
 interface FrontDefinition {
   id: CommercialFront;
   view: CommercialFront;
   category: CommercialCategory;
+  funnelModel: CrmModel;
   order: number;
   icon: LucideIcon;
   dataAvailability: "connected" | "unavailable";
@@ -25,32 +27,32 @@ interface FrontDefinition {
 // métricas/funis e não habilita fontes para as frentes ainda sem dados.
 export const commercialFronts: Record<CommercialFront, FrontDefinition> = {
   condominium: {
-    id: "condominium", view: "condominium", category: "place", order: 1, icon: Building2,
+    id: "condominium", view: "condominium", category: "place", funnelModel: "places", order: 1, icon: Building2,
     dataAvailability: "connected", label: "Captação de condomínios", short: "Condomínios",
     accent: "gold", color: "var(--gold)", description: "Tráfego pago para captar indicações de síndicos e condomínios", leadWord: "indicações",
     title: "Indicações de condomínios,", emphasis: "do síndico à loja",
     introduction: "Campanhas para síndicos, administradoras e moradores das capitais prioritárias. Resultado abaixo é indicação registrada no formulário com UTM.",
   },
   company: {
-    id: "company", view: "company", category: "place", order: 2, icon: BriefcaseBusiness,
+    id: "company", view: "company", category: "place", funnelModel: "places", order: 2, icon: BriefcaseBusiness,
     dataAvailability: "unavailable", label: "Empresas", short: "Empresas", accent: "gold", color: "var(--gold)",
-    description: "Place · Empresas", leadWord: "leads", title: "Empresas",
+    description: "Places · Empresas", leadWord: "leads", title: "Empresas",
     introduction: "Os indicadores serão exibidos quando houver dados associados.",
   },
   gym: {
-    id: "gym", view: "gym", category: "place", order: 3, icon: Dumbbell,
+    id: "gym", view: "gym", category: "place", funnelModel: "places", order: 3, icon: Dumbbell,
     dataAvailability: "unavailable", label: "Academias", short: "Academias", accent: "gold", color: "var(--gold)",
-    description: "Place · Academias", leadWord: "leads", title: "Academias",
+    description: "Places · Academias", leadWord: "leads", title: "Academias",
     introduction: "Os indicadores serão exibidos quando houver dados associados.",
   },
   hospital: {
-    id: "hospital", view: "hospital", category: "place", order: 4, icon: Hospital,
+    id: "hospital", view: "hospital", category: "place", funnelModel: "places", order: 4, icon: Hospital,
     dataAvailability: "unavailable", label: "Hospitais", short: "Hospitais", accent: "gold", color: "var(--gold)",
-    description: "Place · Hospitais", leadWord: "leads", title: "Hospitais",
+    description: "Places · Hospitais", leadWord: "leads", title: "Hospitais",
     introduction: "Os indicadores serão exibidos quando houver dados associados.",
   },
   franchise: {
-    id: "franchise", view: "franchise", category: "expansion", order: 1, icon: Rocket,
+    id: "franchise", view: "franchise", category: "expansion", funnelModel: "expansion", order: 1, icon: Rocket,
     dataAvailability: "connected", label: "Expansão de franquias", short: "Franquias",
     accent: "red", color: "var(--red)", description: "Tráfego pago para captar candidatos a franqueado", leadWord: "candidatos",
     title: "Candidatos a franqueado,", emphasis: "do clique ao contrato",
@@ -59,7 +61,7 @@ export const commercialFronts: Record<CommercialFront, FrontDefinition> = {
 };
 
 export const commercialCategories = [
-  { id: "place", label: "Place", icon: Building2 },
+  { id: "place", label: "Places", icon: Building2 },
   { id: "expansion", label: "Expansão", icon: Rocket },
 ] as const;
 
