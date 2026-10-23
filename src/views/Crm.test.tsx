@@ -168,6 +168,27 @@ describe("editor manual em demonstracao", () => {
 
 
 describe("CRM operacional sem registros comerciais", () => {
+  it("mantém os leads reais por canal e mês ao ligar e desligar os funis ilustrativos", () => {
+    const rows = [
+      {date:'2026-10-22',front:'franchise' as const,channel:'meta_ads' as const,spend:100,leads:50,clicks:100,impressions:1000,reach:900},
+      {date:'2026-10-22',front:'franchise' as const,channel:'google_ads' as const,spend:100,leads:20,clicks:100,impressions:1000,reach:900},
+    ];
+    const real = {...data,crm:{...data.crm,franchise:buildCrmSummary('franchise',null,null,{rows})}};
+    const before = JSON.stringify(real);
+    render(<CrmView data={real} readOnly />);
+    const sources = screen.getByRole('heading',{name:'Origem dos leads de mídia'}).closest('.panel')!;
+    const monthly = screen.getByRole('heading',{name:'Leads de mídia mês a mês'}).closest('.panel')!;
+    const sourceText = sources.textContent;
+    expect(sourceText).toContain('Meta Ads'); expect(sourceText).toContain('Google Ads');
+    fireEvent.click(screen.getByRole('button',{name:'Visualizar funis ilustrativos'}));
+    expect(screen.getAllByText(/Dados comerciais ilustrativos/).length).toBeGreaterThan(0);
+    expect(sources.textContent).toBe(sourceText);
+    expect(monthly.textContent).not.toContain('Nenhum lead');
+    fireEvent.click(screen.getByRole('button',{name:'Voltar aos dados reais'}));
+    expect(sources.textContent).toBe(sourceText);
+    expect(JSON.stringify(real)).toBe(before);
+    expect(screen.queryByRole('button',{name:/Editar dados/})).toBeNull();
+  });
   it("mantem etapas e navegacao sem indicadores ficticios nem editor manual", () => {
     const empty = { ...data, crm: {
       franchise: buildCrmSummary("franchise", null, null, { rows: [] }),

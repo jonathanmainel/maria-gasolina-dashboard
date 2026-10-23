@@ -48,3 +48,5 @@ Registrar novamente o SHA de `main` imediatamente antes do merge. Em regressão 
 - Fullscreen, saída, setas, pausa e retorno do foco do modal aprovados. Viewports reduzidas não apresentaram sobreposição de funis ou quebra de KPIs.
 
 A verificação em uma sessão real autenticada de produção deve ser registrada separadamente após o deploy; os testes com respostas controladas não equivalem a esse acesso.
+
+Na homologação autenticada do primeiro deploy, foi detectado que o resumo ilustrativo esvaziava os gráficos de leads reais da própria tela Vendas. A correção mantém esses gráficos ligados à fonte operacional, enquanto apenas funil e resultados comerciais usam os exemplos. Um teste de regressão cobre a ativação/desativação, a preservação dos canais e meses e a ausência de alteração da fonte real. Base para esta correção: `9e492cb6c58e6d027036520aab70aed08cdba5fa`.

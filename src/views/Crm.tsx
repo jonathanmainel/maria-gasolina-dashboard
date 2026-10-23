@@ -34,6 +34,7 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
   const illustrative = onCommercialDemoChange ? commercialDemo : localDemo;
   const setIllustrative = (next: boolean) => { setLocalDemo(next); onCommercialDemoChange?.(next); };
   const crm = illustrative ? commercialDemoSummary(front) : data.crm[front];
+  const media = data.crm[front];
   const meta = frontMeta[front];
   const contractsGoal = front === "franchise" ? goals.contracts_franchise : goals.contracts_condominium;
   // Implantação é pós-venda: fica fora do ciclo e da etapa mais demorada.
@@ -158,10 +159,10 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
 
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
         <Panel className="fill-chart" title="Leads de mídia mês a mês" description="Volume real gerado por Meta Ads e Google Ads. Contratos e receita mensais não aparecem aqui: só existem para o período informado, sem série histórica no CRM.">
-          {crm.monthly.length ? (
+          {media.monthly.length ? (
             <div className="chart-box h-320">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={crm.monthly.map((m) => ({ label: m.month, Leads: m.leads }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                <BarChart data={media.monthly.map((m) => ({ label: m.month, Leads: m.leads }))} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={colors.grid} vertical={false} />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: colors.tick, fontSize: 10.5 }} dy={8} />
                   <YAxis tickLine={false} axisLine={false} width={40} tick={{ fill: colors.tick, fontSize: 10 }} />
@@ -176,9 +177,9 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
         </Panel>
         <div className="panel-stack">
           <Panel title="Origem dos leads de mídia" description="Qual canal gerou os leads do período">
-            {crm.sources.length ? (
+            {media.sources.length ? (
               <>
-                <BarList items={crm.sources.map((source, index) => ({ name: source.name, value: source.leads, color: [colors.meta, colors.google, colors.instagram, colors.gold][index] }))} format={integer} />
+                <BarList items={media.sources.map((source, index) => ({ name: source.name, value: source.leads, color: [colors.meta, colors.google, colors.instagram, colors.gold][index] }))} format={integer} />
                 <p className="manual-foot">A origem dos <b>contratos</b> não aparece aqui: sem atribuição no CRM, não há como saber de qual canal veio quem fechou, e dividir os contratos na proporção dos leads seria inventar.</p>
               </>
             ) : (
