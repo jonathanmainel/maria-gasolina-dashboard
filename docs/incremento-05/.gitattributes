@@ -1,0 +1,2 @@
+# Keep the approved SQL package byte-for-byte, including its line endings.
+*.sql -text whitespace=cr-at-eol,-blank-at-eof

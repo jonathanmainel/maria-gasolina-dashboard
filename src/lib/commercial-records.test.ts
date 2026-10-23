@@ -79,4 +79,3 @@ describe("prévia e permissões",()=>{
  it.each([null,"viewer","editor","admin"] as const)("perfil %s fica bloqueado sem a nova RLS",role=>{expect(resolveCommercialAccess(role,false).canEdit).toBe(false);expect(resolveCommercialAccess(role,false).canManage).toBe(false);});
  it.each([null,"viewer","editor","admin"] as const)("perfil %s respeita suas capacidades após a liberação",role=>{const access=resolveCommercialAccess(role,true);expect(access.canEdit).toBe(role==="editor"||role==="admin");expect(access.canManage).toBe(role==="admin");});
 });
-
