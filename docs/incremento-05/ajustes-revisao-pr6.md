@@ -30,6 +30,8 @@ As verificações finais no HEAD enviado incluem TypeScript, suíte unitária/co
 
 Os novos testes não gravam no Supabase: exercitam respostas controladas e demo com rede externa bloqueada. Não foi reaberto o sandbox congelado nem executado SQL para provar uma nova escrita remota. A homologação real de RLS previamente aceita permanece registrada nos relatórios históricos. Antes de liberar produção, a verificação controlada deverá também exigir uma representação correta do salvamento autorizado.
 
+A regressão publicada de troca de exemplos/recarga foi estabilizada: aguarda a conclusão da consulta antes de registrar o texto de sincronização e fixa somente o relógio da fixture. O demo calcula essa data a partir de `Date.now()`. Nenhuma asserção de preservação foi removida; nenhuma lógica de sincronização, mídia ou apresentação foi alterada. Isso evita comparar o placeholder inicial com o valor carregado e impede variação de minuto durante o cenário.
+
 ## Preservação e pendências
 
 - `COMMERCIAL_ACCESS_POLICY_READY = false` e `NETWORK_UNITS_IMPORT_READY = false`.
