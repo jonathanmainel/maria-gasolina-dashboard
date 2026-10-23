@@ -23,13 +23,22 @@ A regra local `docs/incremento-05/.gitattributes` desativa a conversão de quebr
 | Vendas | Operação somente leitura para todos; prévia comercial disponível | viewer consulta; editor/admin inserem e atualizam; somente admin exclui um registro comercial confirmado |
 | Metas | Valores preservados, editor indisponível | viewer consulta; editor/admin alteram `business`; nenhum perfil exclui metas |
 | Configurações manuais/conteúdos | Mesmo bloqueio de Metas | Mesmo contrato de escrita `business`, sem DELETE |
-| Importação de unidades | Seletor da interface bloqueado | Endpoint próprio existente; precisa de validação separada antes da liberação desse recurso |
+| Importação de unidades | Trava própria `NETWORK_UNITS_IMPORT_READY = false` | Continua indisponível mesmo após liberar Vendas/Metas; endpoint e permissões precisam de homologação separada |
 | Preferências locais e compartilhamento | Continuam disponíveis | Não concedem acesso ao banco |
 | Exemplos comerciais | Identificados, reversíveis, sem gravação operacional | Permanecem disponíveis; prévia não permite edição/exclusão operacional |
 
-Antes de cada gravação comercial ou de `business`, o cliente revalida sessão e vínculo. A RLS é a autoridade final; esconder controles não corrige as políticas antigas. Erros remotos não viram sucesso local operacional. DELETE exige cliente e scope exatos e a representação de uma linha. `business` nunca é alvo da exclusão comercial.
+Antes de cada gravação comercial ou de `business`, o cliente revalida sessão e vínculo. A RLS é a autoridade final; esconder controles não corrige as políticas antigas. INSERT/UPDATE exigem uma única linha retornada com cliente, scope e payload iguais aos enviados; a ordem das chaves JSON não interfere. Retorno vazio/nulo, múltiplo ou divergente impede confirmação, mensagem de sucesso e atualização de caches. Erros remotos não viram sucesso local operacional. DELETE exige cliente e scope exatos e a representação de uma linha. `business` nunca é alvo da exclusão comercial.
 
 O modo global demo usa armazenamento local separado. Os exemplos de Franquias e Condomínios não substituem os gráficos operacionais de canais/meses; Empresas, Academias e Hospitais não recebem números inventados. O consolidado executivo identifica seu escopo atual de Franquias e Condomínios.
+
+## Ajustes solicitados na revisão do Draft PR #6
+
+- Persistência de Vendas e `business`: `upsert(...).select("client_id,scope,payload")`, com confirmação estrita da representação do banco antes de concluir a mutação. O caminho demo, os formulários, as chaves e a política de atualização dos caches permanecem iguais.
+- Importação de unidades: gate próprio falso, independente do gate comercial e do papel. Interface indisponível inclusive no demo; nenhum endpoint, handler de importação ou permissão do serviço foi alterado.
+- Compartilhamento: `?share=1` muda somente os controles visíveis. Na operação, login e vínculo autorizado continuam obrigatórios. Não existe token público assinado/revogável nesse link; os textos foram corrigidos. Não foi implementado acesso público.
+- `COMMERCIAL_ACCESS_POLICY_READY = false` permanece. A RLS v3 e todos os SQLs homologados continuam sem alteração.
+
+Detalhes, cobertura e limites em [ajustes-revisao-pr6.md](./ajustes-revisao-pr6.md). As contagens finais e o HEAD validado ficam no relatório de entrega e no corpo do Draft PR.
 
 ## Pacote de produção a revisar — não executar nesta etapa
 

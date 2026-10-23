@@ -4,6 +4,7 @@ import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import {SettingsView} from './Settings';
 import {ManualNumbersPanel} from '../components/ui/editable';
 import {resolveCommercialAccess} from '../lib/commercial-access';
+import {NETWORK_UNITS_IMPORT_READY} from '../lib/network-import-access';
 import {demoGoals,demoDelivery} from '../data/demo';
 const save=vi.hoisted(()=>vi.fn(async (_:unknown)=>undefined));
 const manual={goals:demoGoals,delivery:demoDelivery,funnel:{franchise:null,condominium:null},results:{franchise:null,condominium:null}};
@@ -36,11 +37,30 @@ describe('permissoes de Metas e Configuracoes',()=>{
  it.each(['editor','admin'] as const)('%s pode editar e enviar metas quando liberado',async role=>{
   render(<SettingsView {...props} access={resolveCommercialAccess(role,true)} />);
   expect(screen.getAllByRole('button',{name:'Editar dados'})).toHaveLength(2);
-  expect(screen.getByLabelText('Planilha de unidades').matches(':disabled')).toBe(false);
+  expect(NETWORK_UNITS_IMPORT_READY).toBe(false);
+  expect(screen.getByLabelText('Planilha de unidades').matches(':disabled')).toBe(true);
+  expect(screen.getByText('Importação de unidades indisponível até a homologação específica deste serviço.')).not.toBeNull();
   fireEvent.click(screen.getAllByRole('button',{name:'Editar dados'})[0]);
   fireEvent.change(screen.getByLabelText('Verba de mídia mensal'),{target:{value:'12345'}});
   fireEvent.click(screen.getByRole('button',{name:'Salvar metas'}));
   await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({goals:expect.objectContaining({media_budget:12345}),delivery:manual.delivery})));
+ });
+ it('compartilhamento descreve login obrigatório sem prometer acesso público',()=>{
+  render(<SettingsView {...props} access={resolveCommercialAccess('viewer',true)} />);
+  expect(screen.getByText('Link para pessoas já autorizadas a acessar este dashboard')).not.toBeNull();
+  expect(screen.getByText(/O login com uma conta autorizada continua obrigatório/)).not.toBeNull();
+  expect(document.body.textContent).not.toMatch(/token assinado|sem criar conta|pode ser revogado/);
+  expect(screen.getByText(props.shareUrl)).not.toBeNull();
+ });
+ it('falha de confirmação mantém rascunho e não mostra sucesso no formulário',async()=>{
+  save.mockRejectedValueOnce(new Error('Não foi possível confirmar a gravação.'));
+  render(<SettingsView {...props} access={resolveCommercialAccess('editor',true)} />);
+  fireEvent.click(screen.getAllByRole('button',{name:'Editar dados'})[0]);
+  fireEvent.change(screen.getByLabelText('Verba de mídia mensal'),{target:{value:'999'}});
+  fireEvent.click(screen.getByRole('button',{name:'Salvar metas'}));
+  await screen.findByText('Não foi possível confirmar a gravação.');
+  expect((screen.getByLabelText('Verba de mídia mensal') as HTMLInputElement).value).toBe('999');
+  expect(screen.queryByText('Valores salvos. As telas já refletem os novos números.')).toBeNull();
  });
  it('revogacao fecha rascunho e impede envio sem apagar o valor exibido',()=>{
   const onSave=vi.fn(async()=>undefined);const fields=[{key:'budget',label:'Verba',kind:'currency' as const}];

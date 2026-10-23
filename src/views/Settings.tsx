@@ -8,6 +8,7 @@ import {
 } from "../lib/manual-fields";
 import { useManualData, useSaveManualData } from "../lib/manual-inputs";
 import { useTheme } from "../theme";
+import { NETWORK_UNITS_IMPORT_READY } from "../lib/network-import-access";
 import type { CommercialAccess } from "../lib/commercial-access";
 import type { ManualBusinessData } from "../types";
 
@@ -97,13 +98,14 @@ export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string
           />
         </div>
         <div className="panel-stack">
-          <fieldset disabled={!editable} aria-label="Importação da base de unidades" style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}><NetworkUnitsPanel /></fieldset>
-          <Panel title="Compartilhar somente leitura" description="Link para fundadores e diretoria abrirem sem criar conta" noTilt>
+          <fieldset disabled={!NETWORK_UNITS_IMPORT_READY || !editable} aria-label="Importação da base de unidades" style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}><NetworkUnitsPanel /></fieldset>
+          {!NETWORK_UNITS_IMPORT_READY && <p className="commercial-access-note" role="status">Importação de unidades indisponível até a homologação específica deste serviço.</p>}
+          <Panel title="Compartilhar visualização somente leitura" description="Link para pessoas já autorizadas a acessar este dashboard" noTilt>
             <div className="share-box">
               <code>{shareUrl}</code>
               <button type="button" className="secondary-button" onClick={() => void copy()}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copiado" : "Copiar link"}</button>
             </div>
-            <p style={{ margin: "10px 0 0", color: "var(--muted)", fontSize: 11 }}><Link2 size={12} style={{ verticalAlign: -2 }} /> Em produção o link carrega um token assinado com validade e pode ser revogado.</p>
+            <p style={{ margin: "10px 0 0", color: "var(--muted)", fontSize: 11 }}><Link2 size={12} style={{ verticalAlign: -2 }} /> O link abre a interface sem controles de edição. O login com uma conta autorizada continua obrigatório.</p>
           </Panel>
           <Panel title="Apresentação e exportação" noTilt>
             <div style={{ display: "grid", gap: 10 }}>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { demoManualData, loadManualData, normalize, saveManualData } from "./manual-inputs";
-const state = vi.hoisted(() => ({ demo: false, remote: false, ready: false, role: "viewer", writeError: null as null | {code:string;message:string}, payload: null as unknown, writes: [] as Array<Record<string, unknown>>, filters: [] as unknown[] }));
+const state = vi.hoisted(() => ({ demo: false, remote: false, ready: false, role: "viewer", writeResponse: "expected", writeError: null as null | {code:string;message:string}, payload: null as unknown, writes: [] as Array<Record<string, unknown>>, filters: [] as unknown[] }));
 vi.mock("./api", () => ({ CLIENT_SLUG: "maria-gasolina", get isDemoMode() { return state.demo; } }));
 vi.mock("./commercial-access", () => ({ loadCommercialAccess: async () => ({
   role:state.role, policyReady:state.ready, canEdit:state.ready && ["editor","admin"].includes(state.role), clientId:1,userId:"test-author",
@@ -12,7 +12,17 @@ vi.mock("./supabase", () => {
       select: () => chain,
       eq: (key: string, value: unknown) => { state.filters.push([table, key, value]); return chain; },
       maybeSingle: async () => ({ data: table === "dashboard_clients" ? { id: 1 } : state.payload == null ? null : { payload: state.payload }, error: null }),
-      upsert: async (value: Record<string, unknown>) => { state.writes.push(value); return { error: state.writeError }; },
+      upsert: (value: Record<string, unknown>) => { state.writes.push(value); return { select: async (columns: string) => {
+        state.filters.push(["returning", columns]);
+        if (state.writeError) return { data: null, error: state.writeError };
+        if (state.writeResponse === "empty") return { data: [], error: null };
+        if (state.writeResponse === "null") return { data: null, error: null };
+        const returned = structuredClone(value);
+        if (state.writeResponse === "client") returned.client_id = 2;
+        if (state.writeResponse === "scope") returned.scope = "crm_snap_company";
+        if (state.writeResponse === "payload") (returned.payload as any).goals.media_budget += 1;
+        return { data: state.writeResponse === "multiple" ? [returned, returned] : [returned], error: null };
+      } }; },
     };
     return chain;
   } };
@@ -23,7 +33,7 @@ const settingsKey = "mg-dashboard-settings-v2:maria-gasolina";
 const demoKey = "mg-dashboard-demo-v1:maria-gasolina";
 const legacy = { ...demoManualData, goals: { ...demoManualData.goals, media_budget: 12345 }, delivery: { ...demoManualData.delivery, posts_published: 8 } };
 const ownedKeys = [legacyKey, settingsKey, demoKey, "mg-dashboard-theme", "sb-test-auth-token", "other-client-cache"];
-beforeEach(() => { state.demo = false; state.remote = false; state.ready=false; state.role="viewer"; state.writeError=null; state.payload = null; state.writes = []; state.filters = []; });
+beforeEach(() => { state.demo = false; state.remote = false; state.ready=false; state.role="viewer"; state.writeResponse="expected"; state.writeError=null; state.payload = null; state.writes = []; state.filters = []; });
 afterEach(() => { for (const key of ownedKeys) localStorage.removeItem(key); });
 
 describe("limpeza e invalidacao comercial limitada a Maria Gasolina", () => {
@@ -113,6 +123,14 @@ describe("permissões de persistência de metas e configurações",()=>{
     const result=await saveManualData(legacy);
     expect(result.storage).toBe("supabase");expect(state.writes[0].client_id).toBe(1);
     expect(result.data.goals).toEqual(legacy.goals);
+    expect(state.filters).toContainEqual(["returning", "client_id,scope,payload"]);
+  });
+  it.each(["empty", "null", "client", "scope", "payload", "multiple"])("resposta %s não confirma metas e preserva caches anteriores", async response => {
+    state.remote=true;state.ready=true;state.role="editor";state.writeResponse=response;
+    const previous=JSON.stringify({goals:{...legacy.goals,media_budget:67890},delivery:legacy.delivery});
+    const old=JSON.stringify(legacy);localStorage.setItem(settingsKey,previous);localStorage.setItem(legacyKey,old);
+    await expect(saveManualData(legacy)).rejects.toThrow("Não foi possível confirmar a gravação");
+    expect(localStorage.getItem(settingsKey)).toBe(previous);expect(localStorage.getItem(legacyKey)).toBe(old);
   });
   it.each(["42501","42P01"])("falha %s não vira sucesso local",async code=>{
     state.remote=true;state.ready=true;state.role="editor";state.writeError={code,message:"gravação recusada"};

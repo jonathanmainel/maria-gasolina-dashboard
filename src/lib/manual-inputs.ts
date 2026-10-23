@@ -4,6 +4,7 @@ import { CLIENT_SLUG, isDemoMode } from "./api";
 import { defaultFunnel, defaultResults, normalizeFunnel, normalizeResults } from "./manual-funnel";
 import { supabase } from "./supabase";
 import { loadCommercialAccess } from "./commercial-access";
+import { assertManualWriteConfirmed } from "./manual-write";
 import type { Front, ManualBusinessData, ManualStorage } from "../types";
 
 // Configuracoes manuais (metas e conteudos) continuam no Supabase/localStorage.
@@ -140,11 +141,13 @@ export async function saveManualData(next: ManualBusinessData): Promise<ManualDa
     : "Edição operacional bloqueada até a aprovação e configuração das permissões no Supabase.");
   if (!supabase || access.clientId == null || !access.userId) throw new Error("Não foi possível confirmar a autorização de escrita.");
 
-  const { error } = await supabase.from("dashboard_manual_inputs").upsert({
-    client_id: access.clientId, scope: MANUAL_SCOPE, payload: storagePayload(payload), updated_at: new Date().toISOString(),
-  }, { onConflict: "client_id,scope" });
-  // Erro de RLS, tabela ou rede não se transforma em sucesso local operacional.
+  const expected = { client_id: access.clientId, scope: MANUAL_SCOPE, payload: storagePayload(payload) };
+  const { data, error } = await supabase.from("dashboard_manual_inputs").upsert({
+    ...expected, updated_at: new Date().toISOString(),
+  }, { onConflict: "client_id,scope" }).select("client_id,scope,payload");
+  // Só confirma o formulário/cache depois da representação correta do banco.
   if (error) throw error;
+  assertManualWriteConfirmed(data, expected);
   writeLocal(payload);
   return { data: payload, storage: "supabase" };
 }

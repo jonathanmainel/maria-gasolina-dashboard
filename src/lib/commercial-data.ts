@@ -6,6 +6,7 @@ import { commercialFronts } from "./fronts";
 import { loadCommercialAccess } from "./commercial-access";
 import { commercialPayload, commercialScope, decodeCommercialRows, emptyCommercialEntries, type CommercialCommand, type CommercialRow } from "./commercial-records";
 import { commercialExamples } from "./commercial-examples";
+import { assertManualWriteConfirmed } from "./manual-write";
 import type { DateRange } from "../types";
 
 const DEMO_KEY = `mg-sales-demo-v1:${CLIENT_SLUG}`;
@@ -41,8 +42,11 @@ export async function saveCommercialRecord(command: CommercialCommand): Promise<
     return;
   }
   if (!supabase || access.clientId == null || !access.userId) throw new Error("Não foi possível confirmar a autorização de escrita.");
-  const { error } = await supabase.from("dashboard_manual_inputs").upsert({ ...row, client_id: access.clientId }, { onConflict: "client_id,scope" });
+  const expected = { ...row, client_id: access.clientId };
+  const { data, error } = await supabase.from("dashboard_manual_inputs")
+    .upsert(expected, { onConflict: "client_id,scope" }).select("client_id,scope,payload");
   if (error) throw error;
+  assertManualWriteConfirmed(data, expected);
 }
 export type CommercialDeleteCommand = Pick<CommercialCommand, "front" | "kind" | "range">;
 export async function deleteCommercialRecord(command: CommercialDeleteCommand): Promise<void> {
