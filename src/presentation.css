@@ -1,0 +1,109 @@
+/* Presentation uses the available viewport, including browser zoom/resize.
+   Content is paginated in presentation-layout.ts; no hidden overflow masks it. */
+.present.responsive-present { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: clamp(10px, 1.6dvh, 28px); padding: clamp(16px, 2.2dvh, 42px) clamp(18px, 2.3vw, 72px); height: 100dvh; overflow: auto; }
+.present.responsive-present .present-top { margin: 0; min-width: 0; }
+.present.responsive-present .present-brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.present.responsive-present .present-top .t { min-width: 0; }
+.present.responsive-present .present-top .t strong { font-size: clamp(20px, 2.2vw, 52px); }
+.present.responsive-present .present-top .t small { font-size: clamp(10px, .85vw, 19px); letter-spacing: .08em; }
+.present.responsive-present .present-top .icon-button { flex: 0 0 auto; }
+.present.responsive-present > .present-slide { position: relative; inset: auto; padding: 0; min-width: 0; min-height: 0; animation: none; display: block; }
+.present.responsive-present .present-slide > * { width: 100%; height: 100%; min-height: 0; min-width: 0; }
+.present.responsive-present .present-bottom { position: static; margin: 0; gap: 14px; min-width: 0; font-size: clamp(10px, .85vw, 19px); }
+.present.responsive-present .present-controls { position: static; display: flex; gap: 8px; }
+.present.responsive-present .commercial-demo-toggle { margin-left: auto; font-size: clamp(10px, .9vw, 19px); }
+.present.responsive-present .grid { gap: clamp(10px, 1.1vw, 26px); }
+.present.responsive-present .kpi { min-width: 0; padding: clamp(14px, 1.5vw, 36px); }
+.present.responsive-present .kpi-top p { font-size: clamp(11px, 1vw, 24px); }
+.present.responsive-present .kpi-value { display: block; min-width: 0; container-type: inline-size; margin-top: 10px; }
+.present.responsive-present .kpi-value strong { display: block; width: 100%; white-space: nowrap; overflow-wrap: normal; word-break: normal; font-size: min(clamp(26px, 3vw, 82px), calc(150cqw / var(--value-length, 12))); line-height: 1.2; }
+.present.responsive-present .kpi-value .delta { display: inline-flex; margin-top: 6px; font-size: clamp(10px, .85vw, 20px); }
+.present.responsive-present .kpi-foot { margin-top: 6px; font-size: clamp(10px, .85vw, 20px); }
+.present.responsive-present .panel { min-height: 0; min-width: 0; padding: clamp(14px, 1.4vw, 34px); }
+.present.responsive-present .panel-head { margin-bottom: clamp(8px, 1dvh, 20px); }
+.present.responsive-present h3 { font-size: clamp(14px, 1.3vw, 30px); }
+.present.responsive-present .panel-head p { font-size: clamp(10px, .9vw, 21px); }
+.presentation-executive { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: clamp(12px, 1.4dvh, 28px); }
+.presentation-pacing { display: flex; flex-direction: column; }
+.present.responsive-present .presentation-pacing .pacing-list { flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2dvh, 32px); }
+.present.responsive-present .presentation-pacing .pacing { padding: clamp(12px, 1.2vw, 28px); border: 1px solid var(--line); border-radius: 12px; align-content: center; }
+.present.responsive-present .presentation-executive > .presentation-stack { display: contents; }
+.presentation-executive .grid-4 { grid-column: 1 / -1; }
+.present.responsive-present .hero { height: 100%; min-height: 0; }
+.present.responsive-present .hero h2 { font-size: clamp(22px, 2.3vw, 58px); }
+.present.responsive-present .pacing-list { gap: clamp(10px, 1.7dvh, 32px); }
+.present.responsive-present .pacing-label, .present.responsive-present .pacing-meta { font-size: clamp(10px, .95vw, 22px); }
+.present.responsive-present .pacing-values { flex-wrap: wrap; gap: 8px; font-size: clamp(11px, 1.1vw, 26px); }
+.present.responsive-present .pacing-values strong, .present.responsive-present .pacing-values span { white-space: nowrap; }
+.present.responsive-present .pacing-projection { font-size: clamp(10px, .9vw, 21px); white-space: normal; overflow-wrap: normal; }
+.presentation-stack { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: clamp(12px, 1.4dvh, 28px); min-height: 0; }
+.presentation-front-goals { display: grid; min-height: 0; }
+.present.responsive-present .presentation-front-goals > .panel { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-items: center; column-gap: 32px; }
+.presentation-front-goals .panel-head { grid-column: 1 / -1; }
+.present.responsive-present .ring-wrap { width: clamp(110px, 12vw, 300px); height: auto; aspect-ratio: 1; }
+.present.responsive-present .ring-wrap svg { width: 100%; height: 100%; }
+.present.responsive-present .ring-wrap strong { font-size: clamp(24px, 2.6vw, 62px); white-space: nowrap; }
+.present.responsive-present .ring-sub { font-size: clamp(11px, 1vw, 23px); white-space: normal; }
+.present.responsive-present .presentation-creatives .creative-grid { height: 100%; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+.present.responsive-present .creative { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; overflow: visible; }
+.present.responsive-present .creative-art { aspect-ratio: auto; min-height: 0; border-radius: 14px 14px 0 0; }
+.present.responsive-present .creative-body { padding: clamp(12px, 1.2vw, 28px); }
+.present.responsive-present .creative-copy strong { min-height: 0; font-size: clamp(12px, 1.15vw, 27px); }
+.present.responsive-present .creative-copy small { font-size: clamp(10px, .9vw, 20px); }
+.present.responsive-present .creative-resolution { font-size: clamp(10px, .85vw, 19px); }
+.present.responsive-present .creative-stats b { white-space: nowrap; font-size: clamp(14px, 1.45vw, 32px); }
+.present.responsive-present .creative-stats span { font-size: clamp(9px, .75vw, 17px); }
+.presentation-commercial { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: clamp(8px, 1.1dvh, 24px); }
+.presentation-source { margin: 0; color: var(--gold); font-size: clamp(11px, 1vw, 23px); line-height: 1.4; }
+.presentation-funnel { display: flex; flex-direction: column; }
+.present.responsive-present .presentation-funnel .funnel3d { flex: 1; height: 100%; min-height: 0; grid-template-columns: minmax(75px, .4fr) minmax(0, 1fr); align-items: stretch; gap: 24px; }
+.present.responsive-present .funnel3d-shape, .present.responsive-present .funnel3d-shape svg { height: 100%; min-height: 0; }
+.present.responsive-present .funnel3d-rows { display: grid; grid-template-rows: repeat(var(--stage-count, 10), minmax(0, 1fr)); height: 100%; min-height: 0; }
+.present.responsive-present .funnel3d-row { height: auto !important; min-height: 0; padding: 2px 4px; gap: 2px; }
+.present.responsive-present .funnel3d-row-top strong { font-size: clamp(11px, 1.05vw, 25px); }
+.present.responsive-present .funnel3d-row-bottom b { font-size: clamp(13px, 1.3vw, 30px); }
+.present.responsive-present .funnel3d-row-bottom em, .present.responsive-present .funnel3d-days { font-size: clamp(9px, .8vw, 18px); }
+.present.responsive-present .post-grid { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.present.responsive-present .post { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.present.responsive-present .post-art { aspect-ratio: auto; min-height: 0; padding: clamp(12px, 1.5vw, 30px); }
+.present.responsive-present .post-art p { font-size: clamp(14px, 1.8vw, 42px); }
+.present.responsive-present .post-body { padding: 10px; }
+.present.responsive-present .content-type-list { gap: clamp(8px, 1.7dvh, 30px); }
+.present.responsive-present .presentation-organic .content-type-list { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.present.responsive-present .presentation-organic .content-type-row { grid-template-columns: 1fr auto; }
+.present.responsive-present .presentation-organic .content-type-row .ic { grid-column: 1 / -1; }
+.present.responsive-present .content-type-row strong, .present.responsive-present .content-type-row .n { font-size: clamp(12px, 1.1vw, 26px); }
+body:has(.lightbox) .responsive-present .present-top .icon-button, body:has(.lightbox) .responsive-present .present-bottom { visibility: hidden; }
+.topbar-refresh { gap: 8px; }
+.topbar-query-status { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.topbar-query-status.query-error { color: var(--red); }
+.content-inner { transition: opacity .2s ease; }
+body:has(.topbar-refresh-button[aria-busy="true"]) .content-inner { opacity: .78; }
+@media (max-width: 1099px) {
+  .present.responsive-present .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .present.responsive-present .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .present.responsive-present .kpi { padding: 10px 14px; }
+  .present.responsive-present .kpi-foot { display: none; }
+  .present.responsive-present .kpi-value { margin-top: 5px; }
+}
+@media (max-height: 640px) {
+  .present.responsive-present { gap: 8px; padding: 12px 20px; }
+  .present.responsive-present .kpi { padding: 8px 12px; }
+  .present.responsive-present .kpi-foot { display: none; }
+  .present.responsive-present .kpi-value { margin-top: 3px; }
+  .present.responsive-present .present-top .t small { font-size: 9px; }
+  .present.responsive-present .present-top .t strong { font-size: 20px; }
+  .present.responsive-present .present-top img { width: 30px; height: 34px; }
+}
+@media (max-width: 699px) {
+  .present.responsive-present { padding: 12px; }
+  .present.responsive-present .presentation-counter { display: none; }
+  .present.responsive-present .commercial-demo-toggle { margin-left: 0; }
+  .presentation-executive { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .presentation-executive .hero { display: none; }
+  .present.responsive-present .funnel3d-shape { display: none; }
+  .present.responsive-present .presentation-funnel .funnel3d { grid-template-columns: 1fr; }
+  .present.responsive-present .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .present.responsive-present .grid-3 .kpi-top p { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .content-inner { transition: none; } }

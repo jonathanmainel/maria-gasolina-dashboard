@@ -15,6 +15,7 @@ import type { ChannelFilter } from "../lib/detail-rows";
 import { DetailExplorer } from "./DetailExplorer";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { viewableImage } from "../lib/media";
+import { previewQuality } from "../lib/preview-quality";
 import { MiniStat } from "./Executive";
 import { frontPerformanceSeries } from "../lib/front-performance";
 import { FrontPerformanceTooltip } from "../components/FrontPerformanceTooltip";
@@ -322,12 +323,28 @@ function ChannelCard({ name, chip, color, t, p }: { name: string; chip: string; 
 export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank: number; revealed?: boolean }) {
   const tilt = useTilt<HTMLElement>(7);
   const [imageFailed, setImageFailed] = useState(false);
-  const [imageRatio, setImageRatio] = useState<number | null>(null);
   const [zoomed, setZoomed] = useState(false);
-  useEffect(() => { setImageFailed(false); setImageRatio(null); }, [c.preview_url]);
-  const image = c.channel === "meta_ads" && !imageFailed ? viewableImage(c.preview_url ?? null) : null;
+  const [source, setSource] = useState(c.preview_url);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const retried = useRef(false);
+  const imageGeneration = useRef(0);
+  useEffect(() => { imageGeneration.current++; setImageFailed(false); setSource(c.preview_url); setDimensions({ width: 0, height: 0 }); retried.current = false;
+    return () => { imageGeneration.current++; };
+  }, [c.preview_url, c.id]);
+  const image = c.channel === "meta_ads" && !imageFailed ? viewableImage(source ?? null) : null;
+  const quality = previewQuality(dimensions.width, dimensions.height);
+  const recoverImage = async () => {
+    const generation = imageGeneration.current;
+    if (!retried.current && c.refresh_preview) {
+      retried.current = true;
+      try { const renewed = await c.refresh_preview(); if (generation !== imageGeneration.current) return;
+        if (renewed && renewed !== source) { setSource(renewed); return; } } catch { /* Keep metrics when artwork fails. */ }
+    }
+    if (generation !== imageGeneration.current) return;
+    setImageFailed(true); setZoomed(false);
+  };
   const format = c.channel === "meta_ads" ? c.creative_type : null;
-  const formatLabel = format === "dynamic" ? "Dinâmico"
+  const formatLabel = format === "dynamic" ? c.preview_media_type === "video" ? "Dinâmico · Vídeo" : "Dinâmico"
     : format === "video" ? "Vídeo"
     : format === "carousel" ? "Carrossel"
     : format === "image" ? "Estático"
@@ -335,15 +352,21 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
   return (
     <>
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`creative tilt ${rank <= 3 ? "creative-top" : "creative-secondary"}${revealed ? " creative-reveal" : ""}`} style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
-      <div className={`creative-art${format === "video" ? " creative-art-video" : ""}${image ? " creative-art-has-preview" : ""}`} style={imageRatio ? { aspectRatio: imageRatio } : undefined}>
+      <div className={`creative-art${image ? " creative-art-preview" : ""}${quality.limited ? " creative-art-limited" : ""}${format === "video" || c.preview_media_type === "video" ? " creative-art-video" : ""}`}>
         {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
-          <img src={image} alt="" onLoad={event => { const { naturalWidth, naturalHeight } = event.currentTarget; if (naturalWidth > 0 && naturalHeight > 0) setImageRatio(naturalWidth / naturalHeight); }} onError={() => { setImageFailed(true); setZoomed(false); }} />
+          <img src={image} alt="" style={quality.limited ? { maxWidth: dimensions.width * 2, maxHeight: dimensions.height * 2 } : undefined}
+            onLoad={(event) => setDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+            onError={() => { void recoverImage(); }} />
         </button>}
         <span className="format">{formatLabel}</span>
         <span className={`rank${rank > 3 ? " rank-secondary" : ""}`}>{rank}</span>
         {!image && <h4>{c.headline}</h4>}
       </div>
       <div className="creative-body">
+        {image && quality.known && <p className={`creative-resolution${quality.limited ? " creative-resolution-limited" : ""}`}>
+          {quality.label}{quality.limited ? " · Miniatura de baixa resolução" : ""}
+        </p>}
+        {!image && <p className="creative-resolution" role="status">Imagem indisponível no momento</p>}
         <div className="creative-copy">
           <strong title={c.name}>{c.name}</strong>
           <small title={c.headline}>{c.headline}</small>
@@ -355,7 +378,7 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
         </div>
       </div>
     </article>
-    {zoomed && image && <ImageLightbox src={image} label={c.name} onClose={() => setZoomed(false)} />}
+    {zoomed && image && <ImageLightbox src={image} label={c.name} refreshSrc={c.refresh_preview} onClose={() => setZoomed(false)} />}
     </>
   );
 }

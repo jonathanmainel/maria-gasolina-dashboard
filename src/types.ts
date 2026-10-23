@@ -226,6 +226,8 @@ export interface Creative {
   format: "video" | "image" | "carousel";
   creative_type?: "image" | "video" | "carousel" | "dynamic" | "unknown";
   preview_url?: string | null;
+  preview_media_type?: "video" | "image";
+  refresh_preview?: () => Promise<string | null>;
   headline: string;
   palette: [string, string];
   spend: number;

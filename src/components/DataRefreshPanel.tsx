@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { isDemoMode } from "../lib/api";
 import { getSourceFreshness, reloadDashboardData } from "../lib/data-refresh";
 import { dateTime } from "../lib/format";
@@ -16,12 +16,7 @@ export function DataRefreshPanel({ range }: { range: DateRange }) {
   const locked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-
-  useEffect(() => {
-    if (!notice) return;
-    const id = window.setTimeout(() => setNotice(""), 6500);
-    return () => window.clearTimeout(id);
-  }, [notice]);
+  const [consultedAt, setConsultedAt] = useState<Date | null>(null);
 
   const sourceStatus = isDemoMode
     ? "Modo demonstração: os dados são ilustrativos."
@@ -42,7 +37,7 @@ export function DataRefreshPanel({ range }: { range: DateRange }) {
     setNotice("");
     try {
       await reloadDashboardData(client);
-      setNotice("Consultas recarregadas com sucesso. As coletas automáticas não foram executadas.");
+      setConsultedAt(new Date());
     } catch {
       setNotice("Falha ao recarregar os dados. Os valores anteriores foram preservados.");
     } finally {
@@ -63,6 +58,8 @@ export function DataRefreshPanel({ range }: { range: DateRange }) {
     >
       <RefreshCw size={16} className={busy ? "spin" : undefined} />
     </button>
-    {notice && <div className="topbar-refresh-notice" role="status">{notice}</div>}
+    <span className={`topbar-query-status${notice ? " query-error" : ""}`} role="status" aria-live="polite" title={notice || sourceStatus}>
+      {notice ? "Falha na consulta" : consultedAt ? `Consulta atualizada às ${new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(consultedAt)}` : ""}
+    </span>
   </div>;
 }

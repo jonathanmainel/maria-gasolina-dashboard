@@ -7,6 +7,10 @@ export interface MetaCreativePreview {
   creative_type: MetaCreativeType;
   preview_kind: string | null;
   preview_url: string | null;
+  preview_width?: number | null;
+  preview_height?: number | null;
+  preview_media_type?: "video" | "image";
+  preview_source?: string | null;
 }
 
 interface PreviewRow {
@@ -15,14 +19,14 @@ interface PreviewRow {
   preview_kind: string | null;
   preview_storage_path: string | null;
   preview_available: boolean;
+  metadata?: Record<string, unknown>;
 }
 
 const SIGNED_URL_SECONDS = 600;
 const CACHE_MS = 5 * 60 * 1000;
 const BATCH_SIZE = 100;
 const signedCache = new Map<string, { url: string; expiresAt: number }>();
-
-/** Invalidate only in-memory signed previews when the member requests fresh data. */
+/** Preserve the published topbar cache invalidation contract. */
 export function clearCreativePreviewCache() { signedCache.clear(); }
 
 function batches<T>(items: T[]): T[][] {
@@ -36,7 +40,7 @@ function creativeType(value: string | null): MetaCreativeType {
 }
 
 /** Metadata and short-lived URLs only; no service key, public URL or persistent storage. */
-export async function getMetaCreativePreviews(adIds: string[], clientId: number): Promise<Map<string, MetaCreativePreview>> {
+export async function getMetaCreativePreviews(adIds: string[], clientId: number, options: { forceRefresh?: boolean } = {}): Promise<Map<string, MetaCreativePreview>> {
   const previews = new Map<string, MetaCreativePreview>();
   const client = supabase;
   if (!client || !adIds.length) return previews;
@@ -47,7 +51,7 @@ export async function getMetaCreativePreviews(adIds: string[], clientId: number)
   const userId = session.user.id;
   const ids = [...new Set(adIds)];
   const results = await Promise.all(batches(ids).map((batch) => client.from("dashboard_creative_previews")
-    .select("ad_id,creative_type,preview_kind,preview_storage_path,preview_available")
+    .select("ad_id,creative_type,preview_kind,preview_storage_path,preview_available,metadata")
     .eq("client_id", clientId).eq("source", "meta_ads").eq("entity_type", "ad").in("ad_id", batch)));
   const rows: PreviewRow[] = [];
   for (const result of results) {
@@ -62,7 +66,7 @@ export async function getMetaCreativePreviews(adIds: string[], clientId: number)
   for (const path of paths) {
     const key = `${userId}:${clientId}:${path}`;
     const cached = signedCache.get(key);
-    if (cached && cached.expiresAt > Date.now()) urls.set(path, cached.url);
+    if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) urls.set(path, cached.url);
     else missing.push(path);
   }
 
@@ -85,6 +89,11 @@ export async function getMetaCreativePreviews(adIds: string[], clientId: number)
       creative_type: creativeType(row.creative_type),
       preview_kind: row.preview_kind,
       preview_url: row.preview_available && row.preview_storage_path ? urls.get(row.preview_storage_path) ?? null : null,
+      preview_width: Number(row.metadata?.preview_width) > 0 ? Number(row.metadata?.preview_width) : null,
+      preview_height: Number(row.metadata?.preview_height) > 0 ? Number(row.metadata?.preview_height) : null,
+      preview_media_type: row.metadata?.preview_media_type === "image" ? "image" : row.metadata?.preview_media_type === "video" || row.creative_type === "video" ||
+        (row.creative_type === "dynamic" && (row.metadata?.object_type === "VIDEO" || typeof row.metadata?.video_id === "string" && row.metadata.video_id.length > 0)) ? "video" : "image",
+      preview_source: typeof row.metadata?.preview_source === "string" ? row.metadata.preview_source : null,
     });
   }
   return previews;

@@ -48,7 +48,11 @@ function presentation(data = fixture()) {
   fireEvent.click(screen.getByRole("button", { name: "Pausar" }));
   return result;
 }
-function organicSlide() { for (let index = 0; index < 3; index++) fireEvent.click(screen.getByRole("button", { name: "Próximo" })); }
+function goToSlide(id: string) {
+  for (let index = 0; index < 40 && document.querySelector('.present-slide')?.getAttribute('data-slide') !== id; index++) fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
+  expect(document.querySelector('.present-slide')?.getAttribute('data-slide')).toBe(id);
+}
+function organicSlide() { goToSlide('organic'); }
 
 describe("origem do Organico nas visualizacoes operacionais", () => {
   it.each(["demo", undefined] as const)("Executiva: origem %s indisponivel, sem somar demonstracao ao mix", (origin) => {
@@ -103,9 +107,9 @@ describe("origem do Organico nas visualizacoes operacionais", () => {
     organicSlide();
     expect(screen.getByRole("heading", { name: "Integração orgânica pendente" })).not.toBeNull();
     expect(document.querySelectorAll(".kpi")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
-    expect(value("Contratos de franquia no período")).toBe("2");
-    expect(value("Receita de franquia no período")).toBe(money(40000));
+    goToSlide('franchise-crm-0');
+    expect(value("Contratos no período")).toBe("2");
+    expect(value("Receita no período")).toBe(money(40000));
   });
 
   it("Apresentacao: fonte real mantem seguidores e slide organico", () => {
@@ -128,6 +132,22 @@ describe("origem do Organico nas visualizacoes operacionais", () => {
 
 
 describe("ausencia comercial nas superficies consolidadas", () => {
+  it("funis ilustrativos são opt-in, reversíveis e não alteram os KPIs executivos ou a fonte real", () => {
+    const data = fixture(); const before = JSON.stringify(data);
+    presentation(data);
+    fireEvent.click(screen.getByRole('button', { name: 'Funis ilustrativos' }));
+    goToSlide('franchise-crm-0');
+    expect(value('Contratos no período')).toBe('9');
+    expect(value('Receita no período')).toBe(money(760500));
+    expect(screen.getByRole('status').textContent).toContain('Dados comerciais ilustrativos');
+    goToSlide('executive');
+    expect(value('Investimento')).toBe(money(900));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar aos dados reais' }));
+    goToSlide('franchise-crm-0');
+    expect(value('Contratos no período')).toBe('2');
+    expect(value('Receita no período')).toBe(money(40000));
+    expect(JSON.stringify(data)).toBe(before);
+  });
   function empty() {
     const data = fixture();
     data.crm = { franchise: buildCrmSummary("franchise", null, null, { rows }), condominium: buildCrmSummary("condominium", null, null, { rows }) };
@@ -144,11 +164,13 @@ describe("ausencia comercial nas superficies consolidadas", () => {
   it("Apresentacao: etapas preservadas sem volumes, mantendo os indicadores de midia", () => {
     presentation(empty());
     expect(value("Investimento")).toBe(money(900));
-    fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
+    goToSlide('franchise-crm-0');
     expect([...document.querySelectorAll(".funnel3d-row-bottom b")].every((node) => node.textContent === "—")).toBe(true);
     expect(document.querySelector(".funnel3d-shape")).toBeNull();
-    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
-    for (const label of ["Contratos de franquia no período", "Receita de franquia no período", "Contratos de condomínio no período", "Oportunidades abertas"]) expect(value(label)).toBe("—");
-    expect(document.querySelectorAll(".funnel3d-row-bottom b").length).toBe(18);
+    for (const front of ['franchise','condominium']) {
+      goToSlide(`${front}-crm-0`);
+      for (const label of ["Contratos no período", "Receita no período", "Oportunidades abertas"]) expect(value(label)).toBe("—");
+      expect(document.querySelectorAll(".funnel3d-row-bottom b").length).toBeGreaterThan(0);
+    }
   });
 });

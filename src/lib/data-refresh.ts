@@ -6,7 +6,7 @@ import { clearCreativePreviewCache } from "./creative-previews";
 export const marketingSources = ["meta_ads", "google_ads", "ga4"] as const;
 export type MarketingSource = typeof marketingSources[number];
 export interface SourceFreshness { source: MarketingSource; completedAt: string | null; latestDate: string | null }
-const refreshKeys = new Set(["fronts", "detail", "site-overview", "site-acquisition", "site-landing-pages", "site-events", "last-sync", "source-freshness"]);
+const refreshKeys = new Set(["fronts", "organic", "detail", "site-overview", "site-acquisition", "site-landing-pages", "site-events", "last-sync", "source-freshness"]);
 
 /** Read-only: successful ingestion time and actual persisted date are distinct. */
 export async function getSourceFreshness(): Promise<SourceFreshness[]> {
