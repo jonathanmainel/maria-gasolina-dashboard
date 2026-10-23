@@ -105,7 +105,7 @@ export function Kpi({ label, value, format, previous, previousLabel, accent = "n
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`kpi tilt ${accent} ${spark && spark.length > 1 ? "has-spark" : ""}`}>
       <div className="kpi-top"><p>{label}</p>{icon && <span className="kpi-icon">{icon}</span>}</div>
       <div className="kpi-value">
-        <strong><AnimatedNumber value={value} format={format} /></strong>
+        <strong style={{ "--value-length": Math.max(1, value == null ? 1 : format(value).length) } as React.CSSProperties}><AnimatedNumber value={value} format={format} /></strong>
         {!hideDelta && <Delta current={value} previous={previous} lowerIsBetter={lowerIsBetter} />}
       </div>
       <div className="kpi-foot">
@@ -189,11 +189,11 @@ export interface FunnelStage { id?: string; name: string; kind?: "commercial" | 
 // uma etapa posterior pode ser mais larga que a anterior, e o desenho mostra
 // isso em vez de forçar um afunilamento que não existe nos dados. Partículas
 // escoam pelo centro e o card reage à posição do mouse com um leve tilt 3D.
-export function Funnel({ stages, color, format, dense = false }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean }) {
+export function Funnel({ stages, color, format, dense = false, pipelineTotal }: { stages: FunnelStage[]; color: string; format: (n: number) => string; dense?: boolean; pipelineTotal?: number }) {
   const measured = stages.every((s) => s.count != null);
   const max = Math.max(...stages.map((s) => s.count ?? 0), 1);
   // Base da participação: só as colunas ainda em negociação.
-  const openTotal = stages.filter((s) => s.kind === "commercial").reduce((sum, s) => sum + (s.count ?? 0), 0);
+  const openTotal = pipelineTotal ?? stages.filter((s) => s.kind === "commercial").reduce((sum, s) => sum + (s.count ?? 0), 0);
   const [ready, setReady] = useState(false);
   const tilt = useTilt<HTMLDivElement>(5);
   useEffect(() => { const t = window.setTimeout(() => setReady(true), 90); return () => window.clearTimeout(t); }, []);

@@ -30,6 +30,7 @@ export function DashboardPage() {
   const [range, setRange] = useState<DateRange>(initialRange);
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
   const [organicScope, setOrganicScope] = useState<OrganicScope>("overview");
+  const [commercialDemo, setCommercialDemo] = useState(false);
   const data = useDashboard(range);
 
   const setParam = useCallback((key: string, value: string | null) => {
@@ -45,7 +46,7 @@ export function DashboardPage() {
 
   if (presenting) {
     if (data.isLoading) return <div className="screen-state"><div className="spinner" /><p>Preparando a apresentação...</p></div>;
-    return <Presentation data={data} range={range} onExit={onExitPresent} />;
+    return <Presentation data={data} range={range} onExit={onExitPresent} commercialDemo={commercialDemo} onCommercialDemoChange={setCommercialDemo} />;
   }
 
   return (
@@ -68,7 +69,7 @@ export function DashboardPage() {
             {view === "executive" && <ExecutiveView data={data} range={range} onNavigate={onViewChange} />}
             {view === "franchise" && <FrontView front="franchise" data={data} range={range} onNavigate={onViewChange} />}
             {view === "organic" && <OrganicView data={data} scope={organicScope} onScopeChange={setOrganicScope} />}
-            {view === "crm" && <CrmView data={data} readOnly={readOnly} />}
+            {view === "crm" && <CrmView data={data} readOnly={readOnly} commercialDemo={commercialDemo} onCommercialDemoChange={setCommercialDemo} />}
             {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} />}
           </>
         )}

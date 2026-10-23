@@ -20,15 +20,16 @@ test("origem: Apresentacao preserva navegacao e identifica demonstracao em todos
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Modo apresentação", exact: true }).click();
   await page.getByRole("button", { name: "Pausar", exact: true }).click();
-  for (let index = 0; index < 5; index++) {
-    await expect(page.getByRole("status")).toContainText("indicadores de mídia, orgânico e CRM ilustrativos");
-    if (index === 3) {
+  const total = Number((await page.locator('.presentation-counter').textContent())!.match(/\/ (\d+)/)![1]);
+  for (let index = 0; index < total; index++) {
+    await expect(page.locator('.present-top').getByRole("status")).toContainText("dados de mídia ilustrativos");
+    if (await page.locator('.present-slide').getAttribute('data-slide') === 'organic') {
       await expect(page.getByText("Seguidores IG", { exact: true })).toBeVisible();
       await page.screenshot({ path: info.outputPath("presentation-organic-demo.png") });
     }
     await page.getByRole("button", { name: "Próximo", exact: true }).click();
   }
-  await page.getByRole("button", { name: "Sair", exact: true }).click();
+  await page.getByRole("button", { name: "Sair da apresentação", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("O crescimento da rede, em uma tela");
 });
 

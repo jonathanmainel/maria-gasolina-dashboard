@@ -32,11 +32,15 @@ test("CRM sem registros: estados vazios na Executiva, CRM e Apresentacao, sem af
   await expect(page.locator(".funnel3d-row-bottom b")).toHaveText(Array(8).fill("—"));
   await page.getByRole("button", { name: "Modo apresentação", exact: true }).click();
   await page.getByRole("button", { name: "Pausar", exact: true }).click();
-  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Próximo", exact: true }).click();
-  for (const label of ["Contratos de franquia no período", "Receita de franquia no período", "Contratos de condomínio no período", "Oportunidades abertas"]) await expect(kpi(page, label)).toHaveText("—");
-  await expect(page.locator(".funnel3d-row-bottom b")).toHaveText(Array(18).fill("—"));
-  await expect(page.locator(".funnel3d-shape")).toHaveCount(0);
-  await page.getByRole("button", { name: "Sair", exact: true }).click();
+  for (const front of ['franchise','condominium']) {
+    for (let i = 0; i < 30 && await page.locator('.present-slide').getAttribute('data-slide') !== `${front}-crm-0`; i++) await page.getByRole("button", { name: "Próximo", exact: true }).click();
+    await expect(page.locator('.present-slide')).toHaveAttribute('data-slide', `${front}-crm-0`);
+    for (const label of ["Contratos no período", "Receita no período", "Oportunidades abertas"]) await expect(kpi(page, label)).toHaveText("—");
+    const count = await page.locator('.funnel3d-row-bottom b').count(); expect(count).toBeGreaterThan(0);
+    await expect(page.locator(".funnel3d-row-bottom b")).toHaveText(Array(count).fill("—"));
+    await expect(page.locator(".funnel3d-shape")).toHaveCount(0);
+  }
+  await page.getByRole("button", { name: "Sair da apresentação", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pipeline de hoje e resultado do período");
 });
 

@@ -447,6 +447,9 @@ export async function getFrontData(range: DateRange): Promise<FrontBundle> {
     if (!preview) continue;
     creative.creative_type = preview.creative_type;
     creative.preview_url = preview.preview_url;
+    creative.preview_media_type = preview.preview_media_type;
+    creative.refresh_preview = async () => (await getMetaCreativePreviews([creative.id], clientId, { forceRefresh: true }))
+      .get(creative.id)?.preview_url ?? null;
   }
 
   return {

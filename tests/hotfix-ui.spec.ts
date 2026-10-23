@@ -33,9 +33,9 @@ for(const [width,height] of [[1440,1000],[390,844]]){
  test(`hotfix: recarga real das consultas e datas por plataforma ${width}x${height}`,async({page},info)=>{
   const fixture=await operationalFixture(page);await page.setViewportSize({width,height});await page.goto('/dashboard/maria-gasolina?view=executive');
   await expect(page.getByRole('button',{name:'Recarregar dados',exact:true})).toBeVisible();
-  await expect(page.getByText('Dados até: 27/09/2026')).toBeVisible();await expect(page.getByText('Cobertura parcial do período selecionado')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Recarregar dados',exact:true})).toHaveAttribute('title',/Google Ads: dados até 27\/09\/2026 \(período incompleto\)/);
   const kpi=page.locator('.kpi').filter({has:page.getByText('Investimento em mídia',{exact:true})});await expect(kpi).toContainText('100,00');
-  await page.getByRole('button',{name:'Recarregar dados',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Consultas recarregadas'})).toBeVisible();await expect(kpi).toContainText('200,00');expect(fixture.reloads).toBeGreaterThan(1);expect(fixture.calls.some(x=>x.includes('/functions/'))).toBe(false);
+  await page.getByRole('button',{name:'Recarregar dados',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Consulta atualizada às'})).toBeVisible();await expect(kpi).toContainText('200,00');expect(fixture.reloads).toBeGreaterThan(1);expect(fixture.calls.some(x=>x.includes('/functions/'))).toBe(false);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);await page.screenshot({path:info.outputPath('recarregar-dados.png'),fullPage:true});
  });
  test(`hotfix: criativo vertical sem cortes e modal ampliado ${width}x${height}`,async({page},info)=>{
@@ -45,8 +45,8 @@ for(const [width,height] of [[1440,1000],[390,844]]){
   expect(await zoom.locator('img').evaluate(el=>getComputedStyle(el).objectFit)).toBe('contain');
   const card=page.locator('.creative').filter({has:zoom});await expect(card).toContainText('5');await expect(card).toContainText('CPL');await expect(card).toContainText('CTR');
   await card.screenshot({path:info.outputPath('criativo-card.png')});await zoom.click();
-  const dialog=page.getByRole('dialog',{name:'Imagem ampliada: EXEMPLO - vídeo vertical'});await expect(dialog).toBeVisible();await expect(dialog).toContainText('Miniatura de baixa resolução');
-  const visibleHeight=await dialog.locator('img').evaluate((img:HTMLImageElement)=>{const b=img.getBoundingClientRect();return img.naturalHeight*Math.min(b.width/img.naturalWidth,b.height/img.naturalHeight);});expect(visibleHeight).toBeGreaterThan(height*.6);
+  const dialog=page.getByRole('dialog',{name:'Imagem ampliada: EXEMPLO - vídeo vertical'});await expect(dialog).toBeVisible();await expect(dialog).toContainText('A origem tem baixa resolução');await expect(dialog).toContainText('64 × 114 px');
+  const visibleHeight=await dialog.locator('img').evaluate((img:HTMLImageElement)=>{const b=img.getBoundingClientRect();return img.naturalHeight*Math.min(b.width/img.naturalWidth,b.height/img.naturalHeight);});expect(visibleHeight).toBeGreaterThan(114);expect(visibleHeight).toBeLessThanOrEqual(229);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);await page.screenshot({path:info.outputPath('criativo-modal.png')});await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(zoom).toBeFocused();
  });
 }

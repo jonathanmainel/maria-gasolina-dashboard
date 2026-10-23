@@ -6,6 +6,7 @@ import { BarList, ChartTip, CycleBar, Funnel, Kpi, Panel, Segmented } from "../c
 import { slowestCommercialStage } from "../lib/crm";
 import { isPostSale } from "../lib/crm-stages";
 import { isDemoMode } from "../lib/api";
+import { commercialDemoSummary, COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
 import { integer, money } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import {
@@ -23,13 +24,16 @@ import type { Front } from "../types";
 //
 // Nenhum indicador de resultado é calculado a partir da foto, e nenhuma taxa de
 // passagem é lida entre colunas vizinhas: são estoques independentes.
-export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: boolean }) {
+export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDemoChange }: { data: DashboardData; readOnly?: boolean; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void }) {
   const colors = useChartColors();
   const goals = useGoals();
   const manual = useManualData();
   const saveManual = useSaveManualData();
   const [front, setFront] = useState<Front>("franchise");
-  const crm = data.crm[front];
+  const [localDemo, setLocalDemo] = useState(false);
+  const illustrative = onCommercialDemoChange ? commercialDemo : localDemo;
+  const setIllustrative = (next: boolean) => { setLocalDemo(next); onCommercialDemoChange?.(next); };
+  const crm = illustrative ? commercialDemoSummary(front) : data.crm[front];
   const meta = frontMeta[front];
   const contractsGoal = front === "franchise" ? goals.contracts_franchise : goals.contracts_condominium;
   // Implantação é pós-venda: fica fora do ciclo e da etapa mais demorada.
@@ -53,13 +57,14 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
         <div className="crm-head-side">
           <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
           {/* Marca discreta de origem: o CRM não é sincronizado automaticamente. */}
-          <span className="crm-source-tag"><Pencil size={11} />{isDemoMode ? "Dados comerciais demonstrativos" : "Aguardando integração com CRM Elo."}</span>
+          <span className="crm-source-tag"><Pencil size={11} />{illustrative ? COMMERCIAL_DEMO_LABEL : isDemoMode ? "Dados comerciais demonstrativos" : "Aguardando integração com CRM Elo."}</span>
+          <button type="button" className="secondary-button" aria-pressed={illustrative} onClick={() => setIllustrative(!illustrative)}>{illustrative ? "Voltar aos dados reais" : "Visualizar funis ilustrativos"}</button>
         </div>
       </div>
       <div className="crm-note">
         <Info size={18} />
-        {isDemoMode ? <span>
-          <b>Dados comerciais de demonstração.</b> Os exemplos abaixo não representam resultados reais do cliente.
+        {illustrative || isDemoMode ? <span>
+          <b>{COMMERCIAL_DEMO_LABEL}.</b> Os exemplos abaixo não representam resultados reais do cliente e não são gravados na operação ou no Supabase.
         </span> : <span>Aguardando integração com CRM Elo.</span>}
       </div>
 
@@ -74,7 +79,7 @@ export function CrmView({ data, readOnly }: { data: DashboardData; readOnly?: bo
         <Kpi label={crm.visit_stage?.name ?? "Visitas"} value={crm.visit_stage?.count ?? null} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="oportunidades nesta etapa hoje" />
       </div>
 
-      {!readOnly && isDemoMode && (
+      {!readOnly && isDemoMode && !illustrative && (
         <div className="grid grid-wide" style={{ marginTop: 14 }}>
           <div>
             <ManualStorageNote storage={manual.storage} reason={manual.fallbackReason} />

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   rows: vi.fn(), sign: vi.fn(), user: { id: "member-1" }, filters: [] as Array<[string, unknown]>,
@@ -22,7 +22,7 @@ vi.mock("./supabase", () => ({
   },
 }));
 
-import { clearCreativePreviewCache, getMetaCreativePreviews } from "./creative-previews";
+import { getMetaCreativePreviews } from "./creative-previews";
 
 const row = (id: string, type: string, available = true) => ({
   ad_id: id, creative_type: type, preview_kind: "image", preview_storage_path: `client/${id}.jpg`, preview_available: available,
@@ -35,8 +35,31 @@ beforeEach(() => {
   mocks.rows.mockReset(); mocks.sign.mockReset(); mocks.filters.length = 0;
   mocks.user.id = "member-1";
 });
+afterEach(() => vi.useRealTimers());
 
 describe("Meta creative previews", () => {
+  it("identifica o asset de vídeo dinâmico pelo video_id já resolvido pela ingestão", async () => {
+    mocks.rows.mockResolvedValue({data:[{...row('dynamic-asset','dynamic'),metadata:{object_type:'DYNAMIC',video_id:'authorized-asset'}}],error:null});
+    mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+    expect((await getMetaCreativePreviews(['dynamic-asset'],42)).get('dynamic-asset')).toMatchObject({creative_type:'dynamic',preview_media_type:'video'});
+  });
+  it("renova URLs vencidas no cache e permite recuperar uma assinatura rejeitada", async () => {
+    vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-23T12:00:00Z'));
+    mocks.rows.mockResolvedValue({ data: [row('expiry-i07','video')],error:null });
+    mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+    await getMetaCreativePreviews(['expiry-i07'],42);
+    await getMetaCreativePreviews(['expiry-i07'],42);expect(mocks.sign).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(601_000);
+    await getMetaCreativePreviews(['expiry-i07'],42);expect(mocks.sign).toHaveBeenCalledTimes(2);
+    await getMetaCreativePreviews(['expiry-i07'],42,{forceRefresh:true});expect(mocks.sign).toHaveBeenCalledTimes(3);
+  });
+
+  it("transporta a origem e as dimensões de um vídeo dinâmico sem alterar seu tipo",async()=>{
+    mocks.rows.mockResolvedValue({data:[{...row('dynamic-i07','dynamic'),metadata:{object_type:'VIDEO',preview_width:1080,preview_height:1920,preview_source:'video.thumbnails'}}],error:null});
+    mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+    const result=(await getMetaCreativePreviews(['dynamic-i07'],42)).get('dynamic-i07');
+    expect(result).toMatchObject({creative_type:'dynamic',preview_media_type:'video',preview_width:1080,preview_height:1920,preview_source:'video.thumbnails'});
+  });
   it("lê metadata e assina em lote, relacionando pelo ad_id mesmo fora de ordem", async () => {
     mocks.rows.mockResolvedValue({ data: [row("join-b", "video"), row("join-a", "image"), row("join-c", "dynamic"), row("join-d", "carousel")], error: null });
     mocks.sign.mockImplementation(async (paths: string[]) => signed(paths));
@@ -73,5 +96,3 @@ describe("Meta creative previews", () => {
     expect(mocks.sign).toHaveBeenCalledTimes(2);
   });
 });
-
-it("recarregar dados invalida assinatura privada em memoria",async()=>{mocks.rows.mockResolvedValue({data:[row("refresh-cache","video")],error:null});mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));await getMetaCreativePreviews(["refresh-cache"],42);clearCreativePreviewCache();await getMetaCreativePreviews(["refresh-cache"],42);expect(mocks.sign).toHaveBeenCalledTimes(2);});

@@ -40,14 +40,15 @@ describe("recarregamento compacto no cabeçalho", () => {
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect((button as HTMLButtonElement).disabled).toBe(true);
     done();
-    await screen.findByText(/Consultas recarregadas com sucesso/);
+    await screen.findByText(/Consulta atualizada às \d{2}:\d{2}/);
+    expect(document.querySelector('.topbar-refresh-notice')).toBeNull();
     expect((button as HTMLButtonElement).disabled).toBe(false);
   });
   it("exibe falhas sem simular sucesso", async () => {
     mocks.reload.mockRejectedValue(new Error("network"));
     show();
     fireEvent.click(screen.getByRole("button", { name: "Recarregar dados" }));
-    await screen.findByText(/Falha ao recarregar/);
+    await screen.findByText(/Falha na consulta/);
     expect(screen.queryByText(/Consultas recarregadas com sucesso/)).toBeNull();
   });
   it("não apresenta datas reais no modo demonstração", async () => {
