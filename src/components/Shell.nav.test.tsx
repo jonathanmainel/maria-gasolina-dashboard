@@ -7,6 +7,8 @@ import { Shell } from "./Shell";
 vi.mock("../auth", () => ({ useAuth: () => ({ user: { email: "gt@gtmais.com.br" }, signOut: () => {} }) }));
 vi.mock("../theme", () => ({ useTheme: () => ({ theme: "dark", toggle: () => {} }) }));
 vi.mock("./three/AmbientField", () => ({ AmbientField: () => null }));
+// Shell navigation unit tests do not mount the application QueryClient.
+vi.mock("./DataRefreshPanel", () => ({ DataRefreshPanel: () => null }));
 
 beforeAll(() => {
   window.matchMedia ??= ((query: string) => ({
