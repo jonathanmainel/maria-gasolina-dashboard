@@ -22,7 +22,7 @@ vi.mock("./supabase", () => ({
   },
 }));
 
-import { getMetaCreativePreviews } from "./creative-previews";
+import { clearCreativePreviewCache, getMetaCreativePreviews } from "./creative-previews";
 
 const row = (id: string, type: string, available = true) => ({
   ad_id: id, creative_type: type, preview_kind: "image", preview_storage_path: `client/${id}.jpg`, preview_available: available,
@@ -73,3 +73,5 @@ describe("Meta creative previews", () => {
     expect(mocks.sign).toHaveBeenCalledTimes(2);
   });
 });
+
+it("recarregar dados invalida assinatura privada em memoria",async()=>{mocks.rows.mockResolvedValue({data:[row("refresh-cache","video")],error:null});mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));await getMetaCreativePreviews(["refresh-cache"],42);clearCreativePreviewCache();await getMetaCreativePreviews(["refresh-cache"],42);expect(mocks.sign).toHaveBeenCalledTimes(2);});

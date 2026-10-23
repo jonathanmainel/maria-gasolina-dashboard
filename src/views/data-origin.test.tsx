@@ -13,6 +13,7 @@ import { Presentation } from "./Presentation";
 const mode = vi.hoisted(() => ({ demo: false }));
 vi.mock("../lib/api", async (original) => ({ ...await original<typeof import("../lib/api")>(), get isDemoMode() { return mode.demo; } }));
 vi.mock("../lib/goals", () => ({ useGoals: () => demoGoals }));
+vi.mock("../components/DataRefreshPanel", () => ({ DataRefreshPanel: () => null }));
 vi.mock("../components/NetworkHero", () => ({ NetworkHero: () => <section>Rede</section> }));
 vi.mock("../lib/network-units", () => ({ useNetworkUnits: () => ({ data: null }), toMapCities: () => [] }));
 vi.mock("./FrontView", () => ({ CreativeCard: () => null }));

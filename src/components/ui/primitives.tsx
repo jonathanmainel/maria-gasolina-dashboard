@@ -72,6 +72,8 @@ export function Sparkline({ points, color = "var(--gold)", className = "kpi-spar
   const coords = points.map((p, i) => [points.length > 1 ? (i / (points.length - 1)) * w : 0, h - ((p - min) / span) * (h - 4) - 2]);
   const d = coords.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const id = useRef(`sp${Math.random().toString(36).slice(2, 8)}`).current;
+  // Ausência de série não pode gerar um path de preenchimento sem comando M.
+  if (!points.length) return null;
   return (
     <svg className={className} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
       <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity=".35" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
