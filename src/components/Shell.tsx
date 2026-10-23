@@ -6,6 +6,7 @@ import { dateTime, longDate, shortDate } from "../lib/format";
 import { useTheme } from "../theme";
 import type { AppView, CommercialFront, DateRange } from "../types";
 import { PeriodPicker } from "./PeriodPicker";
+import { DataRefreshPanel } from "./DataRefreshPanel";
 import { Popover } from "./ui/popover";
 import { LayoutDashboard, Heart as Instagram } from "lucide-react";
 import { commercialCategories, commercialFronts, frontsForCategory, isCommercialFront, type CommercialCategory } from "../lib/fronts";
@@ -135,7 +136,10 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         <button ref={menuButton} type="button" className="icon-button menu-button" onClick={() => setNavOpen(true)} aria-label="Abrir navegação" aria-expanded={navOpen} aria-controls="dashboard-sidebar"><Menu size={18} /></button>
         <div className="topbar-title"><small>{title.eyebrow}</small><strong>{title.title}</strong></div>
         <div className="topbar-actions">
-          <div className="sync-pill"><i />{lastSync ? `Atualizado ${dateTime(lastSync).replace(/,/, " ·")}` : "Ainda não sincronizado"}</div>
+          <div className="topbar-sync-group">
+            <div className="sync-pill"><i />{lastSync ? `Atualizado ${dateTime(lastSync).replace(/,/, " ·")}` : "Ainda não sincronizado"}</div>
+            <DataRefreshPanel range={range} />
+          </div>
           <div className="period-control">
             <button ref={periodAnchor} type="button" className="period-button" onClick={() => setPeriodOpen((o) => !o)} aria-expanded={periodOpen} aria-haspopup="dialog">
               <CalendarDays size={16} />

@@ -963,14 +963,12 @@ tbody tr:hover { background: var(--surface-2); }
 }
 
 /* Meeting hotfix: read-only reload, source dates and uncropped creative previews. */
-.data-refresh { margin: -4px 0 20px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.data-refresh-action { display: flex; align-items: center; gap: 14px; }
-.data-refresh-action button { flex-shrink: 0; }
-.data-refresh p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
-.data-refresh-sources { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 14px; }
-.data-refresh-source { min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); }
-.data-refresh-source strong { color: var(--text); font-size: 12px; }
-.data-refresh-source small { color: var(--gold); font-size: 11px; }
-.data-refresh .data-refresh-notice { margin-top: 12px; color: var(--text); }
 .lightbox figcaption small { display: block; margin-top: 6px; color: #f2c679; font-size: 11px; }
-@media (max-width: 640px) { .data-refresh-action { align-items: flex-start; flex-direction: column; gap: 8px; } .data-refresh-sources { grid-template-columns: 1fr; gap: 14px; } .lightbox { padding: 64px 12px 16px; } }
+@media (max-width: 640px) { .lightbox { padding: 64px 12px 16px; } }
+
+/* Discrete reload action beside the topbar synchronization status. */
+.topbar-sync-group { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.topbar-refresh { position: relative; display: inline-flex; align-items: center; }
+.topbar-refresh-button { width: 32px; height: 32px; border-radius: 9px; }
+.topbar-refresh-button:disabled { opacity: .65; cursor: progress; }
+.topbar-refresh-notice { position: absolute; top: calc(100% + 12px); right: 0; z-index: 2; width: min(360px, 84vw); border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-solid); color: var(--text); box-shadow: var(--shadow); padding: 12px 14px; font-size: 12px; line-height: 1.5; }
