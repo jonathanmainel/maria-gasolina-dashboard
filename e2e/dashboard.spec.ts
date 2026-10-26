@@ -117,7 +117,7 @@ test("mobile: view inválida abre visão executiva, menu e detalhamento responsi
   const menu = page.getByRole("button", { name: "Abrir navegação", exact: true });
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await menu.click();
-  await page.getByRole("button", { name: "Place", exact: true }).click();
+  await page.getByRole("button", { name: "Places", exact: true }).click();
   await page.getByRole("button", { name: "Condomínios", exact: true }).click();
   await expect(page).toHaveURL(/view=condominium/);
   await expect(menu).toHaveAttribute("aria-expanded", "false");

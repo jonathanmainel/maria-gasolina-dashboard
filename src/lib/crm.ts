@@ -1,5 +1,5 @@
 import { closeStage, crmStages, cycleStages, isPostSale, preCloseStage, visitStage } from "./crm-stages";
-import type { CrmSource, CrmStage, CrmSummary, Front, FrontDaily, ManualFunnelInput, ManualPeriodResults } from "../types";
+import type { CrmSource, CrmStage, CrmSummary, CommercialFront, FrontDaily, ManualFunnelInput, ManualPeriodResults } from "../types";
 
 // ---------------------------------------------------------------------------
 // Funil comercial — duas origens que não se misturam
@@ -39,7 +39,7 @@ import type { CrmSource, CrmStage, CrmSummary, Front, FrontDaily, ManualFunnelIn
 export { crmStageNames } from "./crm-stages";
 
 /** Etapas que aceitam tempo médio no editor manual, já sem a pós-venda contaminar o ciclo. */
-export const crmCycleStageNames = (front: Front) => cycleStages(crmStages(front)).map((stage) => stage.name);
+export const crmCycleStageNames = (front: CommercialFront) => cycleStages(crmStages(front)).map((stage) => stage.name);
 
 const MONTH_LABELS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -71,7 +71,7 @@ export interface CrmContext {
 }
 
 export function buildCrmSummary(
-  front: Front,
+  front: CommercialFront,
   input: ManualFunnelInput | null,
   results: ManualPeriodResults | null,
   context: CrmContext,
@@ -85,7 +85,7 @@ export function buildCrmSummary(
     kind: definition.kind,
     role: definition.role,
     count: input ? Math.max(0, Math.round(input.stages?.[definition.id] ?? 0)) : null,
-    avg_days: input ? (definition.tracksDays ? Math.max(0, input.stage_days?.[definition.id] ?? 0) : 0) : null,
+    avg_days: input && definition.tracksDays && input.stage_days?.[definition.id] != null ? Math.max(0, input.stage_days[definition.id]) : null,
   }));
 
   // Oportunidades abertas: cards nas colunas comerciais. O fechamento e a
@@ -96,7 +96,7 @@ export function buildCrmSummary(
 
   // Ciclo comercial: só as etapas anteriores ao fechamento. O tempo de
   // Implantação continua visível etapa a etapa, mas fora do ciclo de venda.
-  const avgCycleDays = input ? cycleStages(stages).reduce((sum, stage) => sum + (stage.avg_days ?? 0), 0) : null;
+  const avgCycleDays = input && cycleStages(stages).every(stage => stage.avg_days != null) ? cycleStages(stages).reduce((sum, stage) => sum + (stage.avg_days ?? 0), 0) : null;
 
   // --- B) RESULTADO DO PERÍODO -------------------------------------------
   const contracts = results ? Math.max(0, Math.round(results.contracts_closed)) : null;
@@ -104,7 +104,7 @@ export function buildCrmSummary(
   // Ticket realizado quando há resultado; senão a referência digitada no funil,
   // deixando claro pela flag qual dos dois está em cena.
   const realized = contracts != null && revenue != null && contracts > 0 && revenue > 0;
-  const avgTicket = realized ? revenue! / contracts! : input ? Math.max(0, input.avg_ticket) : null;
+  const avgTicket = realized ? revenue! / contracts! : input?.avg_ticket != null ? Math.max(0, input.avg_ticket) : null;
 
   return {
     front,

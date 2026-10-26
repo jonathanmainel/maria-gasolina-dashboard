@@ -3,6 +3,8 @@ import { demoDelivery, demoGoals } from "../data/demo";
 import { CLIENT_SLUG, isDemoMode } from "./api";
 import { defaultFunnel, defaultResults, normalizeFunnel, normalizeResults } from "./manual-funnel";
 import { supabase } from "./supabase";
+import { loadCommercialAccess } from "./commercial-access";
+import { assertManualWriteConfirmed } from "./manual-write";
 import type { Front, ManualBusinessData, ManualStorage } from "../types";
 
 // Configuracoes manuais (metas e conteudos) continuam no Supabase/localStorage.
@@ -126,30 +128,27 @@ export async function loadManualData(): Promise<ManualDataResult> {
 
 export async function saveManualData(next: ManualBusinessData): Promise<ManualDataResult> {
   const payload = normalize(next);
-
-  if (isDemoMode || !supabase) {
+  if (isDemoMode) {
     writeLocal(payload);
-    return { data: payload, storage: "local", fallbackReason: isDemoMode ? "Modo demonstração" : "Supabase não configurado" };
+    return { data: payload, storage: "local", fallbackReason: "Modo demonstração" };
   }
 
-  const id = await clientId();
-  if (id == null) {
-    writeLocal(payload);
-    return { data: payload, storage: "local", fallbackReason: "Cliente não encontrado no Supabase" };
-  }
+  // Revalida a sessão e o vínculo a cada gravação, inclusive chamadas sem UI.
+  // A autorização definitiva continua sendo a RLS do Supabase.
+  const access = await loadCommercialAccess();
+  if (!access.canEdit) throw new Error(access.policyReady
+    ? "Seu perfil permite somente leitura de metas e configurações."
+    : "Edição operacional bloqueada até a aprovação e configuração das permissões no Supabase.");
+  if (!supabase || access.clientId == null || !access.userId) throw new Error("Não foi possível confirmar a autorização de escrita.");
 
-  const { error } = await supabase
-    .from("dashboard_manual_inputs")
-    .upsert({ client_id: id, scope: MANUAL_SCOPE, payload: storagePayload(payload), updated_at: new Date().toISOString() }, { onConflict: "client_id,scope" });
-
-  if (error) {
-    if (MISSING_TABLE.has(error.code)) {
-      writeLocal(payload);
-      return { data: payload, storage: "local", fallbackReason: "Tabela dashboard_manual_inputs ainda não aplicada" };
-    }
-    throw error;
-  }
-  writeLocal(payload); // espelho local: mantém o valor visível se a rede cair no próximo carregamento
+  const expected = { client_id: access.clientId, scope: MANUAL_SCOPE, payload: storagePayload(payload) };
+  const { data, error } = await supabase.from("dashboard_manual_inputs").upsert({
+    ...expected, updated_at: new Date().toISOString(),
+  }, { onConflict: "client_id,scope" }).select("client_id,scope,payload");
+  // Só confirma o formulário/cache depois da representação correta do banco.
+  if (error) throw error;
+  assertManualWriteConfirmed(data, expected);
+  writeLocal(payload);
   return { data: payload, storage: "supabase" };
 }
 

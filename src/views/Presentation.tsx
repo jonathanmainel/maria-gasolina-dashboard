@@ -10,17 +10,22 @@ import { useGoals } from "../lib/goals";
 import { monthProgress } from "../lib/metrics";
 import { toMapCities, useNetworkUnits } from "../lib/network-units";
 import { frontMeta, type DashboardData } from "../lib/use-dashboard";
-import type { DateRange, Front } from "../types";
+import type { CommercialFront, DateRange, Front } from "../types";
 import { CreativeCard } from "./FrontView";
 import { rankCreatives } from "../lib/creatives";
-import { commercialDemoSummary, COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
+import { COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
 import { presentationLayout, presentationSlides } from "../lib/presentation-layout";
 import "../presentation.css";
 import { ContentTypeRow, PostCard } from "./Organic";
 
+import { CommercialFrontSelector } from "../components/CommercialFrontSelector";
+import { commercialFronts } from "../lib/fronts";
+import { buildCrmSummary } from "../lib/crm";
+import { exampleCrmSummary } from "../lib/commercial-examples";
+
 const SLIDE_MS = 14000;
 
-export function Presentation({ data, range, onExit, commercialDemo = false, onCommercialDemoChange }: { data: DashboardData; range: DateRange; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void }) {
+export function Presentation({ data, range, onExit, commercialDemo = false, onCommercialDemoChange, salesFront, onSalesFrontChange }: { data: DashboardData; range: DateRange; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void; salesFront?: CommercialFront; onSalesFrontChange?: (next: CommercialFront) => void }) {
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -57,8 +62,11 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => undefined);
     return () => { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined); };
   }, []);
+  useEffect(() => {
+    if (salesFront && salesFront !== "franchise") setIndex(slides.findIndex(item => item.id === `${salesFront}-crm-0`));
+  }, [salesFront]);
   const period = `${shortDate(range.start)} a ${shortDate(range.end)}`;
-  const title = slide.kind === 'executive' ? 'O crescimento da rede' : slide.kind === 'pacing' ? 'Ritmo do mês' : slide.kind.startsWith('organic') ? (slide.kind === 'organic' ? 'Presença orgânica' : 'Destaques orgânicos') : `${frontMeta[slide.front!].short} · ${slide.kind === 'creatives' ? 'Criativos por leads' : slide.kind === 'crm' ? 'Pipeline comercial' : 'Resultados de mídia'}`;
+  const title = slide.kind === 'executive' ? 'O crescimento da rede' : slide.kind === 'pacing' ? 'Ritmo do mês' : slide.kind.startsWith('organic') ? (slide.kind === 'organic' ? 'Presença orgânica' : 'Destaques orgânicos') : `${commercialFronts[slide.front!].short} · ${slide.kind === 'creatives' ? 'Criativos por leads' : slide.kind === 'crm' ? 'Pipeline comercial' : 'Resultados de mídia'}`;
   return <div className="present responsive-present" style={{ '--presentation-scale': layout.scale } as CSSProperties}>
     <div className="ambient" />
     <header className="present-top">
@@ -67,9 +75,9 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
     </header>
     <div className="present-slide" data-slide={slide.id} data-kind={slide.kind} key={slide.id}>
       {slide.kind === 'executive' && <ExecutiveSlide data={data} range={range} />}{slide.kind === 'pacing' && <ExecutivePacingSlide data={data} range={range} />}
-      {slide.kind === 'front' && <FrontSlide data={data} range={range} front={slide.front!} goals={goals} />}
-      {slide.kind === 'creatives' && <section className="presentation-creatives" aria-label="Criativos por leads"><div className="creative-grid" style={{gridTemplateColumns: `repeat(${slide.count}, minmax(0, 1fr))`}}>{rankCreatives(data.creatives, slide.front!).slice(slide.offset, (slide.offset ?? 0) + slide.count!).map((c, i) => <CreativeCard key={c.id} c={c} rank={(slide.offset ?? 0) + i + 1} />)}</div></section>}
-      {slide.kind === 'crm' && <CommercialSlide data={data} front={slide.front!} illustrative={illustrative} offset={slide.offset!} count={slide.count!} />}
+      {slide.kind === 'front' && <FrontSlide data={data} range={range} front={slide.front! as Front} goals={goals} />}
+      {slide.kind === 'creatives' && <section className="presentation-creatives" aria-label="Criativos por leads"><div className="creative-grid" style={{gridTemplateColumns: `repeat(${slide.count}, minmax(0, 1fr))`}}>{rankCreatives(data.creatives, slide.front! as Front).slice(slide.offset, (slide.offset ?? 0) + slide.count!).map((c, i) => <CreativeCard key={c.id} c={c} rank={(slide.offset ?? 0) + i + 1} />)}</div></section>}
+      {slide.kind === 'crm' && <CommercialSlide data={data} range={range} front={slide.front!} illustrative={illustrative} offset={slide.offset!} count={slide.count!} onFrontChange={front => { onSalesFrontChange?.(front); setIndex(slides.findIndex(item => item.id === `${front}-crm-0`)); }} />}
       {slide.kind.startsWith('organic') && <OrganicSlide data={data} postsOnly={slide.kind === 'organic-posts'} />}
     </div>
     <footer className="present-bottom">
@@ -84,16 +92,17 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
   </div>;
 }
 
-function CommercialSlide({ data, front, illustrative, offset, count }: { data: DashboardData; front: Front; illustrative: boolean; offset: number; count: number }) {
-  const crm = illustrative ? commercialDemoSummary(front) : data.crm[front];
+function CommercialSlide({ data, range, front, illustrative, offset, count, onFrontChange }: { data: DashboardData; range: DateRange; front: CommercialFront; illustrative: boolean; offset: number; count: number; onFrontChange: (front: CommercialFront) => void }) {
+  const operational = data.crm[front] ?? buildCrmSummary(front, null, null, { rows: [] });
+  const crm = illustrative ? exampleCrmSummary(front, range) : operational;
   return <div className="presentation-commercial">
-    <p className="presentation-source" role="status">{illustrative ? COMMERCIAL_DEMO_LABEL + ' · snapshot e resultados são exemplos independentes; não são dados do CRM Elo.' : crm.snapshot_available ? 'Registros comerciais disponíveis' : 'Aguardando integração com CRM Elo.'}</p>
+    <div className="presentation-commercial-head"><CommercialFrontSelector id="presentation-sales-front" front={front} onChange={onFrontChange} /><p className="presentation-source" role="status">{illustrative || isDemoMode ? COMMERCIAL_DEMO_LABEL + ' · sem gravação operacional.' : crm.snapshot_available || crm.results_available ? 'Registros comerciais disponíveis' : 'Aguardando integração com CRM Elo.'}</p></div>
     <div className="grid grid-3">
       <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent="gold" hideDelta />
       <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" hideDelta />
       <Kpi label="Oportunidades abertas" value={crm.open_opportunities} format={integer} accent="sky" hideDelta />
     </div>
-    <section className="panel presentation-funnel" style={{ "--stage-count": Math.min(count, crm.stages.length - offset) } as CSSProperties}><div className="panel-head"><div><h3>Pipeline · {frontMeta[front].short}</h3><p>Etapas {offset + 1} a {Math.min(offset + count, crm.stages.length)} de {crm.stages.length} · estoque atual por etapa</p></div></div><Funnel stages={crm.stages.slice(offset, offset + count)} color={frontMeta[front].color} format={integer} pipelineTotal={crm.open_opportunities ?? 0} dense /></section>
+    <section className="panel presentation-funnel" style={{ "--stage-count": Math.min(count, crm.stages.length - offset) } as CSSProperties}><div className="panel-head"><div><h3>Pipeline · {commercialFronts[front].short}</h3><p>Etapas {offset + 1} a {Math.min(offset + count, crm.stages.length)} de {crm.stages.length} · estoque atual por etapa</p></div></div><Funnel stages={crm.stages.slice(offset, offset + count)} color={commercialFronts[front].color} format={integer} pipelineTotal={crm.open_opportunities ?? 0} dense /></section>
   </div>;
 }
 

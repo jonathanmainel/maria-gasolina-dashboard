@@ -5,9 +5,12 @@ import { buildCrmSummary } from "../lib/crm";
 import { crmStageNames } from "../lib/crm-stages";
 import { defaultFunnel, defaultResults } from "../lib/manual-funnel";
 import type { DashboardData } from "../lib/use-dashboard";
+import { emptyCommercialEntries } from "../lib/commercial-records";
 import { CrmView } from "./Crm";
 import { ManualNumbersPanel } from "../components/ui/editable";
 
+const range = { start: "2026-09-01", end: "2026-09-30" };
+vi.mock("../lib/commercial-data", () => ({ useDeleteCommercialRecord: () => ({ mutateAsync: async () => undefined }), useSaveCommercialRecord: () => ({ mutateAsync: async () => undefined }) }));
 const mode = vi.hoisted(() => ({ demo: false }));
 vi.mock("../lib/api", async (original) => ({ ...await original<typeof import("../lib/api")>(), get isDemoMode() { return mode.demo; } }));
 
@@ -46,7 +49,9 @@ const results = {
 };
 
 const data = {
+  get commercial() { return { access: { canEdit: mode.demo, policyReady: mode.demo }, entries: { ...emptyCommercialEntries(), franchise: { snapshot: defaultFunnel.franchise, result: defaultResults.franchise }, condominium: { snapshot: defaultFunnel.condominium, result: defaultResults.condominium } } }; },
   crm: {
+    company: buildCrmSummary("company", null, null, { rows: [] }), gym: buildCrmSummary("gym", null, null, { rows: [] }), hospital: buildCrmSummary("hospital", null, null, { rows: [] }),
     franchise: buildCrmSummary("franchise", funnel.franchise, results.franchise, { rows: [] }),
     condominium: buildCrmSummary("condominium", funnel.condominium, results.condominium, { rows: [] }),
   },
@@ -58,18 +63,18 @@ const kpi = (label: string) =>
 
 describe("tela de CRM com os funis reais", () => {
   it("mostra as 10 etapas de Franquias na ordem exata", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     expect(funnelNames()).toEqual(crmStageNames("franchise"));
   });
 
   it("mostra as 8 etapas de Condomínios ao trocar de frente", () => {
-    render(<CrmView data={data} readOnly />);
-    fireEvent.click(screen.getByRole("tab", { name: "Condomínios" }));
+    render(<CrmView range={range} data={data} readOnly />);
+    fireEvent.click(screen.getByRole("tab", { name: "Places" }));
     expect(funnelNames()).toEqual(crmStageNames("condominium"));
   });
 
   it("marca Implantação como pós-venda depois do Contrato", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     const names = funnelNames();
     expect(names.indexOf("Implantação")).toBe(names.indexOf("Contrato") + 1);
     const row = document.querySelector(".funnel3d-row.post-sale");
@@ -79,18 +84,18 @@ describe("tela de CRM com os funis reais", () => {
   });
 
   it("não exibe percentual nenhum nos nomes das etapas", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     funnelNames().forEach((name) => expect(name).not.toMatch(/%/));
   });
 
   it("não exibe nomes do modelo antigo em lugar nenhum da tela", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     ["Perfil validado", "Discovery Day", "Proposta / COF", "Contrato assinado", "Contato com síndico", "Visita técnica", "Aprovação em assembleia", "Loja contratada"]
       .forEach((retired) => expect(screen.queryByText(retired)).toBeNull());
   });
 
   it("a etapa mais demorada é comercial, não a Implantação de 45 dias", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     const slowest = [...document.querySelectorAll(".panel")].find((panel) => panel.textContent?.includes("Etapa mais demorada"));
     expect(slowest?.textContent).toContain("Visita / Call");
     expect(slowest?.textContent).not.toContain("Implantação");
@@ -98,26 +103,26 @@ describe("tela de CRM com os funis reais", () => {
   });
 
   it("a barra de ciclo não inclui a Implantação", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     expect(document.querySelector(".cycle-bar-legend")?.textContent).not.toContain("Implantação");
   });
 });
 
 describe("snapshot e resultado não se misturam na tela", () => {
   it("o card de contratos mostra o resultado informado, não a coluna Contrato", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     // A coluna "Contrato" está vazia; o período fechou 4.
     expect(kpi("Contratos no período")?.textContent).toContain("4");
     expect(data.crm.franchise.close_stage?.count).toBe(0);
   });
 
   it("o card de oportunidades abertas soma o estoque comercial", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     expect(kpi("Oportunidades abertas")?.textContent).toContain("2.711");
   });
 
   it("nenhuma linha do funil exibe taxa de passagem entre colunas vizinhas", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     const captions = [...document.querySelectorAll(".funnel3d-row-bottom em")].map((node) => node.textContent ?? "");
     captions.forEach((caption) => {
       expect(caption).not.toMatch(/seguiu/);
@@ -128,7 +133,7 @@ describe("snapshot e resultado não se misturam na tela", () => {
   });
 
   it("a tela não promete conversão, projeção nem origem de contrato", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     const text = document.body.textContent ?? "";
     expect(text).not.toContain("Conversão lead");
     expect(text).not.toContain("Pipeline projetado");
@@ -138,7 +143,7 @@ describe("snapshot e resultado não se misturam na tela", () => {
   });
 
   it("o gráfico mensal não anuncia contratos nem receita inferidos", () => {
-    render(<CrmView data={data} readOnly />);
+    render(<CrmView range={range} data={data} readOnly />);
     const chart = [...document.querySelectorAll(".panel")].find((panel) => panel.textContent?.includes("Leads de mídia mês a mês"));
     expect(chart).not.toBeUndefined();
     expect(chart?.textContent).not.toContain("Reuniões");
@@ -148,7 +153,7 @@ describe("snapshot e resultado não se misturam na tela", () => {
 describe("editor manual em demonstracao", () => {
   beforeEach(() => { mode.demo = true; });
   it("expõe uma caixa para cada etapa do kanban", () => {
-    render(<CrmView data={data} />);
+    render(<CrmView range={range} data={data} />);
     fireEvent.click(screen.getAllByRole("button", { name: /Editar dados/ })[0]);
     crmStageNames("franchise").forEach((name) => {
       expect(screen.getAllByLabelText(name).length).toBeGreaterThan(0);
@@ -157,7 +162,7 @@ describe("editor manual em demonstracao", () => {
   });
 
   it("tem um bloco separado para contratos fechados e receita do período", () => {
-    render(<CrmView data={data} />);
+    render(<CrmView range={range} data={data} />);
     const panel = [...document.querySelectorAll(".panel")].find((node) => node.textContent?.includes("Resultado do período · Franquias"));
     expect(panel).not.toBeUndefined();
     fireEvent.click(within(panel as HTMLElement).getByRole("button", { name: /Editar dados/ }));
@@ -175,7 +180,7 @@ describe("CRM operacional sem registros comerciais", () => {
     ];
     const real = {...data,crm:{...data.crm,franchise:buildCrmSummary('franchise',null,null,{rows})}};
     const before = JSON.stringify(real);
-    render(<CrmView data={real} readOnly />);
+    render(<CrmView range={range} data={real} readOnly />);
     const sources = screen.getByRole('heading',{name:'Origem dos leads de mídia'}).closest('.panel')!;
     const monthly = screen.getByRole('heading',{name:'Leads de mídia mês a mês'}).closest('.panel')!;
     const sourceText = sources.textContent;
@@ -190,18 +195,18 @@ describe("CRM operacional sem registros comerciais", () => {
     expect(screen.queryByRole('button',{name:/Editar dados/})).toBeNull();
   });
   it("mantem etapas e navegacao sem indicadores ficticios nem editor manual", () => {
-    const empty = { ...data, crm: {
+    const empty = { ...data, crm: { ...data.crm,
       franchise: buildCrmSummary("franchise", null, null, { rows: [] }),
       condominium: buildCrmSummary("condominium", null, null, { rows: [] }),
     } };
-    render(<CrmView data={empty} />);
+    render(<CrmView range={range} data={empty} />);
     expect(funnelNames()).toEqual(crmStageNames("franchise"));
     expect([...document.querySelectorAll(".kpi-value strong")].map((node) => node.textContent)).toEqual(Array(6).fill("—"));
     expect([...document.querySelectorAll(".funnel3d-row-bottom b")].every((node) => node.textContent === "—")).toBe(true);
     expect(document.querySelector(".funnel3d-shape")).toBeNull();
     expect(screen.getAllByText("Aguardando integração com CRM Elo.").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /Editar dados/ })).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: "Condomínios" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Places" }));
     expect(funnelNames()).toEqual(crmStageNames("condominium"));
     expect([...document.querySelectorAll(".kpi-value strong")].every((node) => node.textContent === "—")).toBe(true);
   });

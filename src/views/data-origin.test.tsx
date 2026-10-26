@@ -150,7 +150,7 @@ describe("ausencia comercial nas superficies consolidadas", () => {
   });
   function empty() {
     const data = fixture();
-    data.crm = { franchise: buildCrmSummary("franchise", null, null, { rows }), condominium: buildCrmSummary("condominium", null, null, { rows }) };
+    data.crm = { ...data.crm, franchise: buildCrmSummary("franchise", null, null, { rows }), condominium: buildCrmSummary("condominium", null, null, { rows }) };
     return data;
   }
   it("Executiva: nenhum resultado comercial vira zero ou recebe exemplo", () => {

@@ -8,7 +8,7 @@ import { Skeleton } from "../components/ui/primitives";
 import { getLastSync } from "../lib/api";
 import { useDashboard } from "../lib/use-dashboard";
 import { commercialFronts, isPlaceFront } from "../lib/fronts";
-import type { AppView, DateRange } from "../types";
+import type { AppView, CommercialFront, DateRange } from "../types";
 import { CrmView } from "../views/Crm";
 import { ExecutiveView } from "../views/Executive";
 import { FrontView } from "../views/FrontView";
@@ -29,8 +29,10 @@ export function DashboardPage() {
   const presenting = searchParams.get("present") === "1";
   const [range, setRange] = useState<DateRange>(initialRange);
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
+  const [salesFront, setSalesFront] = useState<CommercialFront>("franchise");
+  const [commercialPreview, setCommercialPreview] = useState(false);
+  useEffect(() => { if (view !== "crm") setCommercialPreview(false); }, [view]);
   const [organicScope, setOrganicScope] = useState<OrganicScope>("overview");
-  const [commercialDemo, setCommercialDemo] = useState(false);
   const data = useDashboard(range);
 
   const setParam = useCallback((key: string, value: string | null) => {
@@ -46,7 +48,7 @@ export function DashboardPage() {
 
   if (presenting) {
     if (data.isLoading) return <div className="screen-state"><div className="spinner" /><p>Preparando a apresentação...</p></div>;
-    return <Presentation data={data} range={range} onExit={onExitPresent} commercialDemo={commercialDemo} onCommercialDemoChange={setCommercialDemo} />;
+    return <Presentation data={data} range={range} onExit={onExitPresent} commercialDemo={commercialPreview} onCommercialDemoChange={setCommercialPreview} salesFront={salesFront} onSalesFrontChange={setSalesFront} />;
   }
 
   return (
@@ -58,6 +60,8 @@ export function DashboardPage() {
             FrontView apresenta os mesmos estados de carregamento/erro. */}
         {view === "site" ? (
           <SiteView range={range} />
+        ) : view === "crm" ? (
+          <CrmView data={data} range={range} readOnly={readOnly} preview={commercialPreview} onPreviewChange={setCommercialPreview} selectedFront={salesFront} onFrontChange={setSalesFront} />
         ) : isPlaceFront(view) ? (
           <FrontView key={view} front={view} data={data} range={range} onNavigate={onViewChange} />
         ) : data.isError ? (
@@ -69,8 +73,7 @@ export function DashboardPage() {
             {view === "executive" && <ExecutiveView data={data} range={range} onNavigate={onViewChange} />}
             {view === "franchise" && <FrontView front="franchise" data={data} range={range} onNavigate={onViewChange} />}
             {view === "organic" && <OrganicView data={data} scope={organicScope} onScopeChange={setOrganicScope} />}
-            {view === "crm" && <CrmView data={data} readOnly={readOnly} commercialDemo={commercialDemo} onCommercialDemoChange={setCommercialDemo} />}
-            {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} />}
+            {view === "settings" && !readOnly && <SettingsView shareUrl={shareUrl} onPresent={onPresent} access={data.commercial?.access} />}
           </>
         )}
       </Shell>

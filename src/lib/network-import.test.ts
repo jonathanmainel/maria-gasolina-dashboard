@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const gate = vi.hoisted(() => ({ ready: true }));
+vi.mock("./network-import-access", () => ({ get NETWORK_UNITS_IMPORT_READY() { return gate.ready; } }));
 const invoke = vi.fn();
 vi.mock("./supabase", () => ({ supabase: { functions: { invoke } } }));
 
@@ -15,6 +17,7 @@ const grid = (...rows: Array<Array<string | number | null>>) => [HEADERS, ...row
 
 beforeEach(() => {
   invoke.mockReset();
+  gate.ready = true;
 });
 
 describe("formatos aceitos", () => {
@@ -273,5 +276,13 @@ describe("importErrorLabel", () => {
   it("tem mensagem legível para código desconhecido", () => {
     expect(importErrorLabel("ALGO_NOVO")).toBe("A importação não pôde ser concluída.");
     expect(importErrorLabel(null)).toBe("A importação não pôde ser concluída.");
+  });
+});
+
+describe("gate independente da importação", () => {
+  it("bloqueia chamadas diretas antes de enviar qualquer requisição", async () => {
+    gate.ready = false;
+    await expect(importNetworkUnits({ filename: "synthetic.xlsx", rows: [], dryRun: false })).rejects.toThrow("indisponível");
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

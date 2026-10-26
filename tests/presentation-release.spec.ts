@@ -43,14 +43,18 @@ for (const [width,height] of sizes) test(`slides fit ${width}x${height}`,async({
   expect(new Set(seen).size).toBe(total);
 });
 test('commercial switch and consultation reload preserve media and operational state',async({page})=>{
+  // O demo calcula a sincronização a partir de Date.now(); manter a referência estável.
+  await page.clock.setFixedTime(new Date('2026-10-23T15:00:00Z'));
   await page.setViewportSize({width:1366,height:768});
   await page.goto('/dashboard/maria-gasolina?demo=1&view=crm');
+  await expect(page.locator('.sync-pill')).toContainText('Atualizado');
   const sync=await page.locator('.sync-pill').textContent();
   await page.getByRole('button',{name:'Visualizar funis ilustrativos',exact:true}).click();
   await expect(page.locator('.crm-note').first()).toContainText('Dados comerciais ilustrativos');
   await expect(page.locator('.funnel3d-row')).toHaveCount(10);
   await expect(page.locator('.kpi').filter({hasText:'Receita no período'})).toContainText('760.500,00');
-  await page.getByRole('tab',{name:'Condomínios',exact:true}).click();
+  await page.getByRole('tab',{name:'Places',exact:true}).click();
+  await expect(page.getByLabel('Frente comercial')).toHaveValue('condominium');
   await expect(page.locator('.funnel3d-row')).toHaveCount(8);
   await expect(page.locator('.kpi').filter({hasText:'Receita no período'})).toContainText('108.000,00');
   await page.getByRole('button',{name:'Recarregar dados',exact:true}).click();

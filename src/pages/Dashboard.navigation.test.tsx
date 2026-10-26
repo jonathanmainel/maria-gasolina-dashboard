@@ -31,7 +31,7 @@ describe("URLs comerciais e independência das páginas vazias", () => {
     show(view);
     expect(screen.getByRole("heading", { name: label, level: 1 })).not.toBeNull();
     expect(screen.queryByText("Não foi possível carregar os dados")).toBeNull();
-    expect(screen.getByRole("button", { name: "Place" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Places" }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("button", { name: label }).getAttribute("aria-current")).toBe("page");
   });
   it("navega entre categorias preservando parâmetros e os endereços anteriores", () => {

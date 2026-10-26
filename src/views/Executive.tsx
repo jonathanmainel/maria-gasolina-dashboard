@@ -140,8 +140,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       </div>
 
       <div className="section-title" style={{ marginTop: 22 }}>
-        <div><h2>Vendas</h2><p>Resultado informado do período e pipeline parado hoje no CRM Elo — dois números de naturezas diferentes, lado a lado sem se misturarem.</p></div>
-        <span className="badge sky">{isDemoMode ? "CRM Elo · demonstração" : "Aguardando integração com CRM Elo."}</span>
+        <div><h2>Vendas</h2><p>Franquias e Condomínios · resultado informado do período e snapshot atual, sem misturar suas naturezas. As demais frentes estão em Vendas.</p></div>
+        <span className="badge sky">{isDemoMode ? "Dados comerciais de exemplo" : crmFranchise.snapshot_available || crmCondominium.snapshot_available || crmFranchise.results_available || crmCondominium.results_available ? "Dados inseridos manualmente" : "Aguardando integração com CRM Elo."}</span>
       </div>
       <div className="grid grid-4">
         <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={salesContracts == null ? "Aguardando integração com CRM Elo." : `${integer(crmFranchise.contracts)} franquias · ${integer(crmCondominium.contracts)} condomínios`} />

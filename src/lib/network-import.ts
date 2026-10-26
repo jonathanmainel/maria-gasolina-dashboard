@@ -1,5 +1,6 @@
 import { CLIENT_SLUG } from "./api";
 import { supabase } from "./supabase";
+import { NETWORK_UNITS_IMPORT_READY } from "./network-import-access";
 
 // ---------------------------------------------------------------------------
 // Importação da base de unidades
@@ -296,6 +297,8 @@ export interface ImportRequest {
  * que não tem corpo interpretável vira exceção.
  */
 export async function importNetworkUnits({ filename, rows, dryRun }: ImportRequest): Promise<ImportResponse> {
+  // A trava também vale para chamadas diretas ou controles reativados no DOM.
+  if (!NETWORK_UNITS_IMPORT_READY) throw new Error("Importação de unidades indisponível até a homologação específica deste serviço.");
   if (!supabase) throw new Error("A conexão com o Supabase ainda não foi configurada.");
   const { data, error } = await supabase.functions.invoke(IMPORT_FUNCTION, {
     body: { client_slug: CLIENT_SLUG, filename, dry_run: dryRun, rows },

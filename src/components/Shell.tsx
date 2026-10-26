@@ -40,7 +40,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
     if (activeCategory) setExpanded((current) => ({ ...current, [activeCategory]: true }));
   }, [view, activeCategory]);
   const title = isCommercialFront(view)
-    ? { eyebrow: `${commercialFronts[view].category === "place" ? "Place" : "Expansão"} · ${commercialFronts[view].short}`, title: commercialFronts[view].label }
+    ? { eyebrow: `${commercialFronts[view].category === "place" ? "Places" : "Expansão"} · ${commercialFronts[view].short}`, title: commercialFronts[view].label }
     : viewTitles[view];
   const [periodOpen, setPeriodOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,7 +117,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         </div>
         <div className="sidebar-group">
           <small>Comercial</small>
-          {item("crm", "CRM e vendas", <Users size={17} />, "crm")}
+          {item("crm", "Vendas", <Users size={17} />, "crm")}
         </div>
         {!readOnly && (
           <div className="sidebar-group">

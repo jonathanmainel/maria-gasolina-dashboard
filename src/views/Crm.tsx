@@ -1,21 +1,25 @@
 import { BadgeDollarSign, Clock3, FileSignature, Info, Layers, Pencil, PiggyBank, Trophy } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ManualNumbersPanel } from "../components/ui/editable";
 import { BarList, ChartTip, CycleBar, Funnel, Kpi, Panel, Segmented } from "../components/ui/primitives";
 import { slowestCommercialStage } from "../lib/crm";
 import { isPostSale } from "../lib/crm-stages";
 import { isDemoMode } from "../lib/api";
-import { commercialDemoSummary, COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
 import { integer, money } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import {
   funnelFields, funnelToValues, resultFields, resultsToValues, valuesToFunnel, valuesToResults,
 } from "../lib/manual-fields";
-import { useManualData, useSaveManualData } from "../lib/manual-inputs";
-import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
-import { ManualStorageNote } from "./Settings";
-import type { Front } from "../types";
+import { useSaveCommercialRecord, useDeleteCommercialRecord } from "../lib/commercial-data";
+import { commercialFronts } from "../lib/fronts";
+import { CommercialFrontSelector } from "../components/CommercialFrontSelector";
+import { COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
+import { exampleCrmSummary } from "../lib/commercial-examples";
+import { buildCrmSummary } from "../lib/crm";
+import { dateTime } from "../lib/format";
+import { useChartColors, type DashboardData } from "../lib/use-dashboard";
+import type { CommercialFront, DateRange } from "../types";
 
 // Duas naturezas de dado convivem nesta tela sem se misturar:
 //
@@ -24,19 +28,33 @@ import type { Front } from "../types";
 //
 // Nenhum indicador de resultado é calculado a partir da foto, e nenhuma taxa de
 // passagem é lida entre colunas vizinhas: são estoques independentes.
-export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDemoChange }: { data: DashboardData; readOnly?: boolean; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void }) {
+export function CrmView({ data, readOnly, range, preview, onPreviewChange, selectedFront: controlledFront, onFrontChange }: { data: DashboardData; readOnly?: boolean; range: DateRange; preview?: boolean; onPreviewChange?: (next: boolean) => void; selectedFront?: CommercialFront; onFrontChange?: (next: CommercialFront) => void }) {
   const colors = useChartColors();
   const goals = useGoals();
-  const manual = useManualData();
-  const saveManual = useSaveManualData();
-  const [front, setFront] = useState<Front>("franchise");
-  const [localDemo, setLocalDemo] = useState(false);
-  const illustrative = onCommercialDemoChange ? commercialDemo : localDemo;
-  const setIllustrative = (next: boolean) => { setLocalDemo(next); onCommercialDemoChange?.(next); };
-  const crm = illustrative ? commercialDemoSummary(front) : data.crm[front];
-  const media = data.crm[front];
-  const meta = frontMeta[front];
-  const contractsGoal = front === "franchise" ? goals.contracts_franchise : goals.contracts_condominium;
+  const saveCommercial = useSaveCommercialRecord();
+  const deleteCommercial = useDeleteCommercialRecord();
+  const [deleting, setDeleting] = useState<{ front: CommercialFront; kind: "snapshot" | "result"; range: DateRange } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [selectedFront, setSelectedFront] = useState<CommercialFront>("franchise");
+  const [localPreview, setLocalPreview] = useState(false);
+  const showingExamples = preview ?? localPreview;
+  const setPreview = (next: boolean) => { setLocalPreview(next); onPreviewChange?.(next); };
+  const front = controlledFront ?? selectedFront;
+  useEffect(() => { setDeleting(null); setDeleteError(""); }, [front, range.start, range.end, showingExamples]);
+  const changeFront = (next: CommercialFront) => { setSelectedFront(next); onFrontChange?.(next); };
+  const operational = data.crm[front] ?? buildCrmSummary(front, null, null, { rows: [] });
+  const rows = front === "franchise" || front === "condominium" ? data[front]?.rows ?? [] : [];
+  const crm = showingExamples ? exampleCrmSummary(front, range, rows) : operational;
+  const media = operational;
+  const meta = commercialFronts[front];
+  const contractsGoal = front === "franchise" ? goals.contracts_franchise : front === "condominium" ? goals.contracts_condominium : null;
+  const access = data.commercial?.access;
+  const editable = !readOnly && !showingExamples && !!access?.canEdit;
+  const periodLabel = `${range.start.split("-").reverse().join("/")} a ${range.end.split("-").reverse().join("/")}`;
+  const snapshot = data.commercial?.entries[front]?.snapshot ?? null;
+  const result = data.commercial?.entries[front]?.result ?? null;
+  const example = showingExamples || isDemoMode || crm.snapshot_origin === "example";
+  const source = example ? "Dados de exemplo" : crm.snapshot_available || crm.results_available ? "Dados inseridos manualmente" : "Sem registros comerciais";
   // Implantação é pós-venda: fica fora do ciclo e da etapa mais demorada.
   const commercialStages = useMemo(() => crm.stages.filter((stage) => !isPostSale(stage)), [crm.stages]);
   const slowestStage = useMemo(() => slowestCommercialStage(crm.stages), [crm.stages]);
@@ -48,69 +66,57 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
   );
 
   return (
-    <div className="view-enter" key={front}>
+    <div className="view-enter" key={`${front}|${showingExamples}|${range.start}|${range.end}`}>
       <div className="view-head">
         <div>
-          <span className="eyebrow"><i style={{ background: "var(--sky)" }} />CRM Elo · {isDemoMode ? "demonstração" : "integração pendente"}</span>
+          <span className="eyebrow"><i style={{ background: "var(--sky)" }} />Vendas · {source}</span>
           <h1>Pipeline de hoje e <em>resultado do período</em></h1>
           <p>Onde estão as oportunidades agora, quanto tempo elas passam em cada etapa e quanto a frente fechou no período. A área já está pronta para receber os dados reais do Elo assim que a API deles for liberada.</p>
         </div>
         <div className="crm-head-side">
-          <Segmented value={front} onChange={setFront} options={[{ id: "franchise", label: "Franquias", className: "franchise" }, { id: "condominium", label: "Condomínios", className: "condominium" }]} />
-          {/* Marca discreta de origem: o CRM não é sincronizado automaticamente. */}
-          <span className="crm-source-tag"><Pencil size={11} />{illustrative ? COMMERCIAL_DEMO_LABEL : isDemoMode ? "Dados comerciais demonstrativos" : "Aguardando integração com CRM Elo."}</span>
-          <button type="button" className="secondary-button" aria-pressed={illustrative} onClick={() => setIllustrative(!illustrative)}>{illustrative ? "Voltar aos dados reais" : "Visualizar funis ilustrativos"}</button>
+          <CommercialFrontSelector front={front} onChange={changeFront} />
+          <span className="crm-source-tag"><Pencil size={11} />{source}</span>
+          <button type="button" className="secondary-button" aria-pressed={showingExamples} onClick={() => setPreview(!showingExamples)}>{showingExamples ? "Voltar aos dados reais" : "Visualizar funis ilustrativos"}</button>
         </div>
       </div>
       <div className="crm-note">
         <Info size={18} />
-        {illustrative || isDemoMode ? <span>
-          <b>{COMMERCIAL_DEMO_LABEL}.</b> Os exemplos abaixo não representam resultados reais do cliente e não são gravados na operação ou no Supabase.
-        </span> : <span>Aguardando integração com CRM Elo.</span>}
+        {example ? <span>
+          <b>{COMMERCIAL_DEMO_LABEL}.</b> Esta prévia não é salva na operação nem no Supabase e não representa resultados reais. Os dados de mídia permanecem em sua origem própria.
+        </span> : <span>{source}. Snapshot atual e resultados de {periodLabel} são registros separados. A integração com CRM Elo continua pendente.</span>}
       </div>
 
       <div className="grid grid-6">
-        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={crm.results_available ? `informado · meta do mês: ${integer(contractsGoal)}` : "Aguardando integração com CRM Elo."} />
-        <Kpi label="Receita no período" value={(crm.revenue != null && crm.revenue > 0) ? crm.revenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={(crm.revenue != null && crm.revenue > 0) ? (crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : "informada") : crm.results_available ? "informe o resultado do período" : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={crm.results_available ? contractsGoal == null ? `informado · ${periodLabel}` : `informado · meta do mês: ${integer(contractsGoal)}` : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.results_available ? crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : `informada · ${periodLabel}` : "Aguardando integração com CRM Elo."} />
         <Kpi label="Oportunidades abertas" value={crm.open_opportunities} format={integer} accent="sky" icon={<Layers size={16} />} hideDelta foot="cards nas etapas comerciais hoje" />
-        <Kpi label="Ciclo médio de venda" value={(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? crm.avg_cycle_days : null} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
+        <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
         {/* Pipeline em contagem de oportunidades: multiplicar estoque por ticket e
             chamar de receita esperada suporia uma probabilidade que não existe. */}
         <Kpi label={crm.pipeline_stage ? `Em ${crm.pipeline_stage.name.toLowerCase()}` : "Antes do contrato"} value={crm.pipeline_stage?.count ?? null} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot="oportunidades na última etapa antes do contrato" />
         <Kpi label={crm.visit_stage?.name ?? "Visitas"} value={crm.visit_stage?.count ?? null} format={integer} accent="violet" icon={<Trophy size={16} />} hideDelta foot="oportunidades nesta etapa hoje" />
       </div>
 
-      {!readOnly && isDemoMode && !illustrative && (
-        <div className="grid grid-wide" style={{ marginTop: 14 }}>
-          <div>
-            <ManualStorageNote storage={manual.storage} reason={manual.fallbackReason} />
-            <ManualNumbersPanel
-              title={`Pipeline atual · ${meta.short}`}
-              description="Quantas oportunidades estão em cada coluna do kanban agora, e quanto tempo em média ficam nela"
-              badge={<span className="badge sky">Foto do kanban</span>}
-              fields={funnelFields(front)}
-              values={funnelToValues(front, manual.data.funnel[front])}
-              onSave={(next) => saveManual.mutateAsync({
-                ...manual.data,
-                funnel: { ...manual.data.funnel, [front]: valuesToFunnel(front, next) },
-              })}
-              saveLabel="Salvar pipeline"
-              footNote="Estoque instantâneo: o dashboard não lê taxa de passagem nem fechamento a partir destes números."
-            />
-          </div>
-          <ManualNumbersPanel
-            title={`Resultado do período · ${meta.short}`}
-            description="O que a frente efetivamente fechou e faturou no período de referência"
-            badge={<span className="badge green">Resultado</span>}
-            fields={resultFields(front)}
-            values={resultsToValues(manual.data.results[front])}
-            onSave={(next) => saveManual.mutateAsync({
-              ...manual.data,
-              results: { ...manual.data.results, [front]: valuesToResults(next) },
-            })}
-            saveLabel="Salvar resultado"
-            footNote="Digitado porque não é derivável do kanban: o card de um negócio fechado já saiu da coluna Contrato."
-          />
+      {!example && !access?.policyReady && <p className="commercial-access-note" role="status">Edição operacional bloqueada até a aprovação e configuração das permissões no Supabase.</p>}
+      {!example && access?.policyReady && !access.canEdit && <p className="commercial-access-note" role="status">Seu perfil permite somente leitura dos dados comerciais.</p>}
+      {data.commercial?.isError && <p className="manual-error" role="alert">Não foi possível carregar os registros comerciais. Nenhum exemplo foi usado como substituto.</p>}
+      {editable && access?.canManage && !isDemoMode && <div className="commercial-delete-actions">
+        {snapshot && <button type="button" className="secondary-button" onClick={() => { setDeleteError(""); setDeleting({ front, kind: "snapshot", range: { ...range } }); }}>Excluir pipeline atual</button>}
+        {result && <button type="button" className="secondary-button" onClick={() => { setDeleteError(""); setDeleting({ front, kind: "result", range: { ...range } }); }}>Excluir resultado do período</button>}
+        {deleting && <div role="alertdialog" aria-label="Confirmar exclusão comercial" className="commercial-access-note">
+          <p>Excluir {deleting.kind === "snapshot" ? "o pipeline atual" : `o resultado de ${deleting.range.start} a ${deleting.range.end}`} de {commercialFronts[deleting.front].short}? Esta ação remove somente esse registro comercial.</p>
+          <button type="button" className="secondary-button" disabled={deleteCommercial.isPending} onClick={() => setDeleting(null)}>Cancelar exclusão</button>
+          <button type="button" className="secondary-button" disabled={deleteCommercial.isPending} onClick={async () => {
+            try { await deleteCommercial.mutateAsync(deleting); setDeleting(null); }
+            catch (error) { setDeleteError(error instanceof Error ? error.message : "Não foi possível excluir o registro."); }
+          }}>{deleteCommercial.isPending ? "Excluindo…" : "Confirmar exclusão"}</button>
+          {deleteError && <p role="alert" className="manual-error">{deleteError}</p>}
+        </div>}
+      </div>}
+      {editable && (
+        <div className="grid grid-wide sales-editors" style={{ marginTop: 14 }} key={`${front}|${range.start}|${range.end}`}>
+          <ManualNumbersPanel title={`Pipeline atual · ${meta.short}`} description="Snapshot atual do Kanban; não representa conversões acumuladas" badge={<span className="badge sky">{isDemoMode ? "Simulação local" : "Entrada manual"}</span>} fields={funnelFields(front)} values={funnelToValues(front, snapshot)} onSave={values => saveCommercial.mutateAsync({ front, kind: "snapshot", range, values: valuesToFunnel(front, values) })} saveLabel="Salvar pipeline" footNote={crm.snapshot_updated_at ? `Atualizado em ${dateTime(crm.snapshot_updated_at)}` : "Registro inicialmente vazio. Preencha apenas valores conhecidos."} />
+          <ManualNumbersPanel title={`Resultado do período · ${meta.short}`} description={`Período de referência obrigatório: ${periodLabel}`} badge={<span className="badge green">{isDemoMode ? "Simulação local" : "Entrada manual"}</span>} fields={resultFields(front)} values={resultsToValues(result)} onSave={values => saveCommercial.mutateAsync({ front, kind: "result", range, values: valuesToResults(values) })} saveLabel="Salvar resultado" footNote={crm.results_updated_at ? `Atualizado em ${dateTime(crm.results_updated_at)} · ${periodLabel}` : "Este resultado só será exibido para este mesmo intervalo de datas."} />
         </div>
       )}
 
@@ -122,12 +128,13 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
               <span>A maior concentração de oportunidades abertas está em <b>{busiest.name}</b>, com {integer(busiest.count)} card(s). Como as colunas são estoques independentes, isso indica acúmulo — não uma taxa de perda para a etapa seguinte.</span>
             </div>
           )}
+          {!example && crm.snapshot_updated_at && <p className="manual-foot">Entrada manual · atualizado em {dateTime(crm.snapshot_updated_at)}</p>}
           {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando integração com CRM Elo.</p>}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
         {/* Coluna lateral: ciclo e resultado dividem a altura do pipeline. */}
         <div className="panel-stack">
-          <Panel title="Tempo médio por etapa" description={(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando integração com CRM Elo."}>
+          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days != null ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando integração com CRM Elo."}>
             {(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? (
               <>
                 <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days!} />
@@ -137,13 +144,13 @@ export function CrmView({ data, readOnly, commercialDemo = false, onCommercialDe
                 </div>
               </>
             ) : (
-              <div className="empty-state">{crm.snapshot_available ? "Nenhum tempo de etapa informado ainda." : "Aguardando integração com CRM Elo."}</div>
+              <div className="empty-state">{crm.avg_cycle_days === 0 ? "Tempos comerciais informados: 0 dias." : crm.snapshot_available ? "Complete os tempos comerciais conhecidos para exibir o ciclo." : "Aguardando integração com CRM Elo."}</div>
             )}
           </Panel>
-          <Panel title="Resultado do período" description="Fechamento e faturamento informados para o período de referência">
-            {(crm.contracts != null && crm.contracts > 0) || (crm.revenue != null && crm.revenue > 0) ? (
+          <Panel title="Resultado do período" description={`Fechamento e faturamento · ${periodLabel}`}>
+            {crm.results_available ? (
               <div className="proj-compare">
-                <div className="proj-bar"><span>Contratos fechados</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, contractsGoal > 0 ? ((crm.contracts ?? 0) * 100) / contractsGoal : 100)}%` }} /></div><b>{integer(crm.contracts)}</b></div>
+                <div className="proj-bar"><span>Contratos fechados</span><div className="proj-track"><div className="proj-fill won" style={{ width: `${Math.min(100, contractsGoal != null && contractsGoal > 0 ? ((crm.contracts ?? 0) * 100) / contractsGoal : 100)}%` }} /></div><b>{integer(crm.contracts)}</b></div>
                 <div className="proj-bar"><span>Receita</span><div className="proj-track"><div className="proj-fill won" style={{ width: (crm.revenue != null && crm.revenue > 0) ? "100%" : "0%" }} /></div><b>{money(crm.revenue)}</b></div>
                 <div className="proj-total"><span>{crm.avg_ticket_realized ? "Ticket realizado" : "Ticket de referência"}</span><strong>{money(crm.avg_ticket)}</strong></div>
               </div>
