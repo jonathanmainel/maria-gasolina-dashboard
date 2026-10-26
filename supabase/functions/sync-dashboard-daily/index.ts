@@ -1,5 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
+import { diagnosticSummary } from "../sync-google-ads/diagnostics.ts";
 import {
   executeIsolatedTargets,
   getLastCompleteDaysRange,
@@ -20,6 +21,7 @@ type SyncResponse = {
   };
   database_write_status?: string | null;
   error?: string;
+  diagnostic?: unknown;
 };
 
 function requestTrigger(body: unknown): AutomationTrigger {
@@ -156,7 +158,7 @@ export default {
           httpStatus = syncResponse.status;
           syncBody = await safeJson(syncResponse);
           if (!isSuccessfulSync(syncResponse.ok, syncBody.ok)) {
-            errorMessage = syncBody.error ??
+            errorMessage = (target.source === "google_ads" ? diagnosticSummary(syncBody.diagnostic) : null) ?? syncBody.error ??
               `${target.source} sync returned HTTP ${syncResponse.status}.`;
           }
         } catch (error) {

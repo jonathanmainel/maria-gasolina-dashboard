@@ -1,3 +1,5 @@
+import { apiFailure, integrationError, oauthFailure } from "./diagnostics.ts";
+
 export type GoogleAdsMetrics = {
   impressions?: string;
   clicks?: string;
@@ -256,19 +258,35 @@ export async function exchangeGoogleOAuthToken(
     grant_type: "refresh_token",
   });
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const payload = (await response.json()) as OAuthTokenResponse;
-
-  if (!response.ok || !payload.access_token) {
-    const detail = payload.error_description ?? payload.error ??
-      `HTTP ${response.status}`;
-    throw new Error(`Google OAuth token exchange failed: ${detail}`);
+  let response: Response;
+  try {
+    response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(15000),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch {
+    throw integrationError("oauth", "TRANSPORT_ERROR", null);
   }
-
+  let payload: OAuthTokenResponse;
+  try {
+    payload = await response.json();
+  } catch {
+    throw integrationError("oauth", "INVALID_RESPONSE", response.status);
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw integrationError("oauth", "INVALID_RESPONSE", response.status);
+  }
+  if (!response.ok || payload.error) {
+    throw oauthFailure(payload, response.status);
+  }
+  if (
+    typeof payload.access_token !== "string" || !payload.access_token.trim()
+  ) {
+    throw integrationError("oauth", "INVALID_RESPONSE", response.status);
+  }
   return payload.access_token;
 }
 
@@ -294,28 +312,52 @@ export async function fetchGoogleAdsRows(
     );
   }
 
-  const response = await fetch(
-    `https://googleads.googleapis.com/${credentials.apiVersion}/customers/${normalizedCustomerId}/googleAds:searchStream`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query: query.trim() }),
-    },
-  );
-
-  const payload = await response.json() as
-    | SearchStreamBatch[]
-    | GoogleAdsErrorResponse;
-
-  if (!response.ok || !Array.isArray(payload)) {
-    const apiError = Array.isArray(payload)
-      ? payload.find((batch) => batch.error)?.error
-      : payload.error;
-    const detail = apiError?.message ?? apiError?.status ??
-      `HTTP ${response.status}`;
-    throw new Error(`Google Ads API request failed: ${detail}`);
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://googleads.googleapis.com/${credentials.apiVersion}/customers/${normalizedCustomerId}/googleAds:searchStream`,
+      {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(45000),
+        headers,
+        body: JSON.stringify({ query: query.trim() }),
+      },
+    );
+  } catch {
+    throw integrationError("google_ads_api", "TRANSPORT_ERROR", null);
   }
 
+  let payload: SearchStreamBatch[] | GoogleAdsErrorResponse;
+  try {
+    payload = await response.json() as
+      | SearchStreamBatch[]
+      | GoogleAdsErrorResponse;
+  } catch {
+    throw integrationError(
+      "google_ads_api",
+      "INVALID_RESPONSE",
+      response.status,
+    );
+  }
+  if (
+    !response.ok || !Array.isArray(payload) ||
+    payload.some((batch) => batch?.error)
+  ) {
+    throw apiFailure(payload, response.status);
+  }
+  if (
+    payload.some((batch) =>
+      !batch || typeof batch !== "object" || Array.isArray(batch) ||
+      (batch.results !== undefined && !Array.isArray(batch.results))
+    )
+  ) {
+    throw integrationError(
+      "google_ads_api",
+      "INVALID_RESPONSE",
+      response.status,
+    );
+  }
   return payload.flatMap((batch) => batch.results ?? []);
 }
 
@@ -409,13 +451,14 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       reach: null,
       link_clicks: null,
       extra_metrics: {
-        advertising_channel_type:
-          row.campaign?.advertisingChannelType ?? null,
+        advertising_channel_type: row.campaign?.advertisingChannelType ?? null,
       },
       source_updated_at: null,
     })),
     (row) =>
-      `${row.account_id ?? ""}|${row.campaign_id ?? ""}|${row.metric_date ?? ""}`,
+      `${row.account_id ?? ""}|${row.campaign_id ?? ""}|${
+        row.metric_date ?? ""
+      }`,
   );
 
   const adGroups = sortRows(
@@ -431,8 +474,7 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       reach: null,
       link_clicks: null,
       extra_metrics: {
-        advertising_channel_type:
-          row.campaign?.advertisingChannelType ?? null,
+        advertising_channel_type: row.campaign?.advertisingChannelType ?? null,
       },
       source_updated_at: null,
     })),
@@ -456,8 +498,7 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       link_clicks: null,
       extra_metrics: {
         ad_type: row.adGroupAd?.ad?.type ?? null,
-        advertising_channel_type:
-          row.campaign?.advertisingChannelType ?? null,
+        advertising_channel_type: row.campaign?.advertisingChannelType ?? null,
       },
       source_updated_at: null,
     })),
@@ -474,8 +515,7 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       ad_group_name: row.adGroup?.name ?? null,
       keyword_id: row.adGroupCriterion?.criterionId ?? null,
       keyword_text: row.adGroupCriterion?.keyword?.text ?? null,
-      keyword_match_type:
-        row.adGroupCriterion?.keyword?.matchType ?? null,
+      keyword_match_type: row.adGroupCriterion?.keyword?.matchType ?? null,
       keyword_status: row.adGroupCriterion?.status ?? null,
       metric_date: row.segments?.date ?? null,
       ...metricValues(row),
@@ -483,7 +523,9 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       source_updated_at: null,
     })),
     (row) =>
-      `${row.account_id ?? ""}|${row.keyword_id ?? ""}|${row.metric_date ?? ""}`,
+      `${row.account_id ?? ""}|${row.keyword_id ?? ""}|${
+        row.metric_date ?? ""
+      }`,
   );
 
   const pmaxAssetGroups = sortRows(
@@ -503,7 +545,9 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       source_updated_at: null,
     })),
     (row) =>
-      `${row.account_id ?? ""}|${row.asset_group_id ?? ""}|${row.metric_date ?? ""}`,
+      `${row.account_id ?? ""}|${row.asset_group_id ?? ""}|${
+        row.metric_date ?? ""
+      }`,
   );
 
   const pmaxAssets = sortRows(
@@ -531,8 +575,7 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
         performance_label: null,
         text_content: metadata?.textAsset?.text ?? null,
         image_url: metadata?.imageAsset?.fullSize?.url ?? null,
-        youtube_video_id:
-          metadata?.youtubeVideoAsset?.youtubeVideoId ?? null,
+        youtube_video_id: metadata?.youtubeVideoAsset?.youtubeVideoId ?? null,
         metric_date: row.segments?.date ?? null,
         ...metricValues(row),
         extra_metrics: {
@@ -543,7 +586,9 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       };
     }),
     (row) =>
-      `${row.account_id ?? ""}|${row.asset_group_id ?? ""}|${row.asset_id ?? ""}|${row.field_type ?? ""}|${row.metric_date ?? ""}`,
+      `${row.account_id ?? ""}|${row.asset_group_id ?? ""}|${
+        row.asset_id ?? ""
+      }|${row.field_type ?? ""}|${row.metric_date ?? ""}`,
   );
 
   return {
