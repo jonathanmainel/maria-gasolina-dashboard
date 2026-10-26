@@ -11,6 +11,9 @@ import type { NetworkUnitsSnapshot } from "../types";
 // A primeira chamada é sempre `dry_run: true`, e a gravação só acontece depois
 // de um clique explícito em "Atualizar base".
 
+// Contrato da importação quando habilitada; a trava atual é testada no serviço e nos E2E.
+vi.mock("../lib/network-import-access", () => ({ NETWORK_UNITS_IMPORT_READY: true }));
+
 const rpc = vi.fn();
 const invoke = vi.fn();
 vi.mock("../lib/supabase", () => ({

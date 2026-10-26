@@ -1,5 +1,7 @@
 # Incremento 05 — ajustes de segurança da revisão do Draft PR #6
 
+> Registro histórico de 23/10/2026. O estado atual da liberação está em [revisao-pre-publicacao.md](./revisao-pre-publicacao.md): RLS aplicada, primeira nomeação concluída e gate comercial autorizado. As referências a gates falsos e pendências abaixo descrevem aquela revisão anterior.
+
 23/10/2026. Escopo aprovado: corrigir confirmação de gravação, separar o bloqueio de importação e ajustar o texto de compartilhamento. Commit/push exclusivamente em `codex/incremento-05-integracao`; PR continua em rascunho. Sem SQL, alteração de usuários/vínculos, merge ou deploy.
 
 ## Confirmação de persistência

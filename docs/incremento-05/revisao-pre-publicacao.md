@@ -1,6 +1,6 @@
 # Incremento 05 — revisão pré-publicação
 
-23/10/2026. Esta etapa autoriza commits, push da branch `codex/incremento-05-integracao` e **Draft PR**, sem merge. A homologação anterior foi aceita. Nenhum SQL, nomeação, reversão ou deploy em produção está autorizado.
+26/10/2026. A RLS v3 já foi aplicada e validada, e a primeira nomeação administrativa foi concluída por autorização nominal em registro privado. Esta revisão libera o gate comercial e prepara o PR #6; não autoriza merge, deploy, alteração de políticas/vínculos nem escrita de validação em produção.
 
 Este documento atualiza o estado de entrega descrito nos relatórios históricos. Os scripts v3 homologados permanecem intactos. O relatório `integracao-homologacao-final.md` registra as evidências e a resolução dos 15 caminhos sobrepostos; suas referências a “sem commits/PR” descrevem a etapa anterior.
 
@@ -13,7 +13,7 @@ A regra local `docs/incremento-05/.gitattributes` desativa a conversão de quebr
 - Cinco frentes, dois modelos comerciais, registros por cliente/frente/natureza e resultados vinculados ao intervalo exato.
 - Preservados recarga compacta/horário, criativos, apresentação responsiva paginada e gráficos de mídia independentes dos exemplos.
 - Nenhuma alteração em dependências, Auth, API de mídia, Edge Functions, migrations ou workflow. Google Ads e miniaturas de vídeo permanecem fora do escopo.
-- `COMMERCIAL_ACCESS_POLICY_READY = false`: esta versão não libera edição operacional.
+- `COMMERCIAL_ACCESS_POLICY_READY = true`: esta versão libera edição somente conforme o vínculo atual; não altera permissões no banco. `NETWORK_UNITS_IMPORT_READY = false` permanece.
 - O workflow existente publica somente em push de `main` ou acionamento manual. Push da integração e abertura do Draft PR não acionam esse deploy.
 
 ## Impacto das permissões
@@ -34,13 +34,15 @@ O modo global demo usa armazenamento local separado. Os exemplos de Franquias e 
 ## Ajustes solicitados na revisão do Draft PR #6
 
 - Persistência de Vendas e `business`: `upsert(...).select("client_id,scope,payload")`, com confirmação estrita da representação do banco antes de concluir a mutação. O caminho demo, os formulários, as chaves e a política de atualização dos caches permanecem iguais.
-- Importação de unidades: gate próprio falso, independente do gate comercial e do papel. Interface indisponível inclusive no demo; nenhum endpoint, handler de importação ou permissão do serviço foi alterado.
+- Importação de unidades: gate próprio falso, independente do gate comercial e do papel. Interface indisponível inclusive no demo; a função do frontend também recusa chamadas diretas enquanto a trava estiver falsa. Nenhum endpoint ou permissão do backend foi alterado.
 - Compartilhamento: `?share=1` muda somente os controles visíveis. Na operação, login e vínculo autorizado continuam obrigatórios. Não existe token público assinado/revogável nesse link; os textos foram corrigidos. Não foi implementado acesso público.
-- `COMMERCIAL_ACCESS_POLICY_READY = false` permanece. A RLS v3 e todos os SQLs homologados continuam sem alteração.
+- `COMMERCIAL_ACCESS_POLICY_READY = true`, após autorização específica. A RLS v3 e todos os SQLs homologados continuam sem alteração nesta revisão.
 
 Detalhes, cobertura e limites em [ajustes-revisao-pr6.md](./ajustes-revisao-pr6.md). As contagens finais e o HEAD validado ficam no relatório de entrega e no corpo do Draft PR.
 
-## Pacote de produção a revisar — não executar nesta etapa
+## Referência histórica do pacote de produção — já aplicado, não repetir nesta etapa
+
+As listas e instruções de aplicação abaixo documentam o procedimento anterior. Os requisitos foram concluídos; não são novas pendências desta liberação.
 
 | Arquivo | SHA-256 homologado |
 |---|---|
@@ -74,7 +76,9 @@ O último inventário de produção registrou oito vínculos viewer, nenhum mana
 - Não restaurar policies antigas que autorizavam viewers, não remover `editor` do CHECK enquanto houver vínculos e não sobrescrever dados com snapshot automaticamente. Uma restauração estrutural/dados é outra operação, sob bloqueio e autorização específica.
 - Se o congelamento falhar, suspender outras atividades, informar o estado e executar somente o plano de recuperação aprovado. A reabertura de sandbox não é procedimento autorizado para produção.
 
-## Nomeação individual — nenhuma identidade selecionada
+## Nomeação individual — primeira nomeação concluída
+
+Estado agregado confirmado por leitura: 1 admin, 7 viewers e 0 editores. Identidade e evidências permanecem em registro privado fora do Git. A lista abaixo permanece como referência para eventuais nomeações futuras, sempre sob autorização nominal.
 
 - [ ] Responsável identifica nominalmente quem precisa escrever e qual papel precisa: editor para preenchimento; admin também permite excluir registros comerciais.
 - [ ] Aprovar cada pessoa separadamente, incluindo admin; registrar justificativa, autorizador, operador e data em controle privado.
@@ -84,7 +88,7 @@ O último inventário de produção registrou oito vínculos viewer, nenhum mana
 - [ ] Conferir o vínculo final, todos os demais vínculos inalterados e sessão da pessoa aprovada. Não usar metadados Auth para conceder permissão.
 - [ ] Documentar revogação individual com os mesmos filtros e expectativa de papel atual; não rebaixar o último admin sem decisão do responsável.
 
-Não há pessoas previamente aprovadas para editor/admin. UUIDs, cliente e papel anterior dessas pessoas precisam ser confirmados em canal privado antes de qualquer nomeação.
+Nenhuma nomeação adicional está autorizada. Identidade, cliente e papel anterior devem ser confirmados privadamente antes de uma futura alteração.
 
 ## Verificações desta revisão
 
@@ -94,4 +98,4 @@ Os testes autenticados aceitos do sandbox estão em `integracao-homologacao-fina
 
 Credenciais, snapshots privados, JWTs, chaves administrativas, capturas e logs de execução ficam fora do Git. Os scripts públicos recebem configuração privada externa e não carregam contas reais. A revisão inclui varredura dos arquivos candidatos a commit.
 
-Pendências para concluir o incremento: revisão do código/procedimento; inventário e backup atualizados; autorização/aplicação/verificação da RLS de produção; nomeações individuais se necessárias; liberação revisada do gate; aprovação separada de merge/publicação e, depois, Actions e smoke test publicado. Permanecem os limites de última gravação vence, sem histórico integral de alterações, e do backend independente da importação de unidades.
+Pendências desta etapa: concluir os testes da liberação, atualizar o PR e obter autorização final para merge/publicação; depois, conferir Actions e o comportamento publicado. Não repetir a homologação da RLS, os backups ou a recuperação já aprovados. Permanecem os limites de última gravação vence, sem histórico integral de alterações, e do backend independente da importação de unidades.

@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 export type CommercialRole = "viewer" | "editor" | "admin" | null;
 export interface CommercialAccess { role: CommercialRole; policyReady: boolean; canEdit: boolean; canManage: boolean; clientId: number | null; userId: string | null }
 // Bloqueio de liberação. Só mudar após aprovação e verificação das políticas propostas.
-export const COMMERCIAL_ACCESS_POLICY_READY = false;
+export const COMMERCIAL_ACCESS_POLICY_READY = true;
 export function resolveCommercialAccess(role: CommercialRole, policyReady: boolean, clientId: number | null = null, userId: string | null = null): CommercialAccess {
   return { role, policyReady, clientId, userId, canEdit: policyReady && (role === "editor" || role === "admin"), canManage: policyReady && role === "admin" };
 }

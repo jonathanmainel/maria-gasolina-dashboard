@@ -9,12 +9,17 @@ vi.mock('./supabase',()=>({supabase:{auth:{getUser:async()=>({data:{user:state.u
 import { COMMERCIAL_ACCESS_POLICY_READY, loadCommercialAccess, resolveCommercialAccess } from './commercial-access';
 beforeEach(()=>{state.demo=false;state.role='viewer';state.user=true;state.error=false;filters.length=0;});
 describe('autorização comercial carregada do vínculo correto',()=>{
- it.each(['viewer','editor','admin'])('%s permanece bloqueado na operação desta entrega',async role=>{
-  state.role=role;const access=await loadCommercialAccess();expect(COMMERCIAL_ACCESS_POLICY_READY).toBe(false);expect(access.role).toBe(role);expect(access.canEdit).toBe(false);expect(access.canManage).toBe(false);
+ it.each(['viewer','editor','admin'])('%s respeita o vínculo atual com o gate liberado',async role=>{
+  state.role=role;const access=await loadCommercialAccess();expect(COMMERCIAL_ACCESS_POLICY_READY).toBe(true);expect(access.role).toBe(role);expect(access.canEdit).toBe(role!=='viewer');expect(access.canManage).toBe(role==='admin');
   expect(filters).toContainEqual(['dashboard_clients','slug','maria-gasolina']);expect(filters).toContainEqual(['dashboard_client_users','client_id',1]);expect(filters).toContainEqual(['dashboard_client_users','user_id','test-user']);
  });
  it('sem usuário validado não consulta papéis nem autoriza',async()=>{state.user=false;expect((await loadCommercialAccess()).canEdit).toBe(false);expect(filters).toEqual([]);});
  it('falha de consulta não concede acesso',async()=>{state.error=true;await expect(loadCommercialAccess()).rejects.toThrow('consulta recusada');});
+ it('recarrega o papel do vínculo a cada chamada sem confiar em papel anterior',async()=>{
+  expect((await loadCommercialAccess()).canEdit).toBe(false);
+  state.role='admin';expect((await loadCommercialAccess()).canManage).toBe(true);
+  state.role='viewer';const access=await loadCommercialAccess();expect(access.canEdit).toBe(false);expect(access.canManage).toBe(false);
+ });
  it('demo autoriza somente o caminho demonstrativo sem consultar o banco',async()=>{state.demo=true;expect((await loadCommercialAccess()).canEdit).toBe(true);expect(filters).toEqual([]);});
 });
 
