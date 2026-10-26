@@ -10,13 +10,17 @@ import {
 } from "../_shared/ingestion.ts";
 import {
   createPayloadHash,
-  exchangeGoogleOAuthToken,
   fetchGoogleAdsAccountData,
-  type GoogleAdsCredentials,
+  GoogleAdsApiError,
   type GoogleAdsRawData,
   normalizeCustomerId,
   normalizeGoogleAdsData,
 } from "./google-ads.ts";
+import {
+  createGoogleAdsAccessTokenProvider,
+  getGoogleAdsConfiguration,
+  GoogleAdsAuthError,
+} from "./auth.ts";
 
 const RESPONSE_PREVIEW_LIMIT = 25;
 
@@ -46,49 +50,6 @@ function appendRawData(target: GoogleAdsRawData, source: GoogleAdsRawData) {
   for (const key of Object.keys(target) as Array<keyof GoogleAdsRawData>) {
     target[key].push(...source[key]);
   }
-}
-
-function getGoogleAdsCredentials():
-  | { ok: true; value: GoogleAdsCredentials }
-  | { ok: false; missing: string[]; invalid?: string } {
-  const requiredEnv = {
-    clientId: Deno.env.get("GOOGLE_ADS_CLIENT_ID"),
-    clientSecret: Deno.env.get("GOOGLE_ADS_CLIENT_SECRET"),
-    refreshToken: Deno.env.get("GOOGLE_ADS_REFRESH_TOKEN"),
-  };
-  const missing = Object.entries(requiredEnv)
-    .filter(([, value]) => !value)
-    .map(([key]) => ({
-      clientId: "GOOGLE_ADS_CLIENT_ID",
-      clientSecret: "GOOGLE_ADS_CLIENT_SECRET",
-      refreshToken: "GOOGLE_ADS_REFRESH_TOKEN",
-    })[key as keyof typeof requiredEnv]);
-
-  if (missing.length > 0) return { ok: false, missing };
-
-  const apiVersion = Deno.env.get("GOOGLE_ADS_API_VERSION") ?? "v25";
-
-  if (!/^v\d+$/.test(apiVersion)) {
-    return {
-      ok: false,
-      missing: [],
-      invalid: "GOOGLE_ADS_API_VERSION must use a major REST version such as v25.",
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      developerToken: Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN") ??
-        undefined,
-      clientId: requiredEnv.clientId!,
-      clientSecret: requiredEnv.clientSecret!,
-      refreshToken: requiredEnv.refreshToken!,
-      loginCustomerId: Deno.env.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID") ??
-        undefined,
-      apiVersion,
-    },
-  };
 }
 
 function getResultStatus(result: unknown): string | null {
@@ -167,6 +128,20 @@ export default {
         dryRun: dry_run,
       } = validation.value;
 
+      // The existing cron uses dry_run=false. Keep it from writing during the
+      // credential/deployment validation window without changing the shared cron.
+      if (!dry_run && Deno.env.get("GOOGLE_ADS_WRITES_ENABLED") !== "true") {
+        return Response.json(
+          {
+            ok: false,
+            error: "Google Ads writes are disabled. Validate a dry run before explicitly enabling GOOGLE_ADS_WRITES_ENABLED.",
+            google_ads_api_called: false,
+            database_write_performed: false,
+          },
+          { status: 409 },
+        );
+      }
+
       const { data: dashboardClient, error: dashboardClientError } =
         await resolveDashboardClient(ctx.supabaseAdmin, client_slug);
 
@@ -222,7 +197,7 @@ export default {
         );
       }
 
-      const credentialsResult = getGoogleAdsCredentials();
+      const credentialsResult = getGoogleAdsConfiguration((name) => Deno.env.get(name));
 
       if (!credentialsResult.ok) {
         return Response.json(
@@ -239,16 +214,16 @@ export default {
       }
 
       const credentials = credentialsResult.value;
-      let accessToken: string;
+      const accessToken = createGoogleAdsAccessTokenProvider(credentials);
 
       try {
-        accessToken = await exchangeGoogleOAuthToken(credentials);
+        await accessToken();
       } catch (error) {
         return Response.json(
           {
             ok: false,
             error: "Failed to authenticate with Google Ads.",
-            details: error instanceof Error ? error.message : String(error),
+            details: error instanceof GoogleAdsAuthError ? error.message : "Unexpected Google Ads authentication failure.",
             google_ads_api_called: false,
             database_write_performed: false,
           },
@@ -274,7 +249,8 @@ export default {
           {
             ok: false,
             error: "Failed to query Google Ads data.",
-            details: error instanceof Error ? error.message : String(error),
+            details: error instanceof GoogleAdsApiError || error instanceof GoogleAdsAuthError
+              ? error.message : "Unexpected Google Ads query failure.",
             google_ads_api_called: true,
             database_write_performed: false,
           },
@@ -489,7 +465,9 @@ export default {
           account_ids: normalizedAccountIds,
           login_customer_id_configured: Boolean(credentials.loginCustomerId),
           developer_token_configured: Boolean(credentials.developerToken),
-          oauth_configured: true,
+          auth_mode: credentials.authMode,
+          service_account_configured: credentials.authMode === "service_account",
+          oauth_configured: credentials.authMode === "oauth",
         },
         google_ads_api_called: true,
         counts: {

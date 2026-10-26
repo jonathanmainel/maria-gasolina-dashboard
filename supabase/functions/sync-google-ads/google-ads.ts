@@ -56,28 +56,35 @@ type SearchStreamBatch = {
   error?: GoogleAdsErrorResponse["error"];
 };
 
-type OAuthTokenResponse = {
-  access_token?: string;
-  error?: string;
-  error_description?: string;
-};
-
 type GoogleAdsErrorResponse = {
   error?: {
     code?: number;
     message?: string;
     status?: string;
+    details?: Array<{ errors?: Array<{ errorCode?: Record<string, string> }> }>;
   };
 };
 
 export type GoogleAdsCredentials = {
-  developerToken?: string;
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
+  developerToken: string;
   loginCustomerId?: string;
   apiVersion: string;
 };
+
+export type GoogleAdsAccessToken = string | ((forceRefresh?: boolean) => Promise<string>);
+export class GoogleAdsApiError extends Error {}
+
+const API_STATUSES = new Set([
+  "UNAUTHENTICATED", "PERMISSION_DENIED", "INVALID_ARGUMENT", "NOT_FOUND",
+  "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL", "DEADLINE_EXCEEDED",
+]);
+const API_REASONS = new Set([
+  "DEVELOPER_TOKEN_NOT_APPROVED", "DEVELOPER_TOKEN_INVALID", "DEVELOPER_TOKEN_PROHIBITED",
+  "DEVELOPER_TOKEN_NOT_ON_ALLOWLIST", "USER_PERMISSION_DENIED", "CUSTOMER_NOT_FOUND",
+  "CUSTOMER_NOT_ENABLED", "ACCOUNT_NOT_ENABLED", "SERVICE_ACCESS_DENIED",
+  "INVALID_LOGIN_CUSTOMER_ID", "LOGIN_CUSTOMER_ID_PARAMETER_MISSING",
+  "OAUTH_TOKEN_INVALID", "OAUTH_TOKEN_EXPIRED", "GOOGLE_ACCOUNT_DELETED",
+]);
 
 export type GoogleAdsRawData = {
   daily: GoogleAdsRow[];
@@ -246,47 +253,20 @@ export function normalizeCustomerId(value: string): string {
   return normalized;
 }
 
-export async function exchangeGoogleOAuthToken(
-  credentials: GoogleAdsCredentials,
-): Promise<string> {
-  const body = new URLSearchParams({
-    client_id: credentials.clientId,
-    client_secret: credentials.clientSecret,
-    refresh_token: credentials.refreshToken,
-    grant_type: "refresh_token",
-  });
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const payload = (await response.json()) as OAuthTokenResponse;
-
-  if (!response.ok || !payload.access_token) {
-    const detail = payload.error_description ?? payload.error ??
-      `HTTP ${response.status}`;
-    throw new Error(`Google OAuth token exchange failed: ${detail}`);
-  }
-
-  return payload.access_token;
-}
-
 export async function fetchGoogleAdsRows(
   credentials: GoogleAdsCredentials,
-  accessToken: string,
+  accessToken: GoogleAdsAccessToken,
   customerId: string,
   query: string,
 ): Promise<GoogleAdsRow[]> {
+  if (!credentials.developerToken?.trim()) {
+    throw new GoogleAdsApiError("GOOGLE_ADS_DEVELOPER_TOKEN is required.");
+  }
   const normalizedCustomerId = normalizeCustomerId(customerId);
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
+    "developer-token": credentials.developerToken,
   };
-
-  if (credentials.developerToken) {
-    headers["developer-token"] = credentials.developerToken;
-  }
 
   if (credentials.loginCustomerId) {
     headers["login-customer-id"] = normalizeCustomerId(
@@ -294,26 +274,46 @@ export async function fetchGoogleAdsRows(
     );
   }
 
-  const response = await fetch(
-    `https://googleads.googleapis.com/${credentials.apiVersion}/customers/${normalizedCustomerId}/googleAds:searchStream`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query: query.trim() }),
-    },
-  );
-
-  const payload = await response.json() as
+  const request = async (forceRefresh = false) => {
+    const token = typeof accessToken === "function" ? await accessToken(forceRefresh) : accessToken;
+    try {
+      return await fetch(
+        `https://googleads.googleapis.com/${credentials.apiVersion}/customers/${normalizedCustomerId}/googleAds:searchStream`,
+        {
+          method: "POST", redirect: "error", signal: AbortSignal.timeout(60_000),
+          headers: { ...headers, Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ query: query.trim() }),
+        },
+      );
+    } catch {
+      throw new GoogleAdsApiError("Google Ads API request failed: transport error or timeout.");
+    }
+  };
+  let response = await request();
+  // Renew once on an expired/rejected access token; never fall back to user OAuth.
+  if (response.status === 401 && typeof accessToken === "function") {
+    await response.body?.cancel();
+    response = await request(true);
+  }
+  let payload:
     | SearchStreamBatch[]
     | GoogleAdsErrorResponse;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new GoogleAdsApiError(`Google Ads API request failed: HTTP ${response.status}; invalid JSON response.`);
+  }
 
-  if (!response.ok || !Array.isArray(payload)) {
+  if (!response.ok || !Array.isArray(payload) || payload.some((batch) => batch.error)) {
     const apiError = Array.isArray(payload)
       ? payload.find((batch) => batch.error)?.error
-      : payload.error;
-    const detail = apiError?.message ?? apiError?.status ??
-      `HTTP ${response.status}`;
-    throw new Error(`Google Ads API request failed: ${detail}`);
+      : payload?.error;
+    const status = apiError?.status && API_STATUSES.has(apiError.status) ? apiError.status : "UNKNOWN";
+    const codes = apiError?.details?.flatMap((detail) =>
+      detail.errors?.flatMap((error) => Object.values(error.errorCode ?? {})) ?? []
+    ) ?? [];
+    const reason = codes.find((code) => API_REASONS.has(code)) ?? "UNKNOWN";
+    throw new GoogleAdsApiError(`Google Ads API request failed: HTTP ${response.status} ${status}; reason=${reason}.`);
   }
 
   return payload.flatMap((batch) => batch.results ?? []);
@@ -321,7 +321,7 @@ export async function fetchGoogleAdsRows(
 
 export async function fetchGoogleAdsAccountData(
   credentials: GoogleAdsCredentials,
-  accessToken: string,
+  accessToken: GoogleAdsAccessToken,
   customerId: string,
   startDate: string,
   endDate: string,

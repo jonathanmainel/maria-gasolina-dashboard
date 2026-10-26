@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildGoogleAdsQueries,
   createPayloadHash,
-  exchangeGoogleOAuthToken,
   fetchGoogleAdsRows,
   microsToUnits,
   normalizeCustomerId,
@@ -173,22 +172,6 @@ describe("Google Ads ingestion helpers", () => {
     );
   });
 
-  it("exchanges OAuth refresh credentials without putting them in the URL", async () => {
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      expect(_url).toBe("https://oauth2.googleapis.com/token");
-      expect(String(init?.body)).toContain("refresh_token=refresh-token-test");
-      return new Response(JSON.stringify({ access_token: "access-token-test" }), {
-        status: 200,
-      });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(exchangeGoogleOAuthToken(credentials)).resolves.toBe(
-      "access-token-test",
-    );
-    expect(fetchMock).toHaveBeenCalledOnce();
-  });
-
   it("sends the developer token when configured", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
@@ -217,27 +200,68 @@ describe("Google Ads ingestion helpers", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
-  it("omits the developer token when it is not configured", async () => {
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      const headers = new Headers(init?.headers);
-      expect(headers.get("authorization")).toBe("Bearer access-token-test");
-      expect(headers.has("developer-token")).toBe(false);
-      expect(headers.get("login-customer-id")).toBe("1234567890");
-      return new Response(JSON.stringify([{ results: [] }]), { status: 200 });
-    });
+  it("rejects a missing developer token before making a request", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-
-    const { developerToken: _developerToken, ...tokenlessCredentials } =
-      credentials;
 
     await expect(
       fetchGoogleAdsRows(
-        tokenlessCredentials,
+        { ...credentials, developerToken: "" },
         "access-token-test",
         "6072699813",
         "SELECT customer.id FROM customer",
       ),
-    ).resolves.toEqual([]);
+    ).rejects.toThrow("GOOGLE_ADS_DEVELOPER_TOKEN is required");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send login-customer-id for direct account access", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(new Headers(init?.headers).has("login-customer-id")).toBe(false);
+      expect(init?.redirect).toBe("error");
+      return Response.json([{ results: [] }]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchGoogleAdsRows({ ...credentials, loginCustomerId: undefined }, "token", "6072699813", "SELECT customer.id FROM customer");
+  });
+
+  it("renews a rejected access token once and repeats the same query", async () => {
+    const tokens = vi.fn().mockResolvedValueOnce("expired").mockResolvedValueOnce("renewed");
+    const fetchMock = vi.fn().mockImplementationOnce(async () => Response.json({}, { status: 401 }))
+      .mockImplementationOnce(async () => Response.json([{ results: [{ customer: { id: "6072699813" } }] }]));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchGoogleAdsRows(credentials, tokens, "6072699813", "SELECT customer.id FROM customer")).toHaveLength(1);
+    expect(tokens.mock.calls).toEqual([[false], [true]]);
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get("authorization")).toBe("Bearer renewed");
+    expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+  });
+
+  it("does not retry permission errors and suppresses raw error messages", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ error: {
+      status: "PERMISSION_DENIED", message: "do-not-expose-token",
+      details: [{ errors: [{ errorCode: { authorizationError: "DEVELOPER_TOKEN_NOT_APPROVED" } }] }],
+    } }, { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchGoogleAdsRows(credentials, vi.fn(async () => "token"), "6072699813", "SELECT customer.id FROM customer"))
+      .rejects.toThrow(/^Google Ads API request failed: HTTP 403 PERMISSION_DENIED; reason=DEVELOPER_TOKEN_NOT_APPROVED\.$/);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("stops after one renewal if the new token is also rejected", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchGoogleAdsRows(credentials, vi.fn(async () => "token"), "6072699813", "SELECT customer.id FROM customer"))
+      .rejects.toThrow("HTTP 401 UNAUTHENTICATED");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("sanitizes network and non-JSON API errors", async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("do-not-expose-token"))
+      .mockImplementationOnce(async () => new Response("do-not-expose-token", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchGoogleAdsRows(credentials, "token", "6072699813", "SELECT customer.id FROM customer"))
+      .rejects.toThrow(/^Google Ads API request failed: transport error or timeout\.$/);
+    await expect(fetchGoogleAdsRows(credentials, "token", "6072699813", "SELECT customer.id FROM customer"))
+      .rejects.toThrow(/^Google Ads API request failed: HTTP 502; invalid JSON response\.$/);
   });
 });
