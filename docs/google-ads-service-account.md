@@ -23,7 +23,7 @@ Developer Tokens são opcionais e ignorados desde **09/09/2026**, conforme a [po
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | Preservado; usado exclusivamente em OAuth. |
 | `GOOGLE_ADS_API_VERSION` | Configuração preservada; fallback `v25`. |
 
-Client ID, client secret, refresh token e demais secrets antigos foram preservados. A função publicada continua na **versão 3**, com OAuth antigo; criar o novo secret não a migra.
+Client ID, client secret, refresh token e demais secrets antigos foram preservados. A leitura final informa a função publicada na **versão 4**, ainda com OAuth antigo; seu handler e módulo Google Ads coincidem com a main, sem o autenticador Service Account. Criar o novo secret não a migra. Os números de versão também aumentaram nas outras funções; isso, isoladamente, não comprova publicação de código. O bundle Meta mantém o mesmo hash previamente validado.
 
 O backend assina JWT RS256 com escopo `https://www.googleapis.com/auth/adwords`, validade de uma hora e endpoint fixo `https://oauth2.googleapis.com/token`, sem `sub`, impersonação ou delegação. Access token somente em memória, compartilhado entre consultas da invocação e renovado com margem de 60 segundos; HTTP 401 permite uma renovação. Sem fallback automático de identidade. Erros expõem apenas status e códigos permitidos, sem corpo bruto ou credenciais.
 
@@ -65,3 +65,4 @@ Consulta atual confirmou sete domínios com última data **27/09**, zero linhas 
 Nenhuma alteração de Meta, GA4, RLS, OAuth/Branding, Cloud Run, permissões comerciais, dashboard publicado ou cron nesta execução. Investigação Meta registrada separadamente.
 
 Referências: [Developer Token](https://developers.google.com/google-ads/api/docs/api-policy/developer-token), [Service Accounts](https://developers.google.com/google-ads/api/docs/oauth/service-accounts), [secrets de Edge Functions](https://supabase.com/docs/guides/functions/secrets).
+
