@@ -150,3 +150,16 @@ describe("dashboard daily scheduler", () => {
     ]);
   });
 });
+
+it("starts other platforms while one platform is still pending", async () => {
+  let release!: () => void;
+  const started: string[] = [];
+  const running = executeIsolatedTargets(["meta_ads", "google_ads", "ga4"], async source => {
+    started.push(source);
+    if (source === "meta_ads") await new Promise<void>(resolve => { release = resolve; });
+    return source;
+  });
+  await Promise.resolve();
+  expect(started).toEqual(["meta_ads", "google_ads", "ga4"]);
+  release(); await running;
+});

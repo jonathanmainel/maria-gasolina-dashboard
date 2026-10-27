@@ -206,16 +206,17 @@ describe("Google Ads collector with direct service account authentication", () =
   it("preserves write domains and deterministic idempotency keys with a synthetic database", async () => {
     env.GOOGLE_ADS_WRITES_ENABLED = "true";
     const db = database();
+    db.rpc.mockImplementation(async name => ({ data: name === "begin_dashboard_sync_collection" ? true : { status: "success" }, error: null }));
     vi.stubGlobal("fetch", successfulGoogle());
-    const first = await collector.fetch(request(false), { supabaseAdmin: db });
+    const first = await collector.fetch(request(false, { automation_run_id: "12345678-1234-4234-8234-123456789abc" }), { supabaseAdmin: db });
     expect((await first.json()).database_write_status).toBe("success");
-    const originalCalls = structuredClone(db.rpc.mock.calls);
+    const originalCalls = structuredClone(db.rpc.mock.calls.filter(([name]) => name !== "begin_dashboard_sync_collection"));
     db.rpc.mockClear();
-    db.rpc.mockResolvedValue({ data: { status: "already_processed" }, error: null });
-    const second = await collector.fetch(request(false), { supabaseAdmin: db });
+    db.rpc.mockImplementation(async name => ({ data: name === "begin_dashboard_sync_collection" ? true : { status: "already_processed" }, error: null }));
+    const second = await collector.fetch(request(false, { automation_run_id: "12345678-1234-4234-8234-123456789abc" }), { supabaseAdmin: db });
     expect(await second.json()).toMatchObject({ database_write_performed: false, database_write_status: "already_processed" });
-    expect(db.rpc.mock.calls).toEqual(originalCalls);
-    expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
+    expect(db.rpc.mock.calls.filter(([name]) => name !== "begin_dashboard_sync_collection")).toEqual(originalCalls);
+    expect(db.rpc.mock.calls.filter(([name]) => name !== "begin_dashboard_sync_collection").map(([name]) => name)).toEqual([
       "upsert_dashboard_paid_media_batch", "upsert_dashboard_paid_media_group_batch",
       "upsert_dashboard_keyword_batch", "ingest_dashboard_pmax_rows", "ingest_dashboard_pmax_rows",
     ]);

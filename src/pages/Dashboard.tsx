@@ -1,5 +1,5 @@
 import { AlertCircle, Eye } from "lucide-react";
-import { addDays, format } from "date-fns";
+import { initialReportingRange, reportingToday } from "../lib/reporting-period";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -17,8 +17,6 @@ import { Presentation } from "../views/Presentation";
 import { SettingsView } from "../views/Settings";
 import { SiteView } from "../views/SiteView";
 
-const initialEnd = addDays(new Date(), -1);
-const initialRange: DateRange = { start: format(addDays(initialEnd, -29), "yyyy-MM-dd"), end: format(initialEnd, "yyyy-MM-dd") };
 const validViews: AppView[] = ["executive", ...Object.values(commercialFronts).map((front) => front.view), "organic", "site", "crm", "settings"];
 
 export function DashboardPage() {
@@ -27,7 +25,7 @@ export function DashboardPage() {
   const view: AppView = requested && validViews.includes(requested) ? requested : "executive";
   const readOnly = searchParams.get("share") === "1";
   const presenting = searchParams.get("present") === "1";
-  const [range, setRange] = useState<DateRange>(initialRange);
+  const [range, setRange] = useState<DateRange>(() => initialReportingRange());
   const [comparisonEnabled, setComparisonEnabled] = useState(true);
   const [salesFront, setSalesFront] = useState<CommercialFront>("franchise");
   const [commercialPreview, setCommercialPreview] = useState(false);
@@ -54,6 +52,7 @@ export function DashboardPage() {
   return (
     <div className={comparisonEnabled ? "" : "comparison-hidden"}>
       <Shell view={view} onViewChange={onViewChange} range={range} comparisonEnabled={comparisonEnabled} onPeriodApply={(r, c) => { setRange(r); setComparisonEnabled(c); }} lastSync={lastSync.data ?? undefined} readOnly={readOnly} onPresent={onPresent} onShare={onShare}>
+        {range.start <= reportingToday() && range.end >= reportingToday() && <div className="intraday-banner" role="note">Hoje � dados parciais. As plataformas podem atualizar m�tricas com atraso; estes n�meros ainda n�o representam o fechamento do dia.</div>}
         {readOnly && <div className="readonly-banner"><Eye size={16} />Você está vendo uma versão somente leitura compartilhada pela GT+. Metas e configurações ficam ocultas.</div>}
         {/* Site trata suas consultas separadamente. Place mantém sua composição
             montada durante a atualização para preservar o modo comparativo;

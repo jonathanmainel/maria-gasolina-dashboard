@@ -5,6 +5,7 @@ import { brandLogoUrl } from "../lib/app-path";
 import { dateTime, longDate, shortDate } from "../lib/format";
 import { useTheme } from "../theme";
 import type { AppView, CommercialFront, DateRange } from "../types";
+import { todayReportingRange } from "../lib/reporting-period";
 import { PeriodPicker } from "./PeriodPicker";
 import { DataRefreshPanel } from "./DataRefreshPanel";
 import { Popover } from "./ui/popover";
@@ -138,7 +139,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         <div className="topbar-actions">
           <div className="topbar-sync-group">
             <div className="sync-pill"><i />{lastSync ? `Atualizado ${dateTime(lastSync).replace(/,/, " ·")}` : "Ainda não sincronizado"}</div>
-            <DataRefreshPanel range={range} />
+            <DataRefreshPanel range={range} readOnly={readOnly} onShowToday={today => onPeriodApply(todayReportingRange(today), false)} />
           </div>
           <div className="period-control">
             <button ref={periodAnchor} type="button" className="period-button" onClick={() => setPeriodOpen((o) => !o)} aria-expanded={periodOpen} aria-haspopup="dialog">

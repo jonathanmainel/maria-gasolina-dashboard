@@ -3,6 +3,7 @@ export type IngestionRequest = {
   start_date?: string;
   end_date?: string;
   dry_run?: boolean;
+  automation_run_id?: string;
   refresh_video_previews_only?: boolean;
   video_picture_overrides?: Record<string, string>;
 };

@@ -24,7 +24,7 @@ export async function getSourceFreshness(): Promise<SourceFreshness[]> {
   }));
 }
 
-/** Refetch marketing reads, including previously visited Site/detail caches. No API collection. */
+/** Called after backend completion: refetch marketing reads, including previously visited Site/detail caches. No API collection. */
 export async function reloadDashboardData(client: QueryClient) {
   clearCreativePreviewCache();
   await client.invalidateQueries({ predicate: query => refreshKeys.has(String(query.queryKey[0])), refetchType: "all" }, { throwOnError: true });

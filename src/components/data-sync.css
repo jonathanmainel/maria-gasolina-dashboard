@@ -1,0 +1,32 @@
+.data-sync-trigger { min-height:34px; padding:6px 10px; gap:7px; white-space:nowrap; font-size:11px; }
+.data-sync-control { display:flex; align-items:center; gap:3px; }
+.data-sync-live { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.data-sync-panel { padding:22px; color:var(--text); font-size:12px; overflow-wrap:anywhere; }
+.data-sync-panel header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.data-sync-panel h2 { margin:0; font-size:17px; }
+.data-sync-panel p { line-height:1.6; }
+.data-sync-panel header p { color:var(--muted); margin:6px 0 12px; }
+.data-sync-partial { padding:10px 12px; border-left:3px solid #d7982b; background:rgba(215,152,43,.08); }
+.data-sync-period { color:var(--muted); }
+.data-sync-sources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.data-sync-sources article { border:1px solid var(--line); border-radius:12px; padding:13px; min-width:0; }
+.data-sync-sources article.has-error { border-color:rgba(216,68,58,.5); }
+.data-sync-sources article>strong,.data-sync-sources article>span,.data-sync-sources small { display:block; }
+.data-sync-sources article>span { margin-top:6px; font-size:11px; }
+.data-sync-sources dl { margin:14px 0; }
+.data-sync-sources dt { color:var(--muted); font-size:10px; margin-top:9px; }
+.data-sync-sources dd { margin:3px 0 0; font-variant-numeric:tabular-nums; font-size:11px; }
+.data-sync-sources small { font-size:10px; color:var(--muted); line-height:1.5; margin-top:7px; }
+.intraday-banner { padding:10px 16px; border:1px solid rgba(215,152,43,.35); border-radius:10px; color:var(--text); background:rgba(215,152,43,.07); font-size:12px; margin:0 0 16px; }
+@media(max-width:640px) { .data-sync-panel { padding:18px; } .data-sync-sources { grid-template-columns:1fr; } .data-sync-trigger { max-width:190px; font-size:10px; } }
+@media(max-width:640px) {
+  :root { --topbar:116px; }
+  .topbar { align-items:flex-start; padding-top:10px; }
+  .topbar-title { flex:1; }
+  .topbar-title strong { max-width:20vw; }
+  .topbar-actions { max-width:calc(100% - 48px); }
+  .topbar-sync-group { position:absolute; left:16px; right:16px; bottom:8px; }
+  .data-sync-control { width:100%; justify-content:space-between; }
+  .data-sync-trigger { max-width:none; min-height:36px; font-size:12px; }
+}
+.data-sync-panel { background:var(--surface-solid); border:1px solid var(--line-2); border-radius:16px; box-shadow:var(--shadow); overflow-y:auto; }

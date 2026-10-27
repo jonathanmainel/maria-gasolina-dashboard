@@ -18,6 +18,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { reportingToday } from "../lib/reporting-period";
 import type { DateRange } from "../types";
 
 interface Props {
@@ -44,7 +45,7 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
   const [awaitingEnd, setAwaitingEnd] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
 
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => parseISO(reportingToday()), []);
   const presets = useMemo(() => {
     const lastWeek = subWeeks(today, 1);
     const lastMonth = subMonths(today, 1);

@@ -1,3 +1,4 @@
+import { authorizeCollection } from "../_shared/sync-control.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 import { listSourceAccounts, resolveDashboardClient } from "../_shared/dashboard.ts";
@@ -42,6 +43,9 @@ export default {
     if (clientError || !client) {
       return Response.json({ ok: false, error: "Active dashboard client not found." }, { status: clientError ? 500 : 404 });
     }
+    const reservationError = await authorizeCollection(ctx.supabaseAdmin, body, client.id, "ga4", startDate, endDate);
+    if (reservationError) return reservationError;
+
     const { data: accounts, error: accountError } = await listSourceAccounts(ctx.supabaseAdmin, {
       clientId: client.id, source: "ga4",
     });
