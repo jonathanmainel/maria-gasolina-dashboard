@@ -66,7 +66,8 @@ type GoogleAdsErrorResponse = {
 };
 
 export type GoogleAdsCredentials = {
-  developerToken: string;
+  /** Compatibility only: ignored; API access belongs to the Cloud project. */
+  developerToken?: string;
   loginCustomerId?: string;
   apiVersion: string;
 };
@@ -79,11 +80,22 @@ const API_STATUSES = new Set([
   "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL", "DEADLINE_EXCEEDED",
 ]);
 const API_REASONS = new Set([
-  "DEVELOPER_TOKEN_NOT_APPROVED", "DEVELOPER_TOKEN_INVALID", "DEVELOPER_TOKEN_PROHIBITED",
-  "DEVELOPER_TOKEN_NOT_ON_ALLOWLIST", "USER_PERMISSION_DENIED", "CUSTOMER_NOT_FOUND",
-  "CUSTOMER_NOT_ENABLED", "ACCOUNT_NOT_ENABLED", "SERVICE_ACCESS_DENIED",
-  "INVALID_LOGIN_CUSTOMER_ID", "LOGIN_CUSTOMER_ID_PARAMETER_MISSING",
-  "OAUTH_TOKEN_INVALID", "OAUTH_TOKEN_EXPIRED", "GOOGLE_ACCOUNT_DELETED",
+  "DEVELOPER_TOKEN_NOT_APPROVED",
+  "DEVELOPER_TOKEN_INVALID",
+  "DEVELOPER_TOKEN_PROHIBITED",
+  "DEVELOPER_TOKEN_NOT_ON_ALLOWLIST",
+  "CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION",
+  "ACTION_NOT_PERMITTED",
+  "USER_PERMISSION_DENIED",
+  "CUSTOMER_NOT_FOUND",
+  "CUSTOMER_NOT_ENABLED",
+  "ACCOUNT_NOT_ENABLED",
+  "SERVICE_ACCESS_DENIED",
+  "INVALID_LOGIN_CUSTOMER_ID",
+  "LOGIN_CUSTOMER_ID_PARAMETER_MISSING",
+  "OAUTH_TOKEN_INVALID",
+  "OAUTH_TOKEN_EXPIRED",
+  "GOOGLE_ACCOUNT_DELETED",
 ]);
 
 export type GoogleAdsRawData = {
@@ -259,13 +271,9 @@ export async function fetchGoogleAdsRows(
   customerId: string,
   query: string,
 ): Promise<GoogleAdsRow[]> {
-  if (!credentials.developerToken?.trim()) {
-    throw new GoogleAdsApiError("GOOGLE_ADS_DEVELOPER_TOKEN is required.");
-  }
   const normalizedCustomerId = normalizeCustomerId(customerId);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "developer-token": credentials.developerToken,
   };
 
   if (credentials.loginCustomerId) {
@@ -275,18 +283,24 @@ export async function fetchGoogleAdsRows(
   }
 
   const request = async (forceRefresh = false) => {
-    const token = typeof accessToken === "function" ? await accessToken(forceRefresh) : accessToken;
+    const token = typeof accessToken === "function"
+      ? await accessToken(forceRefresh)
+      : accessToken;
     try {
       return await fetch(
         `https://googleads.googleapis.com/${credentials.apiVersion}/customers/${normalizedCustomerId}/googleAds:searchStream`,
         {
-          method: "POST", redirect: "error", signal: AbortSignal.timeout(60_000),
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(60_000),
           headers: { ...headers, Authorization: `Bearer ${token}` },
           body: JSON.stringify({ query: query.trim() }),
         },
       );
     } catch {
-      throw new GoogleAdsApiError("Google Ads API request failed: transport error or timeout.");
+      throw new GoogleAdsApiError(
+        "Google Ads API request failed: transport error or timeout.",
+      );
     }
   };
   let response = await request();
@@ -301,19 +315,32 @@ export async function fetchGoogleAdsRows(
   try {
     payload = await response.json();
   } catch {
-    throw new GoogleAdsApiError(`Google Ads API request failed: HTTP ${response.status}; invalid JSON response.`);
+    throw new GoogleAdsApiError(
+      `Google Ads API request failed: HTTP ${response.status}; invalid JSON response.`,
+    );
   }
 
-  if (!response.ok || !Array.isArray(payload) || payload.some((batch) => batch.error)) {
+  if (
+    !response.ok || !Array.isArray(payload) ||
+    payload.some((batch) => batch.error)
+  ) {
     const apiError = Array.isArray(payload)
       ? payload.find((batch) => batch.error)?.error
       : payload?.error;
-    const status = apiError?.status && API_STATUSES.has(apiError.status) ? apiError.status : "UNKNOWN";
+    const status = apiError?.status && API_STATUSES.has(apiError.status)
+      ? apiError.status
+      : "UNKNOWN";
     const codes = apiError?.details?.flatMap((detail) =>
-      detail.errors?.flatMap((error) => Object.values(error.errorCode ?? {})) ?? []
+      detail.errors?.flatMap((error) =>
+        Object.values(error.errorCode ?? {})
+      ) ?? []
     ) ?? [];
-    const reason = codes.find((code) => API_REASONS.has(code)) ?? "UNKNOWN";
-    throw new GoogleAdsApiError(`Google Ads API request failed: HTTP ${response.status} ${status}; reason=${reason}.`);
+    const reason = codes.find((code) =>
+      API_REASONS.has(code)
+    ) ?? "UNKNOWN";
+    throw new GoogleAdsApiError(
+      `Google Ads API request failed: HTTP ${response.status} ${status}; reason=${reason}.`,
+    );
   }
 
   return payload.flatMap((batch) => batch.results ?? []);

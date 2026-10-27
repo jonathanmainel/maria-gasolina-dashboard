@@ -3,10 +3,10 @@ import {
   buildGoogleAdsQueries,
   createPayloadHash,
   fetchGoogleAdsRows,
+  type GoogleAdsRawData,
   microsToUnits,
   normalizeCustomerId,
   normalizeGoogleAdsData,
-  type GoogleAdsRawData,
 } from "./google-ads.ts";
 
 const credentials = {
@@ -172,12 +172,12 @@ describe("Google Ads ingestion helpers", () => {
     );
   });
 
-  it("sends the developer token when configured", async () => {
+  it("ignores a legacy developer token even when a caller supplies it", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
       expect(url).toContain("/v25/customers/6072699813/googleAds:searchStream");
       expect(headers.get("authorization")).toBe("Bearer access-token-test");
-      expect(headers.get("developer-token")).toBe("developer-token-test");
+      expect(headers.has("developer-token")).toBe(false);
       expect(headers.get("login-customer-id")).toBe("1234567890");
       return new Response(
         JSON.stringify([
@@ -200,20 +200,25 @@ describe("Google Ads ingestion helpers", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
-  it("rejects a missing developer token before making a request", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(
-      fetchGoogleAdsRows(
-        { ...credentials, developerToken: "" },
-        "access-token-test",
-        "6072699813",
-        "SELECT customer.id FROM customer",
-      ),
-    ).rejects.toThrow("GOOGLE_ADS_DEVELOPER_TOKEN is required");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  it.each([undefined, "", "legacy-ignored"])(
+    "allows a request without a developer token and never sends its header: %s",
+    async (developerToken) => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        expect(new Headers(init?.headers).has("developer-token")).toBe(false);
+        return Response.json([{ results: [] }]);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(
+        fetchGoogleAdsRows(
+          { ...credentials, developerToken },
+          "access-token-test",
+          "6072699813",
+          "SELECT customer.id FROM customer",
+        ),
+      ).resolves.toEqual([]);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    },
+  );
 
   it("does not send login-customer-id for direct account access", async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {

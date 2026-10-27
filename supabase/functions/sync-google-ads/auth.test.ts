@@ -8,6 +8,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(
 
 function configuration(overrides: Record<string, string | undefined> = {}) {
   const env: Record<string, string | undefined> = {
+    GOOGLE_ADS_AUTH_MODE: "service_account",
     GOOGLE_ADS_SERVICE_ACCOUNT_JSON: JSON.stringify(fixture.json),
     GOOGLE_ADS_DEVELOPER_TOKEN: "synthetic-developer-token",
     ...overrides,
@@ -25,8 +26,9 @@ const tokenResponse = (token = "synthetic-access-token", expires = 3600) =>
   Response.json({ access_token: token, expires_in: expires, token_type: "Bearer" });
 
 describe("Google Ads service account authentication", () => {
-  it("defaults to direct service account access and does not read personal OAuth credentials", () => {
+  it("uses explicitly selected direct service account access without reading legacy credentials", () => {
     const env: Record<string, string> = {
+      GOOGLE_ADS_AUTH_MODE: "service_account",
       GOOGLE_ADS_SERVICE_ACCOUNT_JSON: JSON.stringify(fixture.json),
       GOOGLE_ADS_DEVELOPER_TOKEN: "synthetic-developer-token",
     };
@@ -35,18 +37,51 @@ describe("Google Ads service account authentication", () => {
     expect(result.ok && result.value.authMode).toBe("service_account");
     expect(readEnv.mock.calls.flat()).not.toContain("GOOGLE_ADS_REFRESH_TOKEN");
     expect(readEnv.mock.calls.flat()).not.toContain("GOOGLE_ADS_CLIENT_SECRET");
+    expect(readEnv.mock.calls.flat()).not.toContain(
+      "GOOGLE_ADS_DEVELOPER_TOKEN",
+    );
   });
 
-  it("requires a developer token before calling Google", () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    expect(configuration({ GOOGLE_ADS_DEVELOPER_TOKEN: undefined })).toEqual({
-      ok: false, missing: ["GOOGLE_ADS_DEVELOPER_TOKEN"],
+  it.each([undefined, "", "legacy-ignored"])(
+    "does not require or read a developer token in either mode: %s",
+    (developerToken) => {
+      for (const authMode of ["service_account", "oauth"]) {
+        const env: Record<string, string | undefined> = {
+          GOOGLE_ADS_AUTH_MODE: authMode,
+          GOOGLE_ADS_SERVICE_ACCOUNT_JSON: JSON.stringify(fixture.json),
+          GOOGLE_ADS_CLIENT_ID: "client",
+          GOOGLE_ADS_CLIENT_SECRET: "secret",
+          GOOGLE_ADS_REFRESH_TOKEN: "refresh",
+          GOOGLE_ADS_DEVELOPER_TOKEN: developerToken,
+        };
+        const read = vi.fn((name: string) => env[name]);
+        const result = getGoogleAdsConfiguration(read);
+        expect(result.ok).toBe(true);
+        expect(result.ok && result.value).not.toHaveProperty("developerToken");
+        expect(read.mock.calls.flat()).not.toContain(
+          "GOOGLE_ADS_DEVELOPER_TOKEN",
+        );
+      }
+      expect(configuration({ GOOGLE_ADS_SERVICE_ACCOUNT_JSON: undefined }))
+        .toMatchObject({
+          ok: false,
+          missing: ["GOOGLE_ADS_SERVICE_ACCOUNT_JSON"],
+        });
+    },
+  );
+
+  it("keeps OAuth selected until an explicit mode change and ignores the legacy MCC in SA mode", () => {
+    const legacy = configuration({
+      GOOGLE_ADS_AUTH_MODE: undefined,
+      GOOGLE_ADS_CLIENT_ID: "client",
+      GOOGLE_ADS_CLIENT_SECRET: "secret",
+      GOOGLE_ADS_REFRESH_TOKEN: "refresh",
     });
-    expect(configuration({ GOOGLE_ADS_SERVICE_ACCOUNT_JSON: undefined })).toEqual({
-      ok: false, missing: ["GOOGLE_ADS_SERVICE_ACCOUNT_JSON"],
+    expect(legacy.ok && legacy.value.authMode).toBe("oauth");
+    const direct = configuration({
+      GOOGLE_ADS_LOGIN_CUSTOMER_ID: "5958313391",
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(direct.ok && direct.value.loginCustomerId).toBeUndefined();
   });
 
   it.each([
@@ -68,7 +103,7 @@ describe("Google Ads service account authentication", () => {
   it.each([
     { GOOGLE_ADS_AUTH_MODE: "automatic" },
     { GOOGLE_ADS_API_VERSION: "v25/../../other" },
-    { GOOGLE_ADS_LOGIN_CUSTOMER_ID: "not-an-id" },
+    { GOOGLE_ADS_SERVICE_ACCOUNT_LOGIN_CUSTOMER_ID: "not-an-id" },
   ])("rejects invalid runtime configuration: %j", (overrides) => {
     expect(configuration(overrides).ok).toBe(false);
   });

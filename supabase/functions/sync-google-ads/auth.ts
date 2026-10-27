@@ -45,31 +45,60 @@ function parseServiceAccount(raw: string): ServiceAccount {
 export function getGoogleAdsConfiguration(
   readEnv: (name: string) => string | undefined,
 ): ConfigurationResult {
-  const authMode = readEnv("GOOGLE_ADS_AUTH_MODE") ?? "service_account";
+  // Switching identity is an explicit operational action, separate from deploy.
+  const authMode = readEnv("GOOGLE_ADS_AUTH_MODE") ?? "oauth";
   if (authMode !== "service_account" && authMode !== "oauth") {
-    return { ok: false, missing: [], invalid: "GOOGLE_ADS_AUTH_MODE must be service_account or oauth." };
+    return {
+      ok: false,
+      missing: [],
+      invalid: "GOOGLE_ADS_AUTH_MODE must be service_account or oauth.",
+    };
   }
   const requiredNames = authMode === "service_account"
-    ? ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_SERVICE_ACCOUNT_JSON"]
-    : ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_ADS_REFRESH_TOKEN"];
-  const values = Object.fromEntries(requiredNames.map((name) => [name, readEnv(name)]));
+    ? ["GOOGLE_ADS_SERVICE_ACCOUNT_JSON"]
+    : [
+      "GOOGLE_ADS_CLIENT_ID",
+      "GOOGLE_ADS_CLIENT_SECRET",
+      "GOOGLE_ADS_REFRESH_TOKEN",
+    ];
+  const values = Object.fromEntries(
+    requiredNames.map((name) => [name, readEnv(name)]),
+  );
   const missing = requiredNames.filter((name) => !values[name]?.trim());
   if (missing.length) return { ok: false, missing };
 
   const apiVersion = readEnv("GOOGLE_ADS_API_VERSION") ?? "v25";
   if (!/^v\d+$/.test(apiVersion)) {
-    return { ok: false, missing: [], invalid: "GOOGLE_ADS_API_VERSION must use a major REST version such as v25." };
+    return {
+      ok: false,
+      missing: [],
+      invalid:
+        "GOOGLE_ADS_API_VERSION must use a major REST version such as v25.",
+    };
   }
-  const loginCustomerId = readEnv("GOOGLE_ADS_LOGIN_CUSTOMER_ID")?.trim() || undefined;
-  if (loginCustomerId && !/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(loginCustomerId)) {
-    return { ok: false, missing: [], invalid: "GOOGLE_ADS_LOGIN_CUSTOMER_ID must be a ten-digit customer ID, optionally dashed." };
+  const loginCustomerIdName = authMode === "service_account"
+    ? "GOOGLE_ADS_SERVICE_ACCOUNT_LOGIN_CUSTOMER_ID"
+    : "GOOGLE_ADS_LOGIN_CUSTOMER_ID";
+  const loginCustomerId = readEnv(loginCustomerIdName)?.trim() || undefined;
+  if (
+    loginCustomerId && !/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(loginCustomerId)
+  ) {
+    return {
+      ok: false,
+      missing: [],
+      invalid:
+        `${loginCustomerIdName} must be a ten-digit customer ID, optionally dashed.`,
+    };
   }
-  const common = { developerToken: values.GOOGLE_ADS_DEVELOPER_TOKEN!, apiVersion, loginCustomerId };
+  // Developer tokens have been optional and ignored since 2026-09-09.
+  // Do not read or forward a legacy credential that has no authorization role.
+  const common = { apiVersion, loginCustomerId };
   if (authMode === "oauth") {
     return {
       ok: true,
       value: {
-        ...common, authMode,
+        ...common,
+        authMode,
         clientId: values.GOOGLE_ADS_CLIENT_ID!,
         clientSecret: values.GOOGLE_ADS_CLIENT_SECRET!,
         refreshToken: values.GOOGLE_ADS_REFRESH_TOKEN!,
@@ -77,9 +106,24 @@ export function getGoogleAdsConfiguration(
     };
   }
   try {
-    return { ok: true, value: { ...common, authMode, serviceAccount: parseServiceAccount(values.GOOGLE_ADS_SERVICE_ACCOUNT_JSON!) } };
+    return {
+      ok: true,
+      value: {
+        ...common,
+        authMode,
+        serviceAccount: parseServiceAccount(
+          values.GOOGLE_ADS_SERVICE_ACCOUNT_JSON!,
+        ),
+      },
+    };
   } catch (error) {
-    return { ok: false, missing: [], invalid: error instanceof GoogleAdsAuthError ? error.message : "Invalid Google Ads authentication configuration." };
+    return {
+      ok: false,
+      missing: [],
+      invalid: error instanceof GoogleAdsAuthError
+        ? error.message
+        : "Invalid Google Ads authentication configuration.",
+    };
   }
 }
 
@@ -163,17 +207,23 @@ async function exchangeAccessToken(config: GoogleAdsConfiguration) {
 
 // Cache only inside one invocation. No credential or token is persisted or logged.
 // Concurrent GAQL queries share one exchange; failures never switch auth modes.
-export function createGoogleAdsAccessTokenProvider(config: GoogleAdsConfiguration) {
+export function createGoogleAdsAccessTokenProvider(
+  config: GoogleAdsConfiguration,
+) {
   let cached: { value: string; expiresAt: number } | undefined;
   let pending: Promise<string> | undefined;
   return (forceRefresh = false): Promise<string> => {
     if (forceRefresh) cached = undefined;
-    if (cached && cached.expiresAt > Date.now() + REFRESH_MARGIN_MS) return Promise.resolve(cached.value);
+    if (cached && cached.expiresAt > Date.now() + REFRESH_MARGIN_MS) {
+      return Promise.resolve(cached.value);
+    }
     if (!pending) {
       pending = exchangeAccessToken(config).then((token) => {
         cached = token;
         return token.value;
-      }).finally(() => { pending = undefined; });
+      }).finally(() => {
+        pending = undefined;
+      });
     }
     return pending;
   };

@@ -1,13 +1,18 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 // Only the external Edge Runtime wrapper is substituted. Tests invoke the actual
 // collector with a synthetic admin client; they do not validate deployed auth/RLS.
-const wrapper = new URL("./test-edge-runtime.ts", import.meta.url).pathname;
+const wrapper = fileURLToPath(
+  new URL("./test-edge-runtime.ts", import.meta.url),
+);
 export default defineConfig({
-  resolve: { alias: {
-    "@supabase/server": wrapper,
-    "@supabase/functions-js/edge-runtime.d.ts": wrapper,
-  } },
+  resolve: {
+    alias: {
+      "@supabase/server": wrapper,
+      "@supabase/functions-js/edge-runtime.d.ts": wrapper,
+    },
+  },
   test: {
     environment: "node",
     maxWorkers: 2,

@@ -7,6 +7,7 @@ let env: Record<string, string | undefined>;
 beforeAll(async () => { fixture = await serviceAccountFixture(); });
 beforeEach(() => {
   env = {
+    GOOGLE_ADS_AUTH_MODE: "service_account",
     GOOGLE_ADS_SERVICE_ACCOUNT_JSON: JSON.stringify(fixture.json),
     GOOGLE_ADS_DEVELOPER_TOKEN: "synthetic-developer-token",
   };
@@ -27,10 +28,15 @@ function database() {
   return {
     chain,
     from: vi.fn((table: string) => {
-      if (!["dashboard_clients", "dashboard_source_accounts"].includes(table)) throw new Error("Unexpected table access");
+      if (!["dashboard_clients", "dashboard_source_accounts"].includes(table)) {
+        throw new Error("Unexpected table access");
+      }
       return chain;
     }),
-    rpc: vi.fn(async (_name: string, _args: unknown) => ({ data: { status: "success" }, error: null })),
+    rpc: vi.fn(async (_name: string, _args: unknown) => ({
+      data: { status: "success" },
+      error: null,
+    })),
   };
 }
 
@@ -70,7 +76,7 @@ function successfulGoogle() {
     }
     expect(url).toBe("https://googleads.googleapis.com/v25/customers/6072699813/googleAds:searchStream");
     const headers = new Headers(init.headers);
-    expect(headers.get("developer-token")).toBe("synthetic-developer-token");
+    expect(headers.has("developer-token")).toBe(false);
     expect(headers.get("authorization")).toBe("Bearer synthetic-access-token");
     const query = JSON.parse(init.body as string).query;
     return Response.json([{ results: [queryResult(query)] }]);
@@ -79,7 +85,9 @@ function successfulGoogle() {
 
 function expectNoWrites(db: ReturnType<typeof database>) {
   expect(db.rpc).not.toHaveBeenCalled();
-  for (const method of ["insert", "update", "delete", "upsert"] as const) expect(db.chain[method]).not.toHaveBeenCalled();
+  for (const method of ["insert", "update", "delete", "upsert"] as const) {
+    expect(db.chain[method]).not.toHaveBeenCalled();
+  }
 }
 
 describe("Google Ads collector with direct service account authentication", () => {
@@ -91,14 +99,29 @@ describe("Google Ads collector with direct service account authentication", () =
     const result = await response.json();
     expect(response.status).toBe(200);
     expect(result).toMatchObject({
-      ok: true, mode: "dry_run", google_ads_api_called: true,
-      database_write_performed: false, database_write_status: null, database_write_result: null,
+      ok: true,
+      mode: "dry_run",
+      google_ads_api_called: true,
+      database_write_performed: false,
+      database_write_status: null,
+      database_write_result: null,
       google_ads_configuration: {
-        auth_mode: "service_account", account_id: "6072699813",
-        developer_token_configured: true, oauth_configured: false,
-        service_account_configured: true, login_customer_id_configured: false,
+        auth_mode: "service_account",
+        account_id: "6072699813",
+        developer_token_configured: false,
+        oauth_configured: false,
+        service_account_configured: true,
+        login_customer_id_configured: false,
       },
-      counts: { daily: 1, campaigns: 1, ad_groups: 1, ads: 1, keywords: 1, pmax_asset_groups: 1, pmax_assets: 1 },
+      counts: {
+        daily: 1,
+        campaigns: 1,
+        ad_groups: 1,
+        ads: 1,
+        keywords: 1,
+        pmax_asset_groups: 1,
+        pmax_assets: 1,
+      },
     });
     expect(result.normalized_preview.daily.rows[0]).toMatchObject({ spend: 1.23, impressions: 100, clicks: 10, conversions: 0.5 });
     expect(result.normalized_preview.pmax_assets.rows[0]).toMatchObject({ asset_id: "7", text_content: "Synthetic headline" });
@@ -114,7 +137,7 @@ describe("Google Ads collector with direct service account authentication", () =
   });
 
   it("passes an explicitly configured MCC while retaining the target account", async () => {
-    env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = "123-456-7890";
+    env.GOOGLE_ADS_SERVICE_ACCOUNT_LOGIN_CUSTOMER_ID = "123-456-7890";
     const db = database();
     const google = successfulGoogle();
     vi.stubGlobal("fetch", google);
@@ -125,14 +148,18 @@ describe("Google Ads collector with direct service account authentication", () =
     expectNoWrites(db);
   });
 
-  it("blocks missing developer token and does not attempt authentication", async () => {
-    delete env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  it("blocks a missing SA JSON without attempting authentication", async () => {
+    delete env.GOOGLE_ADS_SERVICE_ACCOUNT_JSON;
     const db = database();
     const google = vi.fn();
     vi.stubGlobal("fetch", google);
     const response = await collector.fetch(request(), { supabaseAdmin: db });
     expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ missing_configuration: ["GOOGLE_ADS_DEVELOPER_TOKEN"], google_ads_api_called: false, database_write_performed: false });
+    expect(await response.json()).toMatchObject({
+      missing_configuration: ["GOOGLE_ADS_SERVICE_ACCOUNT_JSON"],
+      google_ads_api_called: false,
+      database_write_performed: false,
+    });
     expect(google).not.toHaveBeenCalled();
     expectNoWrites(db);
   });
