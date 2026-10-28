@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildCreativeDatabaseRow,
@@ -29,7 +30,7 @@ describe("Meta creative normalization", () => {
       updated_time: "2026-09-24T10:00:00+0000",
       creative: {
         id: "creative-image",
-        image_url: "https://cdn.example/image.jpg",
+        image_url: "https://scontent.xx.fbcdn.net/image.jpg",
         object_story_spec: {
           link_data: {
             name: "Headline",
@@ -56,7 +57,7 @@ describe("Meta creative normalization", () => {
         object_story_spec: {
           video_data: {
             video_id: "video-story",
-            image_url: "https://cdn.example/video.jpg",
+            image_url: "https://scontent.xx.fbcdn.net/video.jpg",
           },
         },
       },
@@ -97,15 +98,15 @@ describe("Meta creative normalization", () => {
       creative: {
         id: "creative-video-image",
         object_type: "VIDEO",
-        image_url: "https://cdn.example/creative.jpg",
-        thumbnail_url: "https://cdn.example/thumbnail.jpg",
+        image_url: "https://scontent.xx.fbcdn.net/creative.jpg",
+        thumbnail_url: "https://scontent.xx.fbcdn.net/thumbnail.jpg",
       },
     });
     const thumbnail = normalizeMetaCreative({
       creative: {
         id: "creative-video-thumbnail",
         object_type: "VIDEO",
-        thumbnail_url: "https://cdn.example/thumbnail.jpg",
+        thumbnail_url: "https://scontent.xx.fbcdn.net/thumbnail.jpg",
       },
     });
 
@@ -121,20 +122,20 @@ describe("Meta creative normalization", () => {
 
   it("uses a good preferred thumbnail, otherwise the largest area", () => {
     const preferred = selectBestVideoThumbnail([
-      { width: 3840, height: 2160, uri: "https://cdn.example/largest.jpg" },
-      { width: 1920, height: 1080, uri: "https://cdn.example/preferred.jpg", is_preferred: true },
+      { width: 3840, height: 2160, uri: "https://scontent.xx.fbcdn.net/largest.jpg" },
+      { width: 1920, height: 1080, uri: "https://scontent.xx.fbcdn.net/preferred.jpg", is_preferred: true },
     ]);
     const largest = selectBestVideoThumbnail([
-      { width: 160, height: 160, uri: "https://cdn.example/small.jpg", is_preferred: true },
-      { width: 1280, height: 720, uri: "https://cdn.example/large.jpg" },
+      { width: 160, height: 160, uri: "https://scontent.xx.fbcdn.net/small.jpg", is_preferred: true },
+      { width: 1280, height: 720, uri: "https://scontent.xx.fbcdn.net/large.jpg" },
     ]);
 
     expect(preferred).toMatchObject({
-      url: "https://cdn.example/preferred.jpg",
+      url: "https://scontent.xx.fbcdn.net/preferred.jpg",
       policy: "video_preferred_thumbnail",
     });
     expect(largest).toMatchObject({
-      url: "https://cdn.example/large.jpg",
+      url: "https://scontent.xx.fbcdn.net/large.jpg",
       policy: "video_high_res_thumbnail",
     });
   });
@@ -168,16 +169,16 @@ describe("Meta creative normalization", () => {
         }
         return new Response(JSON.stringify({
           format: [
-            { width: 320, height: 180, picture: "https://cdn.example/320.jpg" },
-            { width: 1920, height: 1080, picture: "https://cdn.example/1920.jpg" },
+            { width: 320, height: 180, picture: "https://scontent.xx.fbcdn.net/320.jpg" },
+            { width: 1920, height: 1080, picture: "https://scontent.xx.fbcdn.net/1920.jpg" },
           ],
-          picture: "https://cdn.example/160.jpg",
+          picture: "https://scontent.xx.fbcdn.net/160.jpg",
         }), { headers: { "content-type": "application/json" } });
       },
     );
 
     expect(result).toMatchObject({
-      url: "https://cdn.example/1920.jpg",
+      url: "https://scontent.xx.fbcdn.net/1920.jpg",
       source: "video.format.picture",
       policy: "video_format_thumbnail",
     });
@@ -191,14 +192,14 @@ describe("Meta creative normalization", () => {
       ["video-2"],
       async () => new Response(JSON.stringify({
         data: [
-          { id: "video-1", picture: "https://cdn.example/one.jpg" },
-          { id: "video-2", picture: "https://cdn.example/two.jpg" },
+          { id: "video-1", picture: "https://scontent.xx.fbcdn.net/one.jpg" },
+          { id: "video-2", picture: "https://scontent.xx.fbcdn.net/two.jpg" },
         ],
       }), { headers: { "content-type": "application/json" } }),
     );
 
     expect([...result.entries()]).toEqual([["video-2", expect.objectContaining({
-      url: "https://cdn.example/two.jpg",
+      url: "https://scontent.xx.fbcdn.net/two.jpg",
       source: "ad_account.advideos.picture",
       policy: "video_account_picture",
     })]]);
@@ -211,8 +212,8 @@ describe("Meta creative normalization", () => {
         object_story_spec: {
           link_data: {
             child_attachments: [
-              { picture: "https://cdn.example/first.jpg", name: "First" },
-              { picture: "https://cdn.example/second.jpg", name: "Second" },
+              { picture: "https://scontent.xx.fbcdn.net/first.jpg", name: "First" },
+              { picture: "https://scontent.xx.fbcdn.net/second.jpg", name: "Second" },
             ],
           },
         },
@@ -229,7 +230,7 @@ describe("Meta creative normalization", () => {
       creative: {
         id: "creative-dynamic",
         asset_feed_spec: {
-          images: [{ url: "https://cdn.example/dynamic.jpg" }],
+          images: [{ url: "https://scontent.xx.fbcdn.net/dynamic.jpg" }],
           titles: [{ text: "Dynamic title" }],
         },
       },
@@ -254,7 +255,7 @@ describe("Meta creative normalization", () => {
       creative: {
         id: "creative-secret-test",
         thumbnail_url:
-          "https://cdn.example/image.jpg?access_token=SECRET_PREVIEW",
+          "https://scontent.xx.fbcdn.net/image.jpg?access_token=SECRET_PREVIEW",
         object_story_spec: {
           link_data: {
             link:
@@ -315,29 +316,26 @@ describe("Meta creative lifecycle", () => {
   });
 
   it("reuses the same creative and refreshes a changed creative", () => {
-    expect(canReuseCreativePreview(existing, "creative-1")).toBe(true);
+    expect(canReuseCreativePreview(existing, "creative-1")).toBe(false);
     expect(canReuseCreativePreview(existing, "creative-2")).toBe(false);
     expect(canReuseCreativePreview(existing, "creative-1", "video")).toBe(
       false,
     );
     expect(canReuseCreativePreview({
       ...existing,
-      metadata: { video_preview_strategy_version: 2 },
+      metadata: { video_preview_strategy_version: 2, preview_strategy_version:3,preview_width:1080,preview_height:1920 },
     }, "creative-1", "video")).toBe(true);
   });
 
   it("reads dimensions while limiting downloads to supported images", async () => {
-    const png = new Uint8Array(24);
-    png.set([0x89, 0x50, 0x4e, 0x47], 0);
-    new DataView(png.buffer).setUint32(16, 1280);
-    new DataView(png.buffer).setUint32(20, 720);
+    const png = readFileSync(new URL("../../../tests/fixtures/meta-previews/large.png", import.meta.url));
     const result = await downloadPreview(
-      "https://cdn.example/frame.png",
+      "https://scontent.xx.fbcdn.net/frame.png",
       async () => new Response(png, {
         headers: { "content-type": "image/png" },
       }),
     );
-    expect(result).toMatchObject({ width: 1280, height: 720, mime: "image/png" });
+    expect(result).toMatchObject({ width: 1080, height: 1920, mime: "image/png" });
   });
 
   it("reuses a fresh row but retries stale and failed rows", () => {
@@ -363,7 +361,7 @@ describe("Meta creative lifecycle", () => {
   it("reports download failures without exposing response bodies", async () => {
     await expect(
       downloadPreview(
-        "https://cdn.example/missing.jpg",
+        "https://scontent.xx.fbcdn.net/missing.jpg",
         async () => new Response("secret upstream body", { status: 403 }),
       ),
     ).rejects.toMatchObject({ code: "preview_http_403" });
