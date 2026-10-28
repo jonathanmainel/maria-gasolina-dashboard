@@ -66,6 +66,12 @@ export function useDashboard(range: DateRange) {
     isLoading: fronts.isLoading || organic.isLoading || manual.isLoading,
     isError: fronts.isError || organic.isError,
     error: (fronts.error ?? organic.error) as Error | null,
+    // View state follows its own existing read query, without changing fetches,
+    // permissions, cache keys or synchronization schedules.
+    sourceStates: {
+      settings: { isLoading: manual.isLoading, isError: manual.isError, error: manual.error, refetch: manual.refetch },
+      organic: { isLoading: organic.isLoading, isError: organic.isError, error: organic.error, refetch: organic.refetch },
+    },
     refetch: () => { void fronts.refetch(); void organic.refetch(); },
   };
 }

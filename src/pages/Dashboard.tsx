@@ -43,6 +43,8 @@ export function DashboardPage() {
   const onShare = () => onViewChange("settings");
   useEffect(() => { document.title = presenting ? "Maria Gasolina | Apresentação" : "Maria Gasolina | Performance Center"; }, [presenting]);
   const lastSync = useQuery({ queryKey: ["last-sync"], queryFn: getLastSync, retry: 1, staleTime: 5 * 60_000 });
+  const viewState = (view === "settings" && !readOnly ? data.sourceStates?.settings : view === "organic" ? data.sourceStates?.organic : null) ?? data;
+  const errorTitle = view === "settings" ? "Não foi possível carregar as configurações" : view === "organic" ? "Não foi possível carregar os dados orgânicos" : "Não foi possível carregar os dados";
 
   if (presenting) {
     if (data.isLoading) return <div className="screen-state"><div className="spinner" /><p>Preparando a apresentação...</p></div>;
@@ -63,10 +65,10 @@ export function DashboardPage() {
           <CrmView data={data} range={range} readOnly={readOnly} preview={commercialPreview} onPreviewChange={setCommercialPreview} selectedFront={salesFront} onFrontChange={setSalesFront} />
         ) : isPlaceFront(view) ? (
           <FrontView key={view} front={view} data={data} range={range} onNavigate={onViewChange} />
-        ) : data.isError ? (
-          <div className="screen-state error" style={{ minHeight: "60vh" }}><AlertCircle size={30} /><h1>Não foi possível carregar os dados</h1><p>{data.error?.message ?? "Tente novamente em alguns instantes."}</p><button type="button" className="primary-button" onClick={data.refetch}>Tentar novamente</button></div>
-        ) : data.isLoading ? (
-          <div className="grid grid-4"><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={420} className="span-2" /><Skeleton height={420} className="span-2" /></div>
+        ) : viewState.isError ? (
+          <div className="screen-state error" role="alert" style={{ minHeight: "60vh" }}><AlertCircle size={30} /><h1>{errorTitle}</h1><p>{viewState.error?.message ?? "Tente novamente em alguns instantes."}</p><button type="button" className="primary-button" onClick={() => void viewState.refetch()}>Tentar novamente</button></div>
+        ) : viewState.isLoading ? (
+          <div className="grid grid-4" role="status" aria-busy="true" aria-label={view === "settings" ? "Carregando configurações" : view === "organic" ? "Carregando dados orgânicos" : "Carregando dados do dashboard"}><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} /><Skeleton height={420} className="span-2" /><Skeleton height={420} className="span-2" /></div>
         ) : (
           <>
             {view === "executive" && <ExecutiveView data={data} range={range} onNavigate={onViewChange} />}

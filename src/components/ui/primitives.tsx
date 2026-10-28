@@ -157,6 +157,7 @@ export function Ring({ value, label, sub, color = "var(--gold)", format }: { val
 }
 
 export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBetter = false }: { label: string; actual: number; goal: number; ratio: number; color: string; format: (n: number) => string; lowerIsBetter?: boolean }) {
+  const marker = Math.max(0, Math.min(1, ratio));
   const realPct = goal ? (actual / goal) * 100 : 0;
   const barPct = Math.max(0, Math.min(100, realPct));
   const over = realPct > 100;
@@ -168,12 +169,13 @@ export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBette
   return (
     <div className="pacing" style={{ "--pc": color } as React.CSSProperties}>
       <div className="pacing-label"><i />{label}</div>
-      <div className="pacing-values"><b>{format(actual)}</b> de {format(goal)}</div>
+      <div className="pacing-values"><b>{format(actual)}</b><span> de {format(goal)}</span></div>
       <div className="pacing-track">
         <div className="pacing-fill" style={{ width: `${w}%` }} />
         {over && <div className="pacing-overflow" title="Superou a meta" />}
-        <div className="pacing-mark" style={{ left: `${Math.min(100, ratio * 100)}%` }} data-label="hoje" />
+        <div className="pacing-mark" style={{ left: `${Math.min(100, ratio * 100)}%` }} />
       </div>
+      <div className="pacing-axis" style={{ gridTemplateColumns: `minmax(0, ${marker}fr) max-content minmax(0, ${1 - marker}fr)` }}><span>hoje</span></div>
       <div className="pacing-foot">
         <span>{Math.round(realPct)}% da meta{over && " · superada"}</span>
         <span style={{ color: ahead ? "var(--green)" : "var(--red)" }}>{ahead ? "no ritmo" : "abaixo do ritmo"} · projeção {format(projected)}</span>

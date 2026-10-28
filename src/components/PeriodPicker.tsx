@@ -26,6 +26,8 @@ interface Props {
   comparisonEnabled: boolean;
   onApply: (range: DateRange, comparisonEnabled: boolean) => void;
   onClose: () => void;
+  /** The surrounding Popover owns dialog semantics and focus when embedded. */
+  embedded?: boolean;
 }
 
 const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -38,7 +40,7 @@ function makeRange(start: Date, end: Date): DateRange {
   return { start: toIso(start), end: toIso(end) };
 }
 
-export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Props) {
+export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embedded = false }: Props) {
   const [draft, setDraft] = useState<DateRange>(range);
   const [compare, setCompare] = useState(comparisonEnabled);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseISO(range.end)));
@@ -118,7 +120,7 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose }: Pro
   };
 
   return (
-    <div className="period-popover period-picker" role="dialog" aria-label="Escolher período">
+    <div className="period-popover period-picker" role={embedded ? undefined : "dialog"} aria-label={embedded ? undefined : "Escolher período"}>
       <div className="period-picker-head">
         <strong>Período de análise</strong>
         <button type="button" onClick={onClose} aria-label="Fechar filtro"><X size={19} /></button>

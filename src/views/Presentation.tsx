@@ -14,7 +14,7 @@ import type { CommercialFront, DateRange, Front } from "../types";
 import { CreativeCard } from "./FrontView";
 import { rankCreatives } from "../lib/creatives";
 import { COMMERCIAL_DEMO_LABEL } from "../lib/commercial-demo";
-import { presentationLayout, presentationSlides } from "../lib/presentation-layout";
+import { presentationLayout, presentationSlides, presentationSlideIndex } from "../lib/presentation-layout";
 import "../presentation.css";
 import { ContentTypeRow, PostCard } from "./Organic";
 
@@ -40,7 +40,14 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
   const inspecting = () => Boolean(document.querySelector('.lightbox'));
   const next = () => { if (!inspecting()) setIndex(i => (Math.min(i, slides.length - 1) + 1) % slides.length); };
   const prev = () => { if (!inspecting()) setIndex(i => (Math.min(i, slides.length - 1) - 1 + slides.length) % slides.length); };
-  useEffect(() => { const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight }); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize); }, []);
+  useEffect(() => {
+    const resize = () => {
+      const nextViewport = { width: window.innerWidth, height: window.innerHeight };
+      setIndex(presentationSlideIndex(presentationSlides(data.creatives, nextViewport.width, nextViewport.height), slide));
+      setViewport(nextViewport);
+    };
+    window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize);
+  }, [data.creatives, slide]);
   useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(next, SLIDE_MS);
@@ -74,7 +81,7 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
       <button type="button" className="icon-button" onClick={onExit} aria-label="Sair da apresentação"><X size={18} /></button>
     </header>
     <div className="present-slide" data-slide={slide.id} data-kind={slide.kind} key={slide.id}>
-      {slide.kind === 'executive' && <ExecutiveSlide data={data} range={range} />}{slide.kind === 'pacing' && <ExecutivePacingSlide data={data} range={range} />}
+      {slide.kind === 'executive' && <ExecutiveSlide data={data} range={range} />}{slide.kind === 'pacing' && <ExecutivePacingSlide data={data} range={range} offset={slide.offset ?? 0} count={slide.count ?? 5} />}
       {slide.kind === 'front' && <FrontSlide data={data} range={range} front={slide.front! as Front} goals={goals} />}
       {slide.kind === 'creatives' && <section className="presentation-creatives" aria-label="Criativos por leads"><div className="creative-grid" style={{gridTemplateColumns: `repeat(${slide.count}, minmax(0, 1fr))`}}>{rankCreatives(data.creatives, slide.front! as Front).slice(slide.offset, (slide.offset ?? 0) + slide.count!).map((c, i) => <CreativeCard key={c.id} c={c} rank={(slide.offset ?? 0) + i + 1} />)}</div></section>}
       {slide.kind === 'crm' && <CommercialSlide data={data} range={range} front={slide.front!} illustrative={illustrative} offset={slide.offset!} count={slide.count!} onFrontChange={front => { onSalesFrontChange?.(front); setIndex(slides.findIndex(item => item.id === `${front}-crm-0`)); }} />}
@@ -132,17 +139,19 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
   );
 }
 
-function ExecutivePacingSlide({ data, range }: { data: DashboardData; range: DateRange }) {
+function ExecutivePacingSlide({ data, range, offset, count }: { data: DashboardData; range: DateRange; offset: number; count: number }) {
  const goals = useGoals(); const month = monthProgress(range);
  const monthRows = data.current.filter(r => r.date.slice(0, 7) === range.end.slice(0, 7));
  const spend = monthRows.reduce((sum, row) => sum + row.spend, 0);
  return (      <section className="panel presentation-pacing"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>Contra as metas definidas com a GT+</p></div></div>
-        <div className="pacing-list">
-          <Pacing label="Verba de mídia" actual={spend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />
-          <Pacing label="Leads · Franquias" actual={monthRows.filter((r) => r.front === "franchise").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_franchise} ratio={month.ratio} color="var(--red)" format={integer} />
-          <Pacing label="Leads · Condomínios" actual={monthRows.filter((r) => r.front === "condominium").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_condominium} ratio={month.ratio} color="var(--gold)" format={integer} />
-          <Pacing label="Posts publicados" actual={data.delivery.posts_published} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />
-          <Pacing label="Stories publicados" actual={data.delivery.stories_published} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />
+        <div className="pacing-list" style={{ '--pacing-rows': Math.ceil(Math.min(count, 5 - offset) / 2) } as CSSProperties}>
+          {[
+          <Pacing key="budget" label="Verba de mídia" actual={spend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />,
+          <Pacing key="franchise" label="Leads · Franquias" actual={monthRows.filter((r) => r.front === "franchise").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_franchise} ratio={month.ratio} color="var(--red)" format={integer} />,
+          <Pacing key="condominium" label="Leads · Condomínios" actual={monthRows.filter((r) => r.front === "condominium").reduce((s, r) => s + r.leads, 0)} goal={goals.leads_condominium} ratio={month.ratio} color="var(--gold)" format={integer} />,
+          <Pacing key="posts" label="Posts publicados" actual={data.delivery.posts_published} goal={goals.posts} ratio={month.ratio} color="var(--violet)" format={integer} />,
+          <Pacing key="stories" label="Stories publicados" actual={data.delivery.stories_published} goal={goals.stories} ratio={month.ratio} color="var(--violet)" format={integer} />,
+          ].slice(offset, offset + count)}
         </div>
       </section>);
 }

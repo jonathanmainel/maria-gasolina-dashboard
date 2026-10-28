@@ -25,7 +25,7 @@
 .present.responsive-present .panel-head p { font-size: clamp(10px, .9vw, 21px); }
 .presentation-executive { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: clamp(12px, 1.4dvh, 28px); }
 .presentation-pacing { display: flex; flex-direction: column; }
-.present.responsive-present .presentation-pacing .pacing-list { flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2dvh, 32px); }
+.present.responsive-present .presentation-pacing .pacing-list { flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(var(--pacing-rows), minmax(0, 1fr)); gap: clamp(12px, 2dvh, 32px); }
 .present.responsive-present .presentation-pacing .pacing { padding: clamp(12px, 1.2vw, 28px); border: 1px solid var(--line); border-radius: 12px; align-content: center; }
 .present.responsive-present .presentation-executive > .presentation-stack { display: contents; }
 .presentation-executive .grid-4 { grid-column: 1 / -1; }
@@ -99,6 +99,9 @@ body:has(.topbar-refresh-button[aria-busy="true"]) .content-inner { opacity: .78
 }
 @media (max-width: 699px) {
   .present.responsive-present { padding: 12px; }
+  .present.responsive-present .presentation-pacing .pacing-list { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
+  .present.responsive-present .pacing { grid-template-columns: minmax(0, 1fr); }
+  .present.responsive-present .pacing-values { justify-content: flex-start; text-align: left; }
   .present.responsive-present .presentation-counter { display: none; }
   .present.responsive-present .commercial-demo-toggle { margin-left: 0; }
   .presentation-executive { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
