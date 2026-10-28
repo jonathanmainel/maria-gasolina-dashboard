@@ -18,6 +18,7 @@ import {
 import {
   type CreativeEnrichmentStats,
   enrichMetaCreativePreviews,
+  validatePreviewAdIds,
 } from "./meta-creative.ts";
 
 type MetaInsightLevel = "account" | "campaign" | "adset" | "ad";
@@ -437,6 +438,19 @@ export default {
         videoPictureOverrides: video_picture_overrides,
       } = validation.value;
 
+      let preview_ad_ids: string[] | undefined;
+      try {
+        preview_ad_ids = validatePreviewAdIds(
+          (body as IngestionRequest & { preview_ad_ids?: unknown }).preview_ad_ids,
+        );
+      } catch {
+        return Response.json(
+          { ok: false, error_code: "PREVIEW_AD_IDS_INVALID", database_write_performed: false },
+          { status: 400 },
+        );
+      }
+      const refresh_previews_only = refresh_video_previews_only || preview_ad_ids !== undefined;
+
       const metaAccessToken = Deno.env.get("META_ACCESS_TOKEN");
       const metaApiVersion = Deno.env.get("META_API_VERSION");
 
@@ -524,7 +538,7 @@ export default {
         const adInsights: MetaInsight[] = [];
         const accountMetadata: ResolvedMetaAccountMetadata[] = [];
 
-        if (!refresh_video_previews_only) {
+        if (!refresh_previews_only) {
           for (const sourceAccount of sourceAccounts) {
             const [
               metadata,
@@ -617,7 +631,7 @@ export default {
         } | null = null;
         let databaseWriteStatus: string | null = null;
 
-        if (!dry_run && !refresh_video_previews_only) {
+        if (!dry_run && !refresh_previews_only) {
           const paidMediaPayloadHash = await createPayloadHash({
             daily: normalizedDailyRows,
             campaigns: normalizedCampaignRows,
@@ -778,6 +792,7 @@ export default {
               adRows: normalizedAdRows,
               dryRun: dry_run,
               videoRefreshOnly: refresh_video_previews_only,
+              previewAdIds: preview_ad_ids,
               videoPictureOverrides: video_picture_overrides,
             }),
           };
@@ -815,7 +830,7 @@ export default {
               ? "partial_success"
               : "success"
             : null);
-        const responseOk = !refresh_video_previews_only ||
+        const responseOk = !refresh_previews_only ||
           (creativeEnrichment.status === "success" &&
             creativeEnrichment.failed === 0);
 
@@ -829,6 +844,7 @@ export default {
             end_date,
             dry_run,
             refresh_video_previews_only,
+            selective_preview_ad_count: preview_ad_ids?.length ?? 0,
             video_picture_override_count: Object.keys(video_picture_overrides).length,
           },
 
@@ -903,10 +919,10 @@ export default {
           database_write_result: databaseWriteResult,
           creative_enrichment: creativeEnrichment,
 
-          message: refresh_video_previews_only
+          message: refresh_previews_only
             ? dry_run
-              ? "Meta video previews inspected selectively. No database write was performed."
-              : "Meta video previews refreshed selectively without rewriting metrics."
+              ? "Meta creative previews inspected selectively. No database write was performed."
+              : "Meta creative previews refreshed selectively without rewriting metrics."
             : dry_run
             ? "Meta Ads metrics and creative previews inspected successfully. No database write was performed."
             : databaseWriteStatus === "already_processed"

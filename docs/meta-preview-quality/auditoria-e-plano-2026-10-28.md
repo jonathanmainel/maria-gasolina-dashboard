@@ -1,5 +1,8 @@
 # Previews Meta Ads — auditoria e proposta para aprovação
 
+Registro da auditoria anterior à aprovação. A implementação local aprovada e os
+resultados posteriores estão em [implementação e publicação](implementacao-e-publicacao.md).
+
 Data: 28/10/2026. Repositório: `jonathanmainel/maria-gasolina-dashboard`.
 Produção consultada: `hlqrpreqvvxtkruwsolg`, exclusivamente por leitura.
 

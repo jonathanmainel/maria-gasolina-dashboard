@@ -1,11 +1,29 @@
-import { fetchMedia, inspectImage, improves, MAX_PREVIEW_BYTES, PreviewError, readLimitedBody } from "./preview-media.ts";
+import {
+  fetchMedia,
+  inspectImage,
+  improves,
+  MAX_PREVIEW_BYTES,
+  PreviewError,
+  readLimitedBody,
+} from "./preview-media.ts";
 export const CREATIVE_BUCKET = "dashboard-creatives";
 export const CREATIVE_REFRESH_TTL_MS = 20 * 60 * 60 * 1000;
 const META_AD_BATCH_SIZE = 25;
 const CREATIVE_CONCURRENCY = 4;
 const PREFERRED_VIDEO_THUMBNAIL_MIN_AREA = 1280 * 720;
-const VIDEO_PREVIEW_STRATEGY_VERSION = 2;
 export const PREVIEW_STRATEGY_VERSION = 3;
+
+export function validatePreviewAdIds(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length < 1 ||
+    value.length > 50 ||
+    value.some((id) => typeof id !== "string" || !/^\d{1,30}$/.test(id))
+  )
+    throw new PreviewError("preview_ad_ids_invalid");
+  return [...new Set(value)] as string[];
+}
 
 export type MetaCreativeType =
   | "image"
@@ -26,8 +44,8 @@ export type CreativeAdRef = {
 
 export type ExistingCreative = {
   account_id?: string;
-  creative_name?: string|null;
-  source_updated_at?: string|null;
+  creative_name?: string | null;
+  source_updated_at?: string | null;
   entity_id: string;
   creative_id: string | null;
   preview_storage_path: string | null;
@@ -62,17 +80,6 @@ type MetaAdPayload = {
   campaign?: { id?: string; name?: string };
   adset?: { id?: string; name?: string };
   creative?: MetaCreativePayload;
-};
-
-type MetaApiResponse = {
-  data?: MetaAdPayload[];
-  paging?: { next?: string };
-  error?: {
-    message?: string;
-    type?: string;
-    code?: number;
-    error_subcode?: number;
-  };
 };
 
 export type NormalizedMetaCreative = {
@@ -114,7 +121,7 @@ export type CreativeEnrichmentStats = {
   video_thumbnail_fallback: number;
   video_preview_failed: number;
   failures: Array<{ ad_id: string; code: string }>;
-  decisions?: Array<Record<string,unknown>>;
+  decisions?: Array<Record<string, unknown>>;
 };
 
 type SupabaseLike = {
@@ -177,8 +184,8 @@ function objectValue(value: unknown): Record<string, unknown> | null {
 function arrayValue(value: unknown): Array<Record<string, unknown>> {
   return Array.isArray(value)
     ? value
-      .map(objectValue)
-      .filter((item): item is Record<string, unknown> => item !== null)
+        .map(objectValue)
+        .filter((item): item is Record<string, unknown> => item !== null)
     : [];
 }
 
@@ -200,13 +207,25 @@ function firstString(
 }
 
 function uniqueVideoFallbacks(
-  candidates: Array<Omit<VideoPreviewCandidate, "width" | "height" | "preferred" | "url"> & { url: string | null }>,
+  candidates: Array<
+    Omit<VideoPreviewCandidate, "width" | "height" | "preferred" | "url"> & {
+      url: string | null;
+    }
+  >,
 ): VideoPreviewCandidate[] {
   const seen = new Set<string>();
   return candidates.flatMap((candidate) => {
     if (!candidate.url || seen.has(candidate.url)) return [];
     seen.add(candidate.url);
-    return [{ ...candidate, url: candidate.url, width: null, height: null, preferred: false }];
+    return [
+      {
+        ...candidate,
+        url: candidate.url,
+        width: null,
+        height: null,
+        preferred: false,
+      },
+    ];
   });
 }
 
@@ -216,15 +235,13 @@ export function sanitizeDestinationUrl(value: unknown): string | null {
 
   try {
     const url = new URL(raw);
-    for (
-      const key of [
-        "access_token",
-        "appsecret_proof",
-        "signature",
-        "sig",
-        "token",
-      ]
-    ) {
+    for (const key of [
+      "access_token",
+      "appsecret_proof",
+      "signature",
+      "sig",
+      "token",
+    ]) {
       url.searchParams.delete(key);
     }
     return url.toString();
@@ -233,9 +250,7 @@ export function sanitizeDestinationUrl(value: unknown): string | null {
   }
 }
 
-function normalizeMetaCreativeBase(
-  ad: MetaAdPayload,
-): NormalizedMetaCreative {
+function normalizeMetaCreativeBase(ad: MetaAdPayload): NormalizedMetaCreative {
   const creative = ad.creative ?? {};
   const story = objectValue(creative.object_story_spec) ?? {};
   const linkData = objectValue(story.link_data) ?? {};
@@ -254,68 +269,75 @@ function normalizeMetaCreativeBase(
   const videoIdSource = creativeVideoId
     ? "creative.video_id"
     : storyVideoId
-    ? "object_story_spec.video_data.video_id"
-    : assetVideoId
-    ? "asset_feed_spec.videos"
-    : null;
+      ? "object_story_spec.video_data.video_id"
+      : assetVideoId
+        ? "asset_feed_spec.videos"
+        : null;
 
   const hasAssetFeed = Object.keys(assetFeed).length > 0;
   const hasCarousel = childAttachments.length > 0;
-  const hasVideo = !!creativeVideoId || Object.keys(videoData).length > 0 ||
+  const hasVideo =
+    !!creativeVideoId ||
+    Object.keys(videoData).length > 0 ||
     assetVideos.length > 0 ||
     creative.object_type === "VIDEO";
 
   const creativeType: MetaCreativeType = hasAssetFeed
     ? "dynamic"
     : hasCarousel
-    ? "carousel"
-    : hasVideo
-    ? "video"
-    : creative.image_url || creative.thumbnail_url || linkData.picture
-    ? "image"
-    : "unknown";
+      ? "carousel"
+      : hasVideo
+        ? "video"
+        : creative.image_url ||
+            creative.image_hash ||
+            creative.thumbnail_url ||
+            linkData.picture ||
+            linkData.image_hash
+          ? "image"
+          : "unknown";
 
-  const videoFallbacks = creativeType === "video"
-    ? uniqueVideoFallbacks([
-      {
-        url: stringValue(videoData.image_url),
-        source: "object_story_spec.video_data.image_url",
-        policy: "video_creative_image",
-      },
-      {
-        url: stringValue(creative.image_url),
-        source: "creative.image_url",
-        policy: "video_creative_image",
-      },
-      {
-        url: stringValue(creative.thumbnail_url),
-        source: "creative.thumbnail_url",
-        policy: "video_thumbnail_fallback",
-      },
-    ])
-    : [];
+  const videoFallbacks =
+    creativeType === "video"
+      ? uniqueVideoFallbacks([
+          {
+            url: stringValue(videoData.image_url),
+            source: "object_story_spec.video_data.image_url",
+            policy: "video_creative_image",
+          },
+          {
+            url: stringValue(creative.image_url),
+            source: "creative.image_url",
+            policy: "video_creative_image",
+          },
+          {
+            url: stringValue(creative.thumbnail_url),
+            source: "creative.thumbnail_url",
+            policy: "video_thumbnail_fallback",
+          },
+        ])
+      : [];
 
   const previewUrl = hasCarousel
     ? firstString(childAttachments, ["picture", "image_url", "thumbnail_url"])
     : hasAssetFeed
-    ? (firstString(
-      [...assetImages, ...assetVideos],
-      ["url", "image_url", "thumbnail_url", "picture"],
-    ) ??
-      stringValue(creative.image_url) ??
-      stringValue(creative.thumbnail_url))
-    : hasVideo
-    ? (videoFallbacks[0]?.url ?? null)
-    : (stringValue(creative.image_url) ??
-      stringValue(linkData.picture) ??
-      stringValue(creative.thumbnail_url));
+      ? (firstString(
+          [...assetImages, ...assetVideos],
+          ["url", "image_url", "thumbnail_url", "picture"],
+        ) ??
+        stringValue(creative.image_url) ??
+        stringValue(creative.thumbnail_url))
+      : hasVideo
+        ? (videoFallbacks[0]?.url ?? null)
+        : (stringValue(creative.image_url) ??
+          stringValue(linkData.picture) ??
+          stringValue(creative.thumbnail_url));
 
   const headline = hasCarousel
     ? firstString(childAttachments, ["name", "title"])
     : firstString(
-      [linkData, videoData, ...assetTitles],
-      ["name", "title", "text"],
-    );
+        [linkData, videoData, ...assetTitles],
+        ["name", "title", "text"],
+      );
   const body = firstString(
     [linkData, videoData, ...assetBodies],
     ["message", "body", "text", "link_description"],
@@ -324,9 +346,9 @@ function normalizeMetaCreativeBase(
     hasCarousel
       ? firstString(childAttachments, ["link", "url", "website_url"])
       : firstString(
-        [linkData, videoData, ...assetLinks],
-        ["link", "url", "website_url"],
-      ),
+          [linkData, videoData, ...assetLinks],
+          ["link", "url", "website_url"],
+        ),
   );
 
   return {
@@ -337,10 +359,10 @@ function normalizeMetaCreativeBase(
       ? creativeType === "video"
         ? "video_thumbnail"
         : creativeType === "carousel"
-        ? "carousel_representative"
-        : creativeType === "dynamic"
-        ? "dynamic_representative"
-        : "image"
+          ? "carousel_representative"
+          : creativeType === "dynamic"
+            ? "dynamic_representative"
+            : "image"
       : "unavailable",
     previewUrl,
     videoId,
@@ -357,95 +379,197 @@ function normalizeMetaCreativeBase(
       has_asset_feed_spec: hasAssetFeed,
       video_id: videoId,
       video_id_source: videoIdSource,
-      preview_source: creativeType === "video"
-        ? videoFallbacks[0]?.source ?? null
-        : null,
-      representative_policy: creativeType === "carousel"
-        ? "first_carousel_card"
-        : creativeType === "dynamic"
-        ? "first_available_asset"
-        : creativeType === "video"
-        ? videoFallbacks[0]?.policy ?? "video_thumbnail_fallback"
-        : previewUrl
-        ? "primary_image"
-        : "none",
+      preview_source:
+        creativeType === "video" ? (videoFallbacks[0]?.source ?? null) : null,
+      representative_policy:
+        creativeType === "carousel"
+          ? "first_carousel_card"
+          : creativeType === "dynamic"
+            ? "first_available_asset"
+            : creativeType === "video"
+              ? (videoFallbacks[0]?.policy ?? "video_thumbnail_fallback")
+              : previewUrl
+                ? "primary_image"
+                : "none",
     },
     sourceUpdatedAt: stringValue(ad.updated_time),
   };
 }
 
 /** Keep one representative asset; compare renditions, never unrelated pieces. */
-export function normalizeMetaCreative(ad: MetaAdPayload, previous?: ExistingCreative): NormalizedMetaCreative {
+export function normalizeMetaCreative(
+  ad: MetaAdPayload,
+  previous?: ExistingCreative,
+): NormalizedMetaCreative {
   const result = normalizeMetaCreativeBase(ad);
   const creative = ad.creative ?? {};
   const story = objectValue(creative.object_story_spec) ?? {};
   const link = objectValue(story.link_data) ?? {};
   const video = objectValue(story.video_data) ?? {};
   const feed = objectValue(creative.asset_feed_spec) ?? {};
-  const images = arrayValue(feed.images), videos = arrayValue(feed.videos);
+  const images = arrayValue(feed.images),
+    videos = arrayValue(feed.videos);
   const cards = arrayValue(link.child_attachments);
-  const previousKey = previous?.creative_id === result.creativeId ? stringValue(previous.metadata?.preview_asset_key) : null;
-  let imageHash: string | null = null, assetKey: string | null = null;
-  let videoId = result.videoId, mediaType = "image", certain = true;
-  const sources: Array<{ url: string | null; source: string; policy: string }> = [];
-  const add = (value: unknown, source: string, policy = "primary_image") => sources.push({url:stringValue(value),source,policy});
-  if (result.creativeType === "dynamic" && cards.length === 0 && (images.length || videos.length)) {
+  const previousKey =
+    previous?.creative_id === result.creativeId
+      ? stringValue(previous.metadata?.preview_asset_key)
+      : null;
+  let imageHash: string | null = null,
+    assetKey: string | null = null;
+  let videoId = result.videoId,
+    mediaType = "image",
+    certain = true;
+  const sources: Array<{ url: string | null; source: string; policy: string }> =
+    [];
+  const add = (value: unknown, source: string, policy = "primary_image") =>
+    sources.push({ url: stringValue(value), source, policy });
+  if (
+    result.creativeType === "dynamic" &&
+    cards.length === 0 &&
+    (images.length || videos.length)
+  ) {
     const keyed = [
-      ...images.map(asset => ({asset, video:false, key:stringValue(asset.hash) ? `image:${asset.hash}` : null})),
-      ...videos.map(asset => ({asset, video:true, key:stringValue(asset.video_id) ? `video:${asset.video_id}` : null})),
+      ...images.map((asset) => ({
+        asset,
+        video: false,
+        key: stringValue(asset.hash) ? `image:${asset.hash}` : null,
+      })),
+      ...videos.map((asset) => ({
+        asset,
+        video: true,
+        key: stringValue(asset.video_id) ? `video:${asset.video_id}` : null,
+      })),
     ];
-    const chosen = keyed.find(item => item.key && item.key === previousKey) ?? keyed[0];
+    const chosen =
+      keyed.find((item) => item.key && item.key === previousKey) ?? keyed[0];
     assetKey = chosen.key;
     imageHash = chosen.video ? null : stringValue(chosen.asset.hash);
     videoId = chosen.video ? stringValue(chosen.asset.video_id) : null;
     mediaType = chosen.video ? "video" : "image";
-    for (const field of ["url","image_url","thumbnail_url","picture"]) add(chosen.asset[field], `asset_feed_spec.${chosen.video ? "videos" : "images"}.${field}`, "first_available_asset");
+    for (const field of ["url", "image_url", "thumbnail_url", "picture"])
+      add(
+        chosen.asset[field],
+        `asset_feed_spec.${chosen.video ? "videos" : "images"}.${field}`,
+        "first_available_asset",
+      );
     // Generic creative artwork is associated only with a unique video asset.
     if (chosen.video && !images.length && videos.length === 1) {
-      add(video.image_url, "object_story_spec.video_data.image_url", "video_creative_image");
+      add(
+        video.image_url,
+        "object_story_spec.video_data.image_url",
+        "video_creative_image",
+      );
       add(creative.image_url, "creative.image_url", "video_creative_image");
-      add(creative.thumbnail_url, "creative.thumbnail_url", "video_thumbnail_fallback");
+      add(
+        creative.thumbnail_url,
+        "creative.thumbnail_url",
+        "video_thumbnail_fallback",
+      );
     }
     if (previous?.preview_storage_path && !previousKey) {
       // Legacy mixed assets do not say which image was actually downloaded.
-      certain = !images.length && videos.length === 1 && previous.metadata?.video_id === videoId;
+      certain =
+        !images.length &&
+        videos.length === 1 &&
+        previous.metadata?.video_id === videoId;
     }
   } else if (cards.length) {
     const card = cards[0]; // Do not skip to a different carousel card on failure.
     imageHash = stringValue(card.image_hash);
     videoId = stringValue(card.video_id);
-    assetKey = videoId ? `video:${videoId}` : imageHash ? `image:${imageHash}` : "carousel:first";
+    assetKey = videoId
+      ? `video:${videoId}`
+      : imageHash
+        ? `image:${imageHash}`
+        : "carousel:first";
     mediaType = videoId ? "video" : "image";
-    for (const field of ["image_url","picture","thumbnail_url"]) add(card[field], `object_story_spec.link_data.child_attachments.0.${field}`, "first_carousel_card");
-    certain = result.creativeType !== "dynamic" || !previous?.preview_storage_path || !!previousKey;
-  } else if (result.creativeType === "video" || result.creativeType === "dynamic" && videoId) {
+    for (const field of ["image_url", "picture", "thumbnail_url"])
+      add(
+        card[field],
+        `object_story_spec.link_data.child_attachments.0.${field}`,
+        "first_carousel_card",
+      );
+    certain =
+      result.creativeType !== "dynamic" ||
+      !previous?.preview_storage_path ||
+      !!previousKey;
+  } else if (
+    result.creativeType === "video" ||
+    (result.creativeType === "dynamic" && videoId)
+  ) {
     mediaType = "video";
     assetKey = videoId ? `video:${videoId}` : null;
     for (const candidate of result.videoFallbacks) sources.push(candidate);
     if (!sources.length) {
-      add(video.image_url, "object_story_spec.video_data.image_url", "video_creative_image");
-      add(creative.thumbnail_url, "creative.thumbnail_url", "video_thumbnail_fallback");
+      add(
+        video.image_url,
+        "object_story_spec.video_data.image_url",
+        "video_creative_image",
+      );
+      add(
+        creative.thumbnail_url,
+        "creative.thumbnail_url",
+        "video_thumbnail_fallback",
+      );
     }
-    certain = result.creativeType !== "dynamic" || !previous?.preview_storage_path || !!previousKey;
+    certain =
+      result.creativeType !== "dynamic" ||
+      !previous?.preview_storage_path ||
+      !!previousKey;
   } else {
     videoId = null;
-    imageHash = stringValue(creative.image_hash) ?? stringValue(link.image_hash);
+    imageHash =
+      stringValue(creative.image_hash) ?? stringValue(link.image_hash);
     assetKey = imageHash ? `image:${imageHash}` : null;
     add(creative.image_url, "creative.image_url");
     add(link.picture, "object_story_spec.link_data.picture");
     add(creative.thumbnail_url, "creative.thumbnail_url");
-    certain = result.creativeType !== "dynamic" || !previous?.preview_storage_path || !!previousKey;
+    certain =
+      result.creativeType !== "dynamic" ||
+      !previous?.preview_storage_path ||
+      !!previousKey;
   }
-  if(creative.asset_feed_spec === undefined) delete result.metadata.has_asset_feed_spec;
-  if(previous?.creative_type === "dynamic" && creative.asset_feed_spec === undefined) certain=false;
+  if (creative.asset_feed_spec === undefined)
+    delete result.metadata.has_asset_feed_spec;
+  if (
+    previous?.creative_type === "dynamic" &&
+    creative.asset_feed_spec === undefined
+  )
+    certain = false;
   const candidates = uniqueVideoFallbacks(sources);
-  const kind = result.creativeType === "video" ? "video_thumbnail" : result.creativeType === "dynamic" ? "dynamic_representative" : result.creativeType === "carousel" ? "carousel_representative" : result.creativeType === "image" ? "image" : "unavailable";
-  return { ...result, videoId, assetKey, imageHash, candidates, representationCertain:certain,
-    videoFallbacks:mediaType === "video" ? candidates : [], previewUrl:candidates[0]?.url ?? null,
-    previewKind:kind,
-    metadata:{...result.metadata, preview_asset_key:assetKey, preview_media_type:mediaType,
-      video_id:videoId, preview_source:candidates[0]?.source ?? null,
-      representative_policy:result.creativeType === "dynamic" ? "first_available_asset" : result.creativeType === "carousel" ? "first_carousel_card" : candidates[0]?.policy ?? "none"},
+  const kind =
+    result.creativeType === "video"
+      ? "video_thumbnail"
+      : result.creativeType === "dynamic"
+        ? "dynamic_representative"
+        : result.creativeType === "carousel"
+          ? "carousel_representative"
+          : result.creativeType === "image"
+            ? "image"
+            : "unavailable";
+  return {
+    ...result,
+    videoId,
+    assetKey,
+    imageHash,
+    candidates,
+    representationCertain: certain,
+    videoFallbacks: mediaType === "video" ? candidates : [],
+    previewUrl: candidates[0]?.url ?? null,
+    previewKind: kind,
+    metadata: {
+      ...result.metadata,
+      preview_asset_key: assetKey,
+      preview_media_type: mediaType,
+      video_id: videoId,
+      preview_source: candidates[0]?.source ?? null,
+      representative_policy:
+        result.creativeType === "dynamic"
+          ? "first_available_asset"
+          : result.creativeType === "carousel"
+            ? "first_carousel_card"
+            : (candidates[0]?.policy ?? "none"),
+    },
   };
 }
 
@@ -466,16 +590,16 @@ export function canReuseCreativePreview(
   creativeId: string | null,
   creativeType: MetaCreativeType = "unknown",
 ): boolean {
-  const reusable = (
+  const reusable =
     !!existing?.creative_id &&
     existing.creative_id === creativeId &&
     !!existing.preview_storage_path &&
     !!existing.preview_mime_type &&
-    !!existing.preview_sha256
-  );
+    !!existing.preview_sha256;
   if (!reusable) return false;
-  return existing?.metadata?.preview_strategy_version === PREVIEW_STRATEGY_VERSION &&
-    Math.min(Number(existing.metadata.preview_width)||0,Number(existing.metadata.preview_height)||0)>=600;
+  // Existing-file upgrades require an explicit selective mode. Publishing the
+  // function alone must not launch a bulk replacement through the existing cron.
+  return true;
 }
 
 function safeSegment(value: string): string {
@@ -560,19 +684,37 @@ async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
     .join("");
 }
 
-export async function downloadPreview(url: string, fetchImpl: typeof fetch): Promise<DownloadedPreview> {
+export async function downloadPreview(
+  url: string,
+  fetchImpl: typeof fetch,
+): Promise<DownloadedPreview> {
   const response = await fetchMedia(url, fetchImpl);
-  const mime = (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
-  if (!["image/png","image/jpeg","image/webp","image/gif"].includes(mime)) {
+  const mime = (response.headers.get("content-type") ?? "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime)) {
     await response.body?.cancel();
     throw new PreviewError("preview_mime");
   }
   const bytes = await readLimitedBody(response);
-  return {bytes, mime, sha256:await sha256(bytes), ...inspectImage(bytes,mime)};
+  return {
+    bytes,
+    mime,
+    sha256: await sha256(bytes),
+    ...inspectImage(bytes, mime),
+  };
 }
 
-export function readImageDimensions(bytes: Uint8Array, mime: string): {width:number|null;height:number|null} {
-  try { return inspectImage(bytes,mime); } catch { return {width:null,height:null}; }
+export function readImageDimensions(
+  bytes: Uint8Array,
+  mime: string,
+): { width: number | null; height: number | null } {
+  try {
+    return inspectImage(bytes, mime);
+  } catch {
+    return { width: null, height: null };
+  }
 }
 
 export function selectBestVideoThumbnail(
@@ -582,25 +724,36 @@ export function selectBestVideoThumbnail(
     const url = stringValue(thumbnail.uri) ?? stringValue(thumbnail.url);
     const width = Number(thumbnail.width);
     const height = Number(thumbnail.height);
-    if (!url || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return [];
-    return [{
-      url,
-      source: "video.thumbnails",
-      policy: "video_high_res_thumbnail" as const,
-      width,
-      height,
-      preferred: thumbnail.is_preferred === true,
-    }];
+    if (
+      !url ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    )
+      return [];
+    return [
+      {
+        url,
+        source: "video.thumbnails",
+        policy: "video_high_res_thumbnail" as const,
+        width,
+        height,
+        preferred: thumbnail.is_preferred === true,
+      },
+    ];
   });
-  const preferred = candidates.filter((candidate) =>
-    candidate.preferred &&
-    (candidate.width ?? 0) * (candidate.height ?? 0) >=
-      PREFERRED_VIDEO_THUMBNAIL_MIN_AREA
+  const preferred = candidates.filter(
+    (candidate) =>
+      candidate.preferred &&
+      (candidate.width ?? 0) * (candidate.height ?? 0) >=
+        PREFERRED_VIDEO_THUMBNAIL_MIN_AREA,
   );
   const pool = preferred.length ? preferred : candidates;
-  const selected = pool.sort((left, right) =>
-    (right.width ?? 0) * (right.height ?? 0) -
-    (left.width ?? 0) * (left.height ?? 0)
+  const selected = pool.sort(
+    (left, right) =>
+      (right.width ?? 0) * (right.height ?? 0) -
+      (left.width ?? 0) * (left.height ?? 0),
   )[0];
   if (!selected) return null;
   return {
@@ -676,70 +829,179 @@ async function fetchMetaAds(
   );
   url.searchParams.set("limit", String(META_AD_BATCH_SIZE));
 
-  let next: string | null = url.toString(), pages=0;
+  let next: string | null = url.toString(),
+    pages = 0;
   while (next && pages++ < 5) {
-    const payload = await graphJson(next,accessToken,fetchImpl);
-    ads.push(...(payload.data??[])); next=payload.paging?.next??null;
+    const payload = await graphJson(next, accessToken, fetchImpl);
+    ads.push(...(payload.data ?? []));
+    next = payload.paging?.next ?? null;
   }
-  if(next)throw new CreativeRequestError("Ad page limit","meta_ad_page_limit");
+  if (next)
+    throw new CreativeRequestError("Ad page limit", "meta_ad_page_limit");
   return ads;
 }
 
-async function graphJson(raw: string, token: string, fetchImpl: typeof fetch): Promise<any> {
+async function graphJson(
+  raw: string,
+  token: string,
+  fetchImpl: typeof fetch,
+): Promise<any> {
   const url = new URL(raw);
-  if (url.protocol !== "https:" || url.hostname !== "graph.facebook.com" || url.username || url.password || url.port) throw new CreativeRequestError("Untrusted Graph URL", "meta_url_untrusted");
-  const response = await fetchImpl(url.toString(), {headers:{Authorization:`Bearer ${token}`},redirect:"error",signal:AbortSignal.timeout(15_000)});
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "graph.facebook.com" ||
+    url.username ||
+    url.password ||
+    url.port
+  )
+    throw new CreativeRequestError("Untrusted Graph URL", "meta_url_untrusted");
+  const response = await fetchImpl(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
+  });
   const payload = await response.json();
-  if (!response.ok || payload.error) throw new CreativeRequestError("Meta lookup failed", payload.error?.code ? `meta_${Number(payload.error.code)}` : `meta_http_${response.status}`);
+  if (!response.ok || payload.error)
+    throw new CreativeRequestError(
+      "Meta lookup failed",
+      payload.error?.code
+        ? `meta_${Number(payload.error.code)}`
+        : `meta_http_${response.status}`,
+    );
   return payload;
 }
 
-export async function fetchVideoCandidates(apiVersion: string, accessToken: string, videoId: string, fetchImpl: typeof fetch) {
-  const candidates: VideoPreviewCandidate[] = [], errors: string[] = [];
-  const url = new URL(`https://graph.facebook.com/${apiVersion}/${encodeURIComponent(videoId)}/thumbnails`);
-  url.searchParams.set("fields", "height,width,uri,is_preferred"); url.searchParams.set("limit","100");
-  let next: string | null = url.toString(), pages = 0;
+export async function fetchVideoCandidates(
+  apiVersion: string,
+  accessToken: string,
+  videoId: string,
+  fetchImpl: typeof fetch,
+) {
+  const candidates: VideoPreviewCandidate[] = [],
+    errors: string[] = [];
+  const url = new URL(
+    `https://graph.facebook.com/${apiVersion}/${encodeURIComponent(videoId)}/thumbnails`,
+  );
+  url.searchParams.set("fields", "height,width,uri,is_preferred");
+  url.searchParams.set("limit", "100");
+  let next: string | null = url.toString(),
+    pages = 0;
   try {
     while (next && pages++ < 3) {
       const payload = await graphJson(next, accessToken, fetchImpl);
       for (const thumbnail of arrayValue(payload.data)) {
         const uri = stringValue(thumbnail.uri);
-        if (uri) candidates.push({url:uri,source:"video.thumbnails",policy:thumbnail.is_preferred ? "video_preferred_thumbnail" : "video_high_res_thumbnail",width:Number(thumbnail.width)||null,height:Number(thumbnail.height)||null,preferred:thumbnail.is_preferred===true});
+        if (uri)
+          candidates.push({
+            url: uri,
+            source: "video.thumbnails",
+            policy: thumbnail.is_preferred
+              ? "video_preferred_thumbnail"
+              : "video_high_res_thumbnail",
+            width: Number(thumbnail.width) || null,
+            height: Number(thumbnail.height) || null,
+            preferred: thumbnail.is_preferred === true,
+          });
       }
       next = payload.paging?.next ?? null;
     }
     if (next) errors.push("meta_thumbnail_page_limit");
-  } catch (error) { errors.push(safeErrorCode(error)); }
+  } catch (error) {
+    errors.push(safeErrorCode(error));
+  }
   // format dimensions refer to video, so never trust them as picture dimensions.
   try {
-    const videoUrl = new URL(`https://graph.facebook.com/${apiVersion}/${encodeURIComponent(videoId)}`);
-    videoUrl.searchParams.set("fields","format,picture");
-    const payload = await graphJson(videoUrl.toString(),accessToken,fetchImpl);
+    const videoUrl = new URL(
+      `https://graph.facebook.com/${apiVersion}/${encodeURIComponent(videoId)}`,
+    );
+    videoUrl.searchParams.set("fields", "format,picture");
+    const payload = await graphJson(
+      videoUrl.toString(),
+      accessToken,
+      fetchImpl,
+    );
     for (const format of arrayValue(payload.format)) {
       const picture = stringValue(format.picture);
-      if (picture) candidates.push({url:picture,source:"video.format.picture",policy:"video_format_thumbnail",width:Number(format.width)||null,height:Number(format.height)||null,preferred:false});
+      if (picture)
+        candidates.push({
+          url: picture,
+          source: "video.format.picture",
+          policy: "video_format_thumbnail",
+          width: Number(format.width) || null,
+          height: Number(format.height) || null,
+          preferred: false,
+        });
     }
-    if (stringValue(payload.picture)) candidates.push({url:payload.picture,source:"video.picture",policy:"video_thumbnail_fallback",width:null,height:null,preferred:false});
-  } catch (error) { errors.push(safeErrorCode(error)); }
-  return {candidates:deduplicateCandidates(candidates),errors:[...new Set(errors)]};
+    if (stringValue(payload.picture))
+      candidates.push({
+        url: payload.picture,
+        source: "video.picture",
+        policy: "video_thumbnail_fallback",
+        width: null,
+        height: null,
+        preferred: false,
+      });
+  } catch (error) {
+    errors.push(safeErrorCode(error));
+  }
+  return {
+    candidates: deduplicateCandidates(candidates),
+    errors: [...new Set(errors)],
+  };
 }
 
 // Kept for the existing external helper contract; enrichment compares ALL results.
-export async function fetchBestVideoThumbnail(apiVersion: string, accessToken: string, videoId: string, fetchImpl: typeof fetch): Promise<VideoPreviewCandidate|null> {
-  const {candidates} = await fetchVideoCandidates(apiVersion,accessToken,videoId,fetchImpl);
-  const preferred = candidates.filter(c=>c.preferred && (c.width??0)*(c.height??0)>=PREFERRED_VIDEO_THUMBNAIL_MIN_AREA);
-  return (preferred.length ? preferred : candidates).sort((a,b)=>(b.width??0)*(b.height??0)-(a.width??0)*(a.height??0))[0]??null;
+export async function fetchBestVideoThumbnail(
+  apiVersion: string,
+  accessToken: string,
+  videoId: string,
+  fetchImpl: typeof fetch,
+): Promise<VideoPreviewCandidate | null> {
+  const { candidates } = await fetchVideoCandidates(
+    apiVersion,
+    accessToken,
+    videoId,
+    fetchImpl,
+  );
+  const preferred = candidates.filter(
+    (c) =>
+      c.preferred &&
+      (c.width ?? 0) * (c.height ?? 0) >= PREFERRED_VIDEO_THUMBNAIL_MIN_AREA,
+  );
+  return (
+    (preferred.length ? preferred : candidates).sort(
+      (a, b) =>
+        (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0),
+    )[0] ?? null
+  );
 }
 
-async function fetchImageCandidates(apiVersion: string, token: string, accountId: string, hashes: string[], fetchImpl: typeof fetch): Promise<Map<string,VideoPreviewCandidate>> {
-  const found = new Map<string,VideoPreviewCandidate>();
-  for (const group of chunks([...new Set(hashes)],25)) {
-    const url = new URL(`https://graph.facebook.com/${apiVersion}/act_${accountId}/adimages`);
-    url.searchParams.set("hashes",JSON.stringify(group)); url.searchParams.set("fields","hash,url,width,height");
-    const payload = await graphJson(url.toString(),token,fetchImpl);
+async function fetchImageCandidates(
+  apiVersion: string,
+  token: string,
+  accountId: string,
+  hashes: string[],
+  fetchImpl: typeof fetch,
+): Promise<Map<string, VideoPreviewCandidate>> {
+  const found = new Map<string, VideoPreviewCandidate>();
+  for (const group of chunks([...new Set(hashes)], 25)) {
+    const url = new URL(
+      `https://graph.facebook.com/${apiVersion}/act_${accountId}/adimages`,
+    );
+    url.searchParams.set("hashes", JSON.stringify(group));
+    url.searchParams.set("fields", "hash,url,width,height");
+    const payload = await graphJson(url.toString(), token, fetchImpl);
     for (const image of arrayValue(payload.data)) {
-      if (!group.includes(String(image.hash)) || !stringValue(image.url)) continue;
-      found.set(String(image.hash),{url:String(image.url),source:"ad_account.adimages.url",policy:"original_image",width:Number(image.width)||null,height:Number(image.height)||null,preferred:false});
+      if (!group.includes(String(image.hash)) || !stringValue(image.url))
+        continue;
+      found.set(String(image.hash), {
+        url: String(image.url),
+        source: "ad_account.adimages.url",
+        policy: "original_image",
+        width: Number(image.width) || null,
+        height: Number(image.height) || null,
+        preferred: false,
+      });
     }
   }
   return found;
@@ -767,7 +1029,7 @@ export async function fetchAccountVideoPictures(
   try {
     while (next && remaining.size > 0 && pages < 3) {
       pages++;
-      const payload = await graphJson(next,accessToken,fetchImpl);
+      const payload = await graphJson(next, accessToken, fetchImpl);
       for (const video of payload.data ?? []) {
         const id = stringValue(video.id);
         const picture = stringValue(video.picture);
@@ -792,35 +1054,102 @@ export async function fetchAccountVideoPictures(
 }
 
 const MAX_CANDIDATES = 8;
-function deduplicateCandidates(candidates: VideoPreviewCandidate[]): VideoPreviewCandidate[] {
+function deduplicateCandidates(
+  candidates: VideoPreviewCandidate[],
+): VideoPreviewCandidate[] {
   const seen = new Set<string>();
-  return candidates.filter(candidate=>{if(seen.has(candidate.url))return false;seen.add(candidate.url);return true;});
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.url)) return false;
+    seen.add(candidate.url);
+    return true;
+  });
 }
 
-async function resolveCreativePreview(creative: NormalizedMetaCreative, extra: VideoPreviewCandidate[], fetchImpl: typeof fetch) {
+async function resolveCreativePreview(
+  creative: NormalizedMetaCreative,
+  extra: VideoPreviewCandidate[],
+  fetchImpl: typeof fetch,
+) {
   // Configured artwork first makes ties deterministic; no dimension hint decides quality.
-  const candidates = deduplicateCandidates([...(creative.candidates??[]),...extra]);
-  let selected: {candidate:VideoPreviewCandidate;file:DownloadedPreview}|null = null;
-  const comparisons: Array<Record<string,unknown>> = [];
-  for (const candidate of candidates.slice(0,MAX_CANDIDATES)) {
+  const prioritized = [...extra].sort(
+    (a, b) =>
+      (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0),
+  );
+  const candidates = deduplicateCandidates([
+    ...(creative.candidates ?? []),
+    ...prioritized,
+  ]);
+  let selected: {
+    candidate: VideoPreviewCandidate;
+    file: DownloadedPreview;
+  } | null = null;
+  const comparisons: Array<Record<string, unknown>> = [];
+  for (const candidate of candidates.slice(0, MAX_CANDIDATES)) {
     try {
-      const file = await downloadPreview(candidate.url,fetchImpl);
-      comparisons.push({source:candidate.source,width:file.width,height:file.height,sha256:file.sha256,bytes:file.bytes.length,result:"valid"});
-      if (!selected || improves({width:file.width!,height:file.height!},{width:selected.file.width!,height:selected.file.height!})) selected={candidate,file};
-    } catch(error) { comparisons.push({source:candidate.source,result:safeErrorCode(error)}); }
+      const file = await downloadPreview(candidate.url, fetchImpl);
+      comparisons.push({
+        source: candidate.source,
+        width: file.width,
+        height: file.height,
+        sha256: file.sha256,
+        bytes: file.bytes.length,
+        result: "valid",
+      });
+      if (
+        !selected ||
+        improves(
+          { width: file.width!, height: file.height! },
+          { width: selected.file.width!, height: selected.file.height! },
+        )
+      )
+        selected = { candidate, file };
+    } catch (error) {
+      comparisons.push({
+        source: candidate.source,
+        result: safeErrorCode(error),
+      });
+    }
   }
-  if(candidates.length>MAX_CANDIDATES)comparisons.push({result:"candidate_limit",omitted:candidates.length-MAX_CANDIDATES});
-  return {selected,comparisons};
+  if (candidates.length > MAX_CANDIDATES)
+    comparisons.push({
+      result: "candidate_limit",
+      omitted: candidates.length - MAX_CANDIDATES,
+    });
+  return { selected, comparisons };
 }
 
-function mergedMetadata(previous: ExistingCreative|undefined, creative:NormalizedMetaCreative) {
-  return {...previous?.metadata,...Object.fromEntries(Object.entries(creative.metadata).filter(([,v])=>v!==null && v!==undefined))};
+function mergedMetadata(
+  previous: ExistingCreative | undefined,
+  creative: NormalizedMetaCreative,
+) {
+  return {
+    ...previous?.metadata,
+    ...Object.fromEntries(
+      Object.entries(creative.metadata).filter(
+        ([, v]) => v !== null && v !== undefined,
+      ),
+    ),
+  };
 }
-function currentPreview(current: ExistingCreative|undefined, clientId:number, ref:CreativeAdRef) {
-  if (!current?.preview_storage_path || !current.preview_mime_type || !current.preview_sha256) return null;
+function currentPreview(
+  current: ExistingCreative | undefined,
+  clientId: number,
+  ref: CreativeAdRef,
+) {
+  if (
+    !current?.preview_storage_path ||
+    !current.preview_mime_type ||
+    !current.preview_sha256
+  )
+    return null;
   const prefix = `${clientId}/meta_ads/${safeSegment(ref.account_id)}/ad/${safeSegment(ref.ad_id)}/`;
-  if (!current.preview_storage_path.startsWith(prefix)) throw new PreviewError("preview_storage_scope");
-  return {path:current.preview_storage_path,mime:current.preview_mime_type,sha256:current.preview_sha256};
+  if (!current.preview_storage_path.startsWith(prefix))
+    throw new PreviewError("preview_storage_scope");
+  return {
+    path: current.preview_storage_path,
+    mime: current.preview_mime_type,
+    sha256: current.preview_sha256,
+  };
 }
 
 function refFromRow(row: Record<string, unknown>): CreativeAdRef | null {
@@ -842,11 +1171,43 @@ async function collectAdRefs(options: EnrichOptions): Promise<CreativeAdRef[]> {
   const refs = new Map<string, CreativeAdRef>();
   for (const row of options.adRows) {
     const ref = refFromRow(row);
-    if (ref && options.accountIds.includes(ref.account_id) && (!options.previewAdIds || options.previewAdIds.includes(ref.ad_id))) refs.set(`${ref.account_id}:${ref.ad_id}`, ref);
+    if (
+      ref &&
+      options.accountIds.includes(ref.account_id) &&
+      (!options.previewAdIds || options.previewAdIds.includes(ref.ad_id))
+    )
+      refs.set(`${ref.account_id}:${ref.ad_id}`, ref);
   }
 
   for (const accountId of options.accountIds) {
-    for (let offset = 0;; offset += 1000) {
+    if (options.previewAdIds) {
+      const { data, error } = await options.supabase
+        .from("dashboard_creative_previews")
+        .select(
+          "account_id,ad_id,ad_name,campaign_id,campaign_name,adset_id,adset_name",
+        )
+        .eq("client_id", options.clientId)
+        .eq("source", "meta_ads")
+        .eq("entity_type", "ad")
+        .eq("account_id", accountId)
+        .in("ad_id", options.previewAdIds);
+      if (error)
+        throw new CreativeRequestError(
+          "Failed to load selection",
+          "preview_selection_read",
+        );
+      for (const row of data ?? []) {
+        const ref = refFromRow(row);
+        if (
+          ref &&
+          ref.account_id === accountId &&
+          options.previewAdIds.includes(ref.ad_id)
+        )
+          refs.set(`${ref.account_id}:${ref.ad_id}`, ref);
+      }
+      continue;
+    }
+    for (let offset = 0; ; offset += 1000) {
       const { data, error } = await options.supabase
         .from("dashboard_ad_daily")
         .select(
@@ -863,7 +1224,8 @@ async function collectAdRefs(options: EnrichOptions): Promise<CreativeAdRef[]> {
       }
       for (const row of data ?? []) {
         const ref = refFromRow(row);
-        if (ref && options.accountIds.includes(ref.account_id) && (!options.previewAdIds || options.previewAdIds.includes(ref.ad_id))) refs.set(`${ref.account_id}:${ref.ad_id}`, ref);
+        if (ref && options.accountIds.includes(ref.account_id))
+          refs.set(`${ref.account_id}:${ref.ad_id}`, ref);
       }
       if ((data ?? []).length < 1000) break;
     }
@@ -872,7 +1234,7 @@ async function collectAdRefs(options: EnrichOptions): Promise<CreativeAdRef[]> {
   return [...refs.values()].sort((left, right) =>
     `${left.account_id}:${left.ad_id}`.localeCompare(
       `${right.account_id}:${right.ad_id}`,
-    )
+    ),
   );
 }
 
@@ -891,7 +1253,7 @@ async function loadExisting(
       .eq("client_id", clientId)
       .eq("source", "meta_ads")
       .eq("entity_type", "ad")
-      .in("account_id", [...new Set(group.map(ref=>ref.account_id))])
+      .in("account_id", [...new Set(group.map((ref) => ref.account_id))])
       .in(
         "entity_id",
         group.map((ref) => ref.ad_id),
@@ -900,14 +1262,24 @@ async function loadExisting(
       throw new Error(`Failed to load creative previews: ${error.message}`);
     }
     for (const row of data ?? []) {
-      if (group.some(ref=>ref.account_id === row.account_id && ref.ad_id === row.entity_id)) result.set(`${row.account_id}:${row.entity_id}`, row as ExistingCreative);
+      if (
+        group.some(
+          (ref) =>
+            ref.account_id === row.account_id && ref.ad_id === row.entity_id,
+        )
+      )
+        result.set(
+          `${row.account_id}:${row.entity_id}`,
+          row as ExistingCreative,
+        );
     }
   }
   return result;
 }
 
 function safeErrorCode(error: unknown): string {
-  if (error instanceof CreativeRequestError || error instanceof PreviewError) return error.code;
+  if (error instanceof CreativeRequestError || error instanceof PreviewError)
+    return error.code;
   return "creative_unknown";
 }
 
@@ -939,11 +1311,15 @@ export async function enrichMetaCreativePreviews(
     collectedRefs,
   );
   const refs = options.videoRefreshOnly
-    ? collectedRefs.filter((ref) =>
-      existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type === "video" ||
-      existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type === "dynamic" &&
-        !!existing.get(`${ref.account_id}:${ref.ad_id}`)?.metadata?.video_id
-    )
+    ? collectedRefs.filter(
+        (ref) =>
+          existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type ===
+            "video" ||
+          (existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type ===
+            "dynamic" &&
+            !!existing.get(`${ref.account_id}:${ref.ad_id}`)?.metadata
+              ?.video_id),
+      )
     : collectedRefs;
   const candidates = refs.filter((ref) => {
     const current = existing.get(`${ref.account_id}:${ref.ad_id}`);
@@ -979,8 +1355,11 @@ export async function enrichMetaCreativePreviews(
         .eq("client_id", options.clientId)
         .eq("source", "meta_ads")
         .eq("entity_type", "ad")
-        .in("account_id", [...new Set(group.map(ref=>ref.account_id))])
-        .in("entity_id", group.map((ref) => ref.ad_id));
+        .in("account_id", [...new Set(group.map((ref) => ref.account_id))])
+        .in(
+          "entity_id",
+          group.map((ref) => ref.ad_id),
+        );
       if (error) {
         throw new Error(
           `Failed to refresh creative presence: ${error.message}`,
@@ -1023,51 +1402,134 @@ export async function enrichMetaCreativePreviews(
         if (ad.id) fetched.set(`${job.accountId}:${ad.id}`, ad);
       }
       for (const adId of job.adIds) {
-        if (!fetched.has(`${job.accountId}:${adId}`)) fetchFailures.set(`${job.accountId}:${adId}`, "meta_ad_not_returned");
+        if (!fetched.has(`${job.accountId}:${adId}`))
+          fetchFailures.set(`${job.accountId}:${adId}`, "meta_ad_not_returned");
       }
     } else {
       const code = safeErrorCode(result.reason);
-      for (const adId of job.adIds) fetchFailures.set(`${job.accountId}:${adId}`, code);
+      for (const adId of job.adIds)
+        fetchFailures.set(`${job.accountId}:${adId}`, code);
     }
   });
 
   const normalized = new Map<string, NormalizedMetaCreative>();
   for (const [adId, ad] of fetched) {
-    const ref = candidates.find(ref=>`${ref.account_id}:${ref.ad_id}` === adId);
-    normalized.set(adId, normalizeMetaCreative(ad,ref ? existing.get(`${ref.account_id}:${ref.ad_id}`) : undefined));
+    const ref = candidates.find(
+      (ref) => `${ref.account_id}:${ref.ad_id}` === adId,
+    );
+    normalized.set(
+      adId,
+      normalizeMetaCreative(
+        ad,
+        ref ? existing.get(`${ref.account_id}:${ref.ad_id}`) : undefined,
+      ),
+    );
   }
   // Only inspect media which cannot be safely reused at the current strategy version.
-  const needsMedia = (ref:CreativeAdRef) => {
+  const needsMedia = (ref: CreativeAdRef) => {
     const creative = normalized.get(`${ref.account_id}:${ref.ad_id}`);
-    return creative && (options.videoRefreshOnly || options.previewAdIds || !canReuseCreativePreview(existing.get(`${ref.account_id}:${ref.ad_id}`),creative.creativeId,creative.creativeType));
+    return (
+      creative &&
+      (options.videoRefreshOnly ||
+        options.previewAdIds ||
+        !canReuseCreativePreview(
+          existing.get(`${ref.account_id}:${ref.ad_id}`),
+          creative.creativeId,
+          creative.creativeType,
+        ))
+    );
   };
   const mediaRefs = candidates.filter(needsMedia);
-  const videoIds = [...new Set(mediaRefs.flatMap(ref=>normalized.get(`${ref.account_id}:${ref.ad_id}`)?.videoId ? [normalized.get(`${ref.account_id}:${ref.ad_id}`)!.videoId!] : []))];
-  const videoCandidates = new Map<string,VideoPreviewCandidate[]>();
-  const lookupErrors = new Map<string,string[]>();
+  const videoIds = [
+    ...new Set(
+      mediaRefs.flatMap((ref) =>
+        normalized.get(`${ref.account_id}:${ref.ad_id}`)?.videoId
+          ? [normalized.get(`${ref.account_id}:${ref.ad_id}`)!.videoId!]
+          : [],
+      ),
+    ),
+  ];
+  const videoCandidates = new Map<string, VideoPreviewCandidate[]>();
+  const lookupErrors = new Map<string, string[]>();
   stats.video_ids_resolved = videoIds.length;
-  const videoResults = await mapWithConcurrency(videoIds,CREATIVE_CONCURRENCY,async videoId=>({videoId,...await fetchVideoCandidates(options.apiVersion,options.accessToken,videoId,fetchImpl)}));
-  for (const result of videoResults) if(result.status==="fulfilled") {
-    videoCandidates.set(result.value.videoId,result.value.candidates); lookupErrors.set(result.value.videoId,result.value.errors);
-  }
-  const imageCandidates = new Map<string,VideoPreviewCandidate>();
+  const videoResults = await mapWithConcurrency(
+    videoIds,
+    CREATIVE_CONCURRENCY,
+    async (videoId) => ({
+      videoId,
+      ...(await fetchVideoCandidates(
+        options.apiVersion,
+        options.accessToken,
+        videoId,
+        fetchImpl,
+      )),
+    }),
+  );
+  for (const result of videoResults)
+    if (result.status === "fulfilled") {
+      videoCandidates.set(result.value.videoId, result.value.candidates);
+      lookupErrors.set(result.value.videoId, result.value.errors);
+    }
+  const imageCandidates = new Map<string, VideoPreviewCandidate>();
   for (const accountId of options.accountIds) {
-    const accountRefs = mediaRefs.filter(ref=>ref.account_id===accountId);
+    const accountRefs = mediaRefs.filter((ref) => ref.account_id === accountId);
     // Account-library pagination is a fallback, not an unconditional full scan.
-    const missingVideos = [...new Set(accountRefs.flatMap(ref=>{const id=normalized.get(`${ref.account_id}:${ref.ad_id}`)?.videoId;return id && !videoCandidates.get(id)?.length ? [id]:[];}))];
-    const pictures = await fetchAccountVideoPictures(options.apiVersion,options.accessToken,accountId,missingVideos,fetchImpl);
-    for (const [id,picture] of pictures) videoCandidates.set(id,[...(videoCandidates.get(id)??[]),picture]);
-    const hashes = accountRefs.flatMap(ref=>normalized.get(`${ref.account_id}:${ref.ad_id}`)?.imageHash ? [normalized.get(`${ref.account_id}:${ref.ad_id}`)!.imageHash!] : []);
+    const missingVideos = [
+      ...new Set(
+        accountRefs.flatMap((ref) => {
+          const id = normalized.get(`${ref.account_id}:${ref.ad_id}`)?.videoId;
+          return id && !videoCandidates.get(id)?.length ? [id] : [];
+        }),
+      ),
+    ];
+    const pictures = await fetchAccountVideoPictures(
+      options.apiVersion,
+      options.accessToken,
+      accountId,
+      missingVideos,
+      fetchImpl,
+    );
+    for (const [id, picture] of pictures)
+      videoCandidates.set(id, [...(videoCandidates.get(id) ?? []), picture]);
+    const hashes = accountRefs.flatMap((ref) =>
+      normalized.get(`${ref.account_id}:${ref.ad_id}`)?.imageHash
+        ? [normalized.get(`${ref.account_id}:${ref.ad_id}`)!.imageHash!]
+        : [],
+    );
     try {
-      const images = await fetchImageCandidates(options.apiVersion,options.accessToken,accountId,hashes,fetchImpl);
-      for(const [hash,candidate] of images) imageCandidates.set(`${accountId}:${hash}`,candidate);
-    } catch(error) { for(const ref of accountRefs) lookupErrors.set(ref.ad_id,[safeErrorCode(error)]); }
+      const images = await fetchImageCandidates(
+        options.apiVersion,
+        options.accessToken,
+        accountId,
+        hashes,
+        fetchImpl,
+      );
+      for (const [hash, candidate] of images)
+        imageCandidates.set(`${accountId}:${hash}`, candidate);
+    } catch (error) {
+      for (const ref of accountRefs)
+        lookupErrors.set(ref.ad_id, [safeErrorCode(error)]);
+    }
   }
   for (const id of videoIds) {
-    const override=options.videoPictureOverrides?.[id];
-    if(override)videoCandidates.set(id,[...(videoCandidates.get(id)??[]),{url:override,source:"official_meta_connector.picture",policy:"video_account_picture",width:null,height:null,preferred:false}]);
+    const override = options.videoPictureOverrides?.[id];
+    if (override)
+      videoCandidates.set(id, [
+        ...(videoCandidates.get(id) ?? []),
+        {
+          url: override,
+          source: "official_meta_connector.picture",
+          policy: "video_account_picture",
+          width: null,
+          height: null,
+          preferred: false,
+        },
+      ]);
   }
-  stats.video_thumbnail_candidates = [...videoCandidates.values()].reduce((sum,items)=>sum+items.length,0);
+  stats.video_thumbnail_candidates = [...videoCandidates.values()].reduce(
+    (sum, items) => sum + items.length,
+    0,
+  );
 
   const processed = await mapWithConcurrency(
     candidates,
@@ -1081,28 +1543,35 @@ export async function enrichMetaCreativePreviews(
         if (!options.dryRun) {
           const query = current
             ? options.supabase
-              .from("dashboard_creative_previews")
-              .update({
-                last_error: code,
-                metadata:{...current.metadata,preview_last_attempt:{at:nowIso,result:"preserved_api_error",code}},
-                refreshed_at: nowIso,
-                updated_at: nowIso,
-              })
-              .eq("client_id", options.clientId)
-              .eq("source", "meta_ads")
-              .eq("account_id", ref.account_id)
-              .eq("entity_type", "ad")
-              .eq("entity_id", ref.ad_id)
-              .eq("updated_at", current.updated_at)
+                .from("dashboard_creative_previews")
+                .update({
+                  last_error: code,
+                  metadata: {
+                    ...current.metadata,
+                    preview_last_attempt: {
+                      at: nowIso,
+                      result: "preserved_api_error",
+                      code,
+                    },
+                  },
+                  refreshed_at: nowIso,
+                  updated_at: nowIso,
+                })
+                .eq("client_id", options.clientId)
+                .eq("source", "meta_ads")
+                .eq("account_id", ref.account_id)
+                .eq("entity_type", "ad")
+                .eq("entity_id", ref.ad_id)
+                .eq("updated_at", current.updated_at)
             : options.supabase.from("dashboard_creative_previews").insert(
-              buildCreativeDatabaseRow({
-                clientId: options.clientId,
-                ref,
-                creative: emptyCreative(),
-                error: code,
-                nowIso,
-              }),
-            );
+                buildCreativeDatabaseRow({
+                  clientId: options.clientId,
+                  ref,
+                  creative: emptyCreative(),
+                  error: code,
+                  nowIso,
+                }),
+              );
           const { error } = await query;
           if (error) {
             throw new CreativeRequestError(error.message, "database_upsert");
@@ -1116,90 +1585,287 @@ export async function enrichMetaCreativePreviews(
         };
       }
 
-      let creative = normalized.get(`${ref.account_id}:${ref.ad_id}`) ?? normalizeMetaCreative(ad,current);
-      const oldPreview = currentPreview(current,options.clientId,ref);
-      const sameIdentity = current?.creative_id === creative.creativeId && creative.representationCertain !== false &&
-        (!current?.metadata?.preview_asset_key || current.metadata.preview_asset_key === creative.assetKey);
-      const reuse = sameIdentity && !options.videoRefreshOnly && !options.previewAdIds && canReuseCreativePreview(current,creative.creativeId,creative.creativeType);
-      const extras = [...(creative.videoId ? videoCandidates.get(creative.videoId)??[] : [])];
-      const originalImage = creative.imageHash ? imageCandidates.get(`${ref.account_id}:${creative.imageHash}`) : undefined;
+      let creative =
+        normalized.get(`${ref.account_id}:${ref.ad_id}`) ??
+        normalizeMetaCreative(ad, current);
+      const oldPreview = currentPreview(current, options.clientId, ref);
+      const sameIdentity =
+        current?.creative_id === creative.creativeId &&
+        creative.representationCertain !== false &&
+        (!current?.metadata?.preview_asset_key ||
+          current.metadata.preview_asset_key === creative.assetKey);
+      const reuse =
+        sameIdentity &&
+        !options.videoRefreshOnly &&
+        !options.previewAdIds &&
+        canReuseCreativePreview(
+          current,
+          creative.creativeId,
+          creative.creativeType,
+        );
+      const extras = [
+        ...(creative.videoId
+          ? (videoCandidates.get(creative.videoId) ?? [])
+          : []),
+      ];
+      const originalImage = creative.imageHash
+        ? imageCandidates.get(`${ref.account_id}:${creative.imageHash}`)
+        : undefined;
       if (originalImage) extras.push(originalImage);
-      const resolved = reuse || oldPreview && !sameIdentity
-        ? {selected:null,comparisons:[] as Array<Record<string,unknown>>}
-        : await resolveCreativePreview(creative,extras,fetchImpl);
+      const resolved =
+        reuse || (oldPreview && !sameIdentity)
+          ? {
+              selected: null,
+              comparisons: [] as Array<Record<string, unknown>>,
+            }
+          : await resolveCreativePreview(creative, extras, fetchImpl);
       const file = resolved.selected?.file;
-      let previousWidth=Number(current?.metadata?.preview_width)||0, previousHeight=Number(current?.metadata?.preview_height)||0;
-      let existingError:string|null = null;
-      if (oldPreview && file && file.sha256 === oldPreview.sha256) { previousWidth=file.width!; previousHeight=file.height!; }
+      let previousWidth = Number(current?.metadata?.preview_width) || 0,
+        previousHeight = Number(current?.metadata?.preview_height) || 0;
+      let existingError: string | null = null;
+      if (oldPreview && file && file.sha256 === oldPreview.sha256) {
+        previousWidth = file.width!;
+        previousHeight = file.height!;
+      }
       if (oldPreview && file && (!previousWidth || !previousHeight)) {
         try {
-          const {data,error}=await options.supabase.storage.from(CREATIVE_BUCKET).download(oldPreview.path);
-          if(error || !data || data.size > MAX_PREVIEW_BYTES) throw new PreviewError("existing_preview_unverified");
-          const bytes=new Uint8Array(await data.arrayBuffer());
-          if(bytes.length>MAX_PREVIEW_BYTES || await sha256(bytes)!==oldPreview.sha256)throw new PreviewError("existing_preview_unverified");
-          const dimensions=inspectImage(bytes,oldPreview.mime); previousWidth=dimensions.width; previousHeight=dimensions.height;
-        } catch { existingError="existing_preview_unverified"; }
+          const { data, error } = await options.supabase.storage
+            .from(CREATIVE_BUCKET)
+            .download(oldPreview.path);
+          if (error || !data || data.size > MAX_PREVIEW_BYTES)
+            throw new PreviewError("existing_preview_unverified");
+          const bytes = new Uint8Array(await data.arrayBuffer());
+          if (
+            bytes.length > MAX_PREVIEW_BYTES ||
+            (await sha256(bytes)) !== oldPreview.sha256
+          )
+            throw new PreviewError("existing_preview_unverified");
+          const dimensions = inspectImage(bytes, oldPreview.mime);
+          previousWidth = dimensions.width;
+          previousHeight = dimensions.height;
+        } catch {
+          existingError = "existing_preview_unverified";
+        }
       }
-      const sameHash=!!file && file.sha256===oldPreview?.sha256;
-      const replace=!!file && (!oldPreview || sameIdentity && !existingError && !sameHash && improves({width:file.width!,height:file.height!},{width:previousWidth,height:previousHeight}));
-      let preview=oldPreview, downloaded=false;
-      let outcome = reuse ? "reused" : !sameIdentity && oldPreview ? "preserved_identity_uncertain" : !file ? "preserved_no_candidate" : sameHash ? "unchanged_hash" : !replace ? "preserved_not_better" : oldPreview ? "improved" : "created";
-      if(existingError)outcome=existingError;
-      let metadata=mergedMetadata(current,creative);
-      if(!replace && oldPreview) {
-        const old=current?.metadata??{};
-        for(const key of Object.keys(metadata)) if(key.startsWith("preview_") || key.startsWith("video_") || key==="representative_policy" || key==="preferred_thumbnail") delete metadata[key];
-        for(const [key,value] of Object.entries(old)) if(key.startsWith("preview_") || key.startsWith("video_") || key==="representative_policy" || key==="preferred_thumbnail") metadata[key]=value;
-        if(previousWidth && previousHeight){metadata.preview_width=previousWidth;metadata.preview_height=previousHeight;}
-        if(sameIdentity && creative.assetKey)metadata.preview_asset_key=creative.assetKey;
-        if(!sameIdentity) metadata.preview_stale_for_creative_id=creative.creativeId;
+      const sameHash = !!file && file.sha256 === oldPreview?.sha256;
+      const replace =
+        !!file &&
+        (!oldPreview ||
+          (sameIdentity &&
+            !existingError &&
+            !sameHash &&
+            improves(
+              { width: file.width!, height: file.height! },
+              { width: previousWidth, height: previousHeight },
+            )));
+      let preview = oldPreview,
+        downloaded = false;
+      let outcome = reuse
+        ? "reused"
+        : !sameIdentity && oldPreview
+          ? "preserved_identity_uncertain"
+          : !file
+            ? "preserved_no_candidate"
+            : sameHash
+              ? "unchanged_hash"
+              : !replace
+                ? "preserved_not_better"
+                : oldPreview
+                  ? "improved"
+                  : "created";
+      if (existingError) outcome = existingError;
+      let metadata = mergedMetadata(current, creative);
+      if (!replace && oldPreview) {
+        const old = current?.metadata ?? {};
+        for (const key of Object.keys(metadata))
+          if (
+            key.startsWith("preview_") ||
+            key.startsWith("video_") ||
+            key === "representative_policy" ||
+            key === "preferred_thumbnail"
+          )
+            delete metadata[key];
+        for (const [key, value] of Object.entries(old))
+          if (
+            key.startsWith("preview_") ||
+            key.startsWith("video_") ||
+            key === "representative_policy" ||
+            key === "preferred_thumbnail"
+          )
+            metadata[key] = value;
+        if (previousWidth && previousHeight) {
+          metadata.preview_width = previousWidth;
+          metadata.preview_height = previousHeight;
+        }
+        if (sameIdentity && creative.assetKey)
+          metadata.preview_asset_key = creative.assetKey;
+        if (!sameIdentity)
+          metadata.preview_stale_for_creative_id = creative.creativeId;
       }
-      if(replace && file && resolved.selected) {
-        const path=buildCreativeStoragePath(options.clientId,ref.account_id,ref.ad_id,creative.creativeId,file.mime,file.sha256);
-        preview={path,mime:file.mime,sha256:file.sha256}; downloaded=true;
-        metadata={...metadata,preview_asset_key:creative.assetKey,preview_media_type:creative.metadata.preview_media_type,
-          preview_source:resolved.selected.candidate.source,preview_width:file.width,preview_height:file.height,preview_bytes:file.bytes.length,
-          representative_policy:resolved.selected.candidate.policy,preferred_thumbnail:resolved.selected.candidate.preferred,preview_for_creative_id:creative.creativeId};
+      if (replace && file && resolved.selected) {
+        if (oldPreview)
+          metadata.preview_previous = {
+            path: oldPreview.path,
+            mime: oldPreview.mime,
+            sha256: oldPreview.sha256,
+            width: previousWidth || null,
+            height: previousHeight || null,
+            source: current?.metadata?.preview_source ?? null,
+            asset_key: current?.metadata?.preview_asset_key ?? null,
+            creative_id: current?.creative_id ?? null,
+            replaced_at: nowIso,
+          };
+        const path = buildCreativeStoragePath(
+          options.clientId,
+          ref.account_id,
+          ref.ad_id,
+          creative.creativeId,
+          file.mime,
+          file.sha256,
+        );
+        preview = { path, mime: file.mime, sha256: file.sha256 };
+        downloaded = true;
+        metadata = {
+          ...metadata,
+          preview_asset_key: creative.assetKey,
+          preview_media_type: creative.metadata.preview_media_type,
+          preview_source: resolved.selected.candidate.source,
+          preview_width: file.width,
+          preview_height: file.height,
+          preview_bytes: file.bytes.length,
+          representative_policy: resolved.selected.candidate.policy,
+          preferred_thumbnail: resolved.selected.candidate.preferred,
+          preview_for_creative_id: creative.creativeId,
+          video_id: creative.videoId,
+        };
         delete metadata.preview_stale_for_creative_id;
-        if(!options.dryRun){
-          const {error}=await options.supabase.storage.from(CREATIVE_BUCKET).upload(path,file.bytes,{contentType:file.mime,cacheControl:"3600",upsert:false});
-          if(error){
-            if(Number(error.statusCode)!==409)throw new CreativeRequestError("Preview upload failed","storage_upload");
+        if (!options.dryRun) {
+          const { error } = await options.supabase.storage
+            .from(CREATIVE_BUCKET)
+            .upload(path, file.bytes, {
+              contentType: file.mime,
+              cacheControl: "3600",
+              upsert: false,
+            });
+          if (error) {
+            if (Number(error.statusCode) !== 409)
+              throw new CreativeRequestError(
+                "Preview upload failed",
+                "storage_upload",
+              );
             // An interrupted prior run may have uploaded this immutable hash path.
-            const existing=await options.supabase.storage.from(CREATIVE_BUCKET).download(path);
-            if(existing.error || !existing.data || existing.data.size>MAX_PREVIEW_BYTES || await sha256(new Uint8Array(await existing.data.arrayBuffer()))!==file.sha256)throw new CreativeRequestError("Preview upload failed","storage_upload");
+            const existing = await options.supabase.storage
+              .from(CREATIVE_BUCKET)
+              .download(path);
+            if (
+              existing.error ||
+              !existing.data ||
+              existing.data.size > MAX_PREVIEW_BYTES ||
+              (await sha256(
+                new Uint8Array(await existing.data.arrayBuffer()),
+              )) !== file.sha256
+            )
+              throw new CreativeRequestError(
+                "Preview upload failed",
+                "storage_upload",
+              );
           }
         }
       }
-      const errorCode=!file && !reuse ? (oldPreview && !sameIdentity ? "preview_identity_uncertain":"preview_unavailable") : existingError;
-      metadata.preview_last_attempt={at:nowIso,result:outcome,code:errorCode,creative_id:creative.creativeId,asset_key:creative.assetKey,
-        previous:oldPreview ? {width:previousWidth||null,height:previousHeight||null,sha256:oldPreview.sha256}:null,
-        candidates:resolved.comparisons,lookup_errors:[...(creative.videoId ? lookupErrors.get(creative.videoId)??[]:[]),...(lookupErrors.get(ref.ad_id)??[])]};
-      if(((file || reuse) && !existingError && sameIdentity) || replace || (!oldPreview && file))metadata.preview_strategy_version=PREVIEW_STRATEGY_VERSION;
-      creative={...creative,metadata};
-      if(!options.dryRun){
-        const row=buildCreativeDatabaseRow({clientId:options.clientId,ref,creative,preview,error:errorCode,nowIso});
-        row.creative_name=creative.creativeName??current?.creative_name??null;
-        row.source_updated_at=creative.sourceUpdatedAt??current?.source_updated_at??null;
-        if(oldPreview && !replace){
-          row.creative_id=current!.creative_id;
-          row.creative_type=current!.creative_type??creative.creativeType;
-          row.preview_kind=current!.preview_kind??creative.previewKind;
+      const errorCode =
+        !file && !reuse
+          ? oldPreview && !sameIdentity
+            ? "preview_identity_uncertain"
+            : "preview_unavailable"
+          : existingError;
+      metadata.preview_last_attempt = {
+        at: nowIso,
+        result: outcome,
+        code: errorCode,
+        creative_id: creative.creativeId,
+        asset_key: creative.assetKey,
+        previous: oldPreview
+          ? {
+              width: previousWidth || null,
+              height: previousHeight || null,
+              sha256: oldPreview.sha256,
+            }
+          : null,
+        candidates: resolved.comparisons,
+        lookup_errors: [
+          ...(creative.videoId
+            ? (lookupErrors.get(creative.videoId) ?? [])
+            : []),
+          ...(lookupErrors.get(ref.ad_id) ?? []),
+        ],
+      };
+      if (
+        ((file || reuse) && !existingError && sameIdentity) ||
+        replace ||
+        (!oldPreview && file)
+      )
+        metadata.preview_strategy_version = PREVIEW_STRATEGY_VERSION;
+      creative = { ...creative, metadata };
+      if (!options.dryRun) {
+        const row = buildCreativeDatabaseRow({
+          clientId: options.clientId,
+          ref,
+          creative,
+          preview,
+          error: errorCode,
+          nowIso,
+        });
+        row.creative_name =
+          creative.creativeName ?? current?.creative_name ?? null;
+        row.source_updated_at =
+          creative.sourceUpdatedAt ?? current?.source_updated_at ?? null;
+        if (oldPreview && !replace) {
+          row.creative_id = current!.creative_id;
+          row.creative_type = current!.creative_type ?? creative.creativeType;
+          row.preview_kind = current!.preview_kind ?? creative.previewKind;
         }
         // Compare-and-set stops an older inspection from replacing a newer preview.
-        const query=current ? options.supabase.from("dashboard_creative_previews").update(row)
-          .eq("client_id",options.clientId).eq("source","meta_ads").eq("account_id",ref.account_id).eq("entity_type","ad").eq("entity_id",ref.ad_id)
-          .eq("updated_at",current.updated_at)
-          .select("entity_id")
-          : options.supabase.from("dashboard_creative_previews").insert(row).select("entity_id");
-        const {data,error}=await query;
-        if(error || !data?.length)throw new CreativeRequestError("Preview persistence failed",error ? "database_upsert":"preview_concurrent_update");
+        const query = current
+          ? options.supabase
+              .from("dashboard_creative_previews")
+              .update(row)
+              .eq("client_id", options.clientId)
+              .eq("source", "meta_ads")
+              .eq("account_id", ref.account_id)
+              .eq("entity_type", "ad")
+              .eq("entity_id", ref.ad_id)
+              .eq("updated_at", current.updated_at)
+              .select("entity_id")
+          : options.supabase
+              .from("dashboard_creative_previews")
+              .insert(row)
+              .select("entity_id");
+        const { data, error } = await query;
+        if (error || !data?.length)
+          throw new CreativeRequestError(
+            "Preview persistence failed",
+            error ? "database_upsert" : "preview_concurrent_update",
+          );
       }
-      stats.decisions?.push({ad_id:ref.ad_id,result:outcome,previous_width:previousWidth||null,previous_height:previousHeight||null,candidates:resolved.comparisons});
-      return {kind:"success" as const,existed:!!current,downloaded,reused:!!oldPreview&&!replace,
-        videoPolicy:creative.metadata.preview_media_type==="video" ? stringValue(metadata.representative_policy):null,
-        videoFailed:!!creative.videoId&&!preview};
-
+      stats.decisions?.push({
+        ad_id: ref.ad_id,
+        result: outcome,
+        previous_width: previousWidth || null,
+        previous_height: previousHeight || null,
+        candidates: resolved.comparisons,
+      });
+      return {
+        kind: "success" as const,
+        existed: !!current,
+        downloaded,
+        reused: !!oldPreview && !replace,
+        errorCode,
+        videoPolicy:
+          creative.metadata.preview_media_type === "video"
+            ? stringValue(metadata.representative_policy)
+            : null,
+        videoFailed: !!creative.videoId && !preview,
+      };
     },
   );
 
@@ -1210,35 +1876,43 @@ export async function enrichMetaCreativePreviews(
         .filter((item) => item.result.status === "rejected"),
       CREATIVE_CONCURRENCY,
       async ({ result, ref }) => {
-        const code = result.status === "rejected"
-          ? safeErrorCode(result.reason)
-          : "creative_unknown";
+        const code =
+          result.status === "rejected"
+            ? safeErrorCode(result.reason)
+            : "creative_unknown";
         const current = existing.get(`${ref.account_id}:${ref.ad_id}`);
-        if(code === "preview_concurrent_update") return;
+        if (code === "preview_concurrent_update") return;
         const query = current
           ? options.supabase
-            .from("dashboard_creative_previews")
-            .update({
-              last_error: code,
-              metadata:{...current.metadata,preview_last_attempt:{at:nowIso,result:"preserved_error",code}},
-              refreshed_at: nowIso,
-              updated_at: nowIso,
-            })
-            .eq("client_id", options.clientId)
-            .eq("source", "meta_ads")
-            .eq("account_id", ref.account_id)
-            .eq("entity_type", "ad")
-            .eq("entity_id", ref.ad_id)
-            .eq("updated_at", current.updated_at)
+              .from("dashboard_creative_previews")
+              .update({
+                last_error: code,
+                metadata: {
+                  ...current.metadata,
+                  preview_last_attempt: {
+                    at: nowIso,
+                    result: "preserved_error",
+                    code,
+                  },
+                },
+                refreshed_at: nowIso,
+                updated_at: nowIso,
+              })
+              .eq("client_id", options.clientId)
+              .eq("source", "meta_ads")
+              .eq("account_id", ref.account_id)
+              .eq("entity_type", "ad")
+              .eq("entity_id", ref.ad_id)
+              .eq("updated_at", current.updated_at)
           : options.supabase.from("dashboard_creative_previews").insert(
-            buildCreativeDatabaseRow({
-              clientId: options.clientId,
-              ref,
-              creative: emptyCreative(),
-              error: code,
-              nowIso,
-            }),
-          );
+              buildCreativeDatabaseRow({
+                clientId: options.clientId,
+                ref,
+                creative: emptyCreative(),
+                error: code,
+                nowIso,
+              }),
+            );
         await query;
       },
     );
@@ -1249,7 +1923,10 @@ export async function enrichMetaCreativePreviews(
     if (result.status === "rejected") {
       const code = safeErrorCode(result.reason);
       stats.failed++;
-      if (existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type === "video") {
+      if (
+        existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type ===
+        "video"
+      ) {
         stats.video_preview_failed++;
       }
       if (stats.failures.length < 25) {
@@ -1259,7 +1936,10 @@ export async function enrichMetaCreativePreviews(
     }
     if (result.value.kind === "failed") {
       stats.failed++;
-      if (existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type === "video") {
+      if (
+        existing.get(`${ref.account_id}:${ref.ad_id}`)?.creative_type ===
+        "video"
+      ) {
         stats.video_preview_failed++;
       }
       if (stats.failures.length < 25) {
@@ -1276,6 +1956,11 @@ export async function enrichMetaCreativePreviews(
       return;
     }
     if (result.value.downloaded) stats.preview_downloaded++;
+    if (result.value.errorCode) {
+      stats.failed++;
+      if (stats.failures.length < 25)
+        stats.failures.push({ ad_id: ref.ad_id, code: result.value.errorCode });
+    }
     if (result.value.reused) stats.reused++;
     if (
       result.value.videoPolicy === "video_preferred_thumbnail" ||

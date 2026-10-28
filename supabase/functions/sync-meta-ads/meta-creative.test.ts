@@ -316,10 +316,10 @@ describe("Meta creative lifecycle", () => {
   });
 
   it("reuses the same creative and refreshes a changed creative", () => {
-    expect(canReuseCreativePreview(existing, "creative-1")).toBe(false);
+    expect(canReuseCreativePreview(existing, "creative-1")).toBe(true);
     expect(canReuseCreativePreview(existing, "creative-2")).toBe(false);
     expect(canReuseCreativePreview(existing, "creative-1", "video")).toBe(
-      false,
+      true,
     );
     expect(canReuseCreativePreview({
       ...existing,
