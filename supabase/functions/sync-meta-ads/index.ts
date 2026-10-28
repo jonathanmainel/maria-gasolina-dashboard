@@ -1,3 +1,4 @@
+import { authorizeCollection } from "../_shared/sync-control.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 import {
@@ -482,6 +483,9 @@ export default {
           { status: 404 },
         );
       }
+
+      const reservationError = await authorizeCollection(ctx.supabaseAdmin, body, dashboardClient.id, "meta_ads", start_date, end_date);
+      if (reservationError) return reservationError;
 
       try {
         const { data: sourceAccounts, error: sourceAccountsError } =

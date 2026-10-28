@@ -99,27 +99,16 @@ export function isSuccessfulSync(httpOk: boolean, bodyOk: unknown): boolean {
   return httpOk && bodyOk === true;
 }
 
-export async function executeIsolatedTargets<T, R>(
-  targets: T[],
-  execute: (target: T) => Promise<R>,
-) {
-  const results: Array<
-    | { target: T; ok: true; value: R; error: null }
-    | { target: T; ok: false; value: null; error: string }
-  > = [];
-
-  for (const target of targets) {
-    try {
-      results.push({ target, ok: true, value: await execute(target), error: null });
-    } catch (error) {
-      results.push({
-        target,
-        ok: false,
-        value: null,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+// Different platforms run independently, bounded to three concurrent collectors.
+export async function executeIsolatedTargets<T, R>(targets: readonly T[], execute: (target: T) => Promise<R>) {
+  type Result = { target: T; ok: true; value: R; error: null } | { target: T; ok: false; value: null; error: string };
+  const results: Result[] = [];
+  for (let index = 0; index < targets.length; index += 3) {
+    const batch = await Promise.all(targets.slice(index, index + 3).map(async (target): Promise<Result> => {
+      try { return { target, ok: true, value: await execute(target), error: null }; }
+      catch { return { target, ok: false, value: null, error: "SYNC_EXECUTION_FAILED" }; }
+    }));
+    results.push(...batch);
   }
-
   return results;
 }

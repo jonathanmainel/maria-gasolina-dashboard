@@ -442,3 +442,16 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/import-network-units/deno.json"
 entrypoint = "./functions/import-network-units/index.ts"
+
+[functions.request-dashboard-sync]
+enabled = true
+# Session verified server-side via Auth.getUser.
+verify_jwt = false
+import_map = "./functions/request-dashboard-sync/deno.json"
+entrypoint = "./functions/request-dashboard-sync/index.ts"
+[functions.sync-ga4]
+enabled = true
+# Preserve the published secret-authenticated gateway configuration.
+verify_jwt = false
+import_map = "./functions/sync-ga4/deno.json"
+entrypoint = "./functions/sync-ga4/index.ts"

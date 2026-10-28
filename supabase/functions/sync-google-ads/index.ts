@@ -1,3 +1,4 @@
+import { authorizeCollection } from "../_shared/sync-control.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -198,6 +199,9 @@ export async function handleGoogleAds(
       { status: 404 },
     );
   }
+
+  const reservationError = await authorizeCollection(ctx.supabaseAdmin, body, dashboardClient.id, "google_ads", start_date, end_date);
+  if (reservationError) return reservationError;
 
   const credentialsResult = getGoogleAdsConfiguration((name) =>
     Deno.env.get(name)
