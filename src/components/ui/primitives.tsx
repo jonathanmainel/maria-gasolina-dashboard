@@ -110,8 +110,8 @@ export function Kpi({ label, value, format, previous, previousLabel, accent = "n
       </div>
       <div className="kpi-foot">
         <span>{foot ?? (previous != null && previous !== 0 ? `${previousLabel ?? format(previous)} no período anterior` : "")}</span>
+        {spark && spark.length > 1 && <Sparkline points={spark} color={accentColor[accent]} />}
       </div>
-      {spark && spark.length > 1 && <Sparkline points={spark} color={accentColor[accent]} />}
     </article>
   );
 }
@@ -178,7 +178,7 @@ export function Pacing({ label, actual, goal, ratio, color, format, lowerIsBette
       <div className="pacing-axis" style={{ gridTemplateColumns: `minmax(0, ${marker}fr) max-content minmax(0, ${1 - marker}fr)` }}><span>hoje</span></div>
       <div className="pacing-foot">
         <span>{Math.round(realPct)}% da meta{over && " · superada"}</span>
-        <span style={{ color: ahead ? "var(--green)" : "var(--red)" }}>{ahead ? "no ritmo" : "abaixo do ritmo"} · projeção {format(projected)}</span>
+        <span style={{ color: ahead ? "var(--green-text)" : "var(--red-text)" }}>{ahead ? "no ritmo" : "abaixo do ritmo"} · projeção {format(projected)}</span>
       </div>
     </div>
   );

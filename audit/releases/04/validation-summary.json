@@ -1,0 +1,438 @@
+{
+  "sourceBase": "743ca6fc561bdfe4a8b6d846f4ca11410c7598be",
+  "unit": {
+    "files": 6,
+    "passed": 39
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "firstMatrix": {
+    "stats": {
+      "startTime": "2026-10-28T18:13:05.340Z",
+      "duration": 1128565.9249999998,
+      "expected": 52,
+      "skipped": 0,
+      "unexpected": 2,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "legibility matrix 1920x1080 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1440x900 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1024x768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 768x1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 390x844 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 360x800 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1152x720 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 960x600 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1920x1080 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1440x900 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1024x768 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 768x1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 390x844 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 360x800 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1152x720 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 960x600 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1920 dark",
+        "status": "unexpected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1920 light",
+        "status": "unexpected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 1920x1080 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 1440x900 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 1024x768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 768x1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 390x844 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 360x800 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 1152x720 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 960x600 dark",
+        "status": "expected"
+      },
+      {
+        "title": "header 1920x1080 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 1440x900 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 1024x768 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 768x1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 390x844 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 360x800 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 1152x720 light",
+        "status": "expected"
+      },
+      {
+        "title": "header 960x600 light",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 1440",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 1024",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 390",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 360",
+        "status": "expected"
+      },
+      {
+        "title": "shared mobile theme remains reachable",
+        "status": "expected"
+      },
+      {
+        "title": "front filters, Top 3/9 and lightbox remain functional",
+        "status": "expected"
+      }
+    ]
+  },
+  "finalMatrix": {
+    "stats": {
+      "startTime": "2026-10-28T18:37:57.244Z",
+      "duration": 801413.607,
+      "expected": 32,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "legibility matrix 1920x1080 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1440x900 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1024x768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 768x1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 390x844 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 360x800 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1152x720 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 960x600 dark",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1920x1080 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1440x900 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1024x768 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 768x1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 390x844 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 360x800 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 1152x720 light",
+        "status": "expected"
+      },
+      {
+        "title": "legibility matrix 960x600 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "presentation compositions and auth colors 360 light",
+        "status": "expected"
+      }
+    ]
+  },
+  "supplementalCharts": {
+    "stats": {
+      "startTime": "2026-10-28T18:52:46.432Z",
+      "duration": 393695.019,
+      "expected": 12,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "large money, signed comparisons and chart axes 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "large money, signed comparisons and chart axes 360 light",
+        "status": "expected"
+      }
+    ]
+  },
+  "productionAuthenticated": "pending: no authorized session"
+}

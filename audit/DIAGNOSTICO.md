@@ -234,14 +234,14 @@ Estados: **pendente → em execução → corrigido → publicado → validado**
 | F02 · Foco do período | P1 | publicado | [01 · PR #11](releases/01/README.md) · validado localmente; autenticado pendente |
 | F03 · Marcador hoje | P1 | publicado | [02 · PR #12](releases/02/README.md) · validado localmente; autenticado pendente |
 | F04 · Metas na apresentação móvel | P1 | publicado | [02 · PR #12](releases/02/README.md) · validado localmente; autenticado pendente |
-| F05 · Sparklines dos KPIs | P2 | pendente | A definir |
-| F06 · Contraste | P2 | pendente | A definir |
+| F05 · Sparklines dos KPIs | P2 | corrigido | [04 · KPIs e legibilidade](releases/04/README.md) · publicação pendente |
+| F06 · Contraste | P2 | corrigido | [04 · KPIs e legibilidade](releases/04/README.md) · publicação pendente |
 | F07 · Tabelas em tablet | P2 | pendente | A definir |
 | F08 · Origem no Orgânico | P2 | pendente | A definir |
 | F09 · Tema no celular | P2 | publicado | 01 · PR #11 · validado localmente; autenticado pendente |
 | F10 · Painéis indisponíveis | P3 | pendente | A definir |
 | F11 · Distribuição vertical | P3 | pendente | A definir |
-| F12 · Erro de mídia em Settings | P2 | corrigido | [03 · Estados proporcionais às fontes](releases/03/README.md) · publicação pendente |
+| F12 · Erro de mídia em Settings | P2 | publicado | [03 · PR #13](releases/03/README.md) · validado localmente; autenticado pendente |
 | F13 · Marca no login móvel | P2 | pendente | A definir |
 | F14 · Responsabilidades do CSS | P3 | pendente | Consolidação restrita aos componentes corrigidos |
 

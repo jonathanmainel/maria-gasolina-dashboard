@@ -236,8 +236,8 @@ const weeks = useMemo(
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 14 }}>
-        <ChannelCard name="Meta Ads" chip="meta" color={colors.meta} t={metaT} p={metaP} />
-        <ChannelCard name="Google Ads" chip="google" color={colors.google} t={googleT} p={googleP} />
+        <ChannelCard name="Meta Ads" chip="meta" t={metaT} p={metaP} />
+        <ChannelCard name="Google Ads" chip="google" t={googleT} p={googleP} />
         <Panel title="Leads por semana" description="Semanas completas dentro do período">
           <div className="chart-box h-180">
             <ResponsiveContainer width="100%" height="100%">
@@ -305,13 +305,13 @@ export function CreativeRanking({ creatives, emptyLabel = "Nenhum criativo de Me
   );
 }
 
-function ChannelCard({ name, chip, color, t, p }: { name: string; chip: string; color: string; t: ReturnType<typeof totals>; p: ReturnType<typeof totals> }) {
+function ChannelCard({ name, chip, t, p }: { name: string; chip: string; t: ReturnType<typeof totals>; p: ReturnType<typeof totals> }) {
   return (
-    <Panel title={name} badge={<span className={`chip ${chip}`}>{chip === "meta" ? "Meta" : "Google"}</span>}>
+    <Panel className="channel-card" title={name} badge={<span className={`chip ${chip}`}>{chip === "meta" ? "Meta" : "Google"}</span>}>
       <div className="front-main" style={{ marginTop: 4 }}><strong style={{ fontSize: 32 }}><AnimatedNumber value={t.leads} format={integer} /></strong><small>leads</small><span style={{ marginLeft: "auto" }}><Delta current={t.leads} previous={p.leads} /></span></div>
       <div className="front-meta" style={{ marginTop: 14 }}>
         <div><small>Investimento</small><b>{money(t.spend)}</b></div>
-        <div><small>CPL</small><b style={{ color }}>{money(t.cpl)}</b></div>
+        <div><small>CPL</small><b style={{ color: chip === "meta" ? "var(--sky-text)" : "var(--green-text)" }}>{money(t.cpl)}</b></div>
         <div><small>CTR</small><b>{percent(t.ctr)}</b></div>
       </div>
     </Panel>
