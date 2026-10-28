@@ -230,15 +230,15 @@ Estados: **pendente → em execução → corrigido → publicado → validado**
 
 | Achado | Prioridade | Estado | Entrega |
 |---|---|---|---|
-| F01 · Cabeçalho | P1 | corrigido | [01 · Navegação e acessibilidade](releases/01/README.md) · publicação pendente |
-| F02 · Foco do período | P1 | corrigido | [01 · Navegação e acessibilidade](releases/01/README.md) · publicação pendente |
-| F03 · Marcador hoje | P1 | pendente | 02 · Metas e apresentação |
-| F04 · Metas na apresentação móvel | P1 | pendente | 02 · Metas e apresentação |
+| F01 · Cabeçalho | P1 | publicado | [01 · PR #11](releases/01/README.md) · validado localmente; autenticado pendente |
+| F02 · Foco do período | P1 | publicado | [01 · PR #11](releases/01/README.md) · validado localmente; autenticado pendente |
+| F03 · Marcador hoje | P1 | corrigido | [02 · Metas e apresentação](releases/02/README.md) · publicação pendente |
+| F04 · Metas na apresentação móvel | P1 | corrigido | [02 · Metas e apresentação](releases/02/README.md) · publicação pendente |
 | F05 · Sparklines dos KPIs | P2 | pendente | A definir |
 | F06 · Contraste | P2 | pendente | A definir |
 | F07 · Tabelas em tablet | P2 | pendente | A definir |
 | F08 · Origem no Orgânico | P2 | pendente | A definir |
-| F09 · Tema no celular | P2 | corrigido | 01 · Consequência de manter todas as ações acessíveis · publicação pendente |
+| F09 · Tema no celular | P2 | publicado | 01 · PR #11 · validado localmente; autenticado pendente |
 | F10 · Painéis indisponíveis | P3 | pendente | A definir |
 | F11 · Distribuição vertical | P3 | pendente | A definir |
 | F12 · Erro de mídia em Settings | P2 | pendente | Entrega independente |

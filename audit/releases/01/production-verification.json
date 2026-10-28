@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-10-28T12:45:31.745Z",
+  "url": "https://jonathanmainel.github.io/maria-gasolina-dashboard/",
+  "httpStatus": 200,
+  "css": [
+    {
+      "url": "https://jonathanmainel.github.io/maria-gasolina-dashboard/assets/index-CL7t25l2.css",
+      "status": 200,
+      "sha256": "7a9672e756c6d9d0e3315ac7b4918cf9d53184cfb573bb5f75f64074684462b0",
+      "newHeader": true
+    }
+  ],
+  "checks": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "url": "https://jonathanmainel.github.io/maria-gasolina-dashboard/login",
+      "authenticated": false,
+      "login": true,
+      "configurationError": [],
+      "errors": [],
+      "blockedWrites": [],
+      "overflow": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "url": "https://jonathanmainel.github.io/maria-gasolina-dashboard/login",
+      "authenticated": false,
+      "login": true,
+      "configurationError": [],
+      "errors": [],
+      "blockedWrites": [],
+      "overflow": 0
+    }
+  ],
+  "authenticatedValidation": "pending: fresh browser context has no authorized user session; no credentials, session or fixture supplied"
+}

@@ -1,6 +1,6 @@
 # Entrega 01 · Navegação e acessibilidade
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base: `37f3d785f0a1d6a41830252babbba113609df39f`.
+Estado: **publicado; validado localmente e leitura pública confirmada; homologação autenticada pendente**. Base: `37f3d785f0a1d6a41830252babbba113609df39f`.
 
 ## Problema e solução
 
@@ -36,4 +36,11 @@ Reprodução sem credenciais: `npx playwright test --config playwright.uiux.conf
 
 [Período em 390×844, com foco no diálogo](images/period-390.png). O ciclo de foco é comprovado pelos testes de teclado, não apenas pela imagem.
 
-PR, commit integrado, Actions, Pages e leitura pós-publicação serão registrados conforme concluídos. Sem sessão autenticada autorizada disponível, a homologação autenticada de produção permanece **pendente**; fixtures não a substituem.
+## Publicação concluída em 28/10/2026
+
+- [PR #11](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/11), commit da correção `fe3109767342ba4989b017a646aed05cd0a23e12`, merge `acf5844c8c67890e7e26bc5eb3ea98d3c57db49b`.
+- [GitHub Actions](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40690144283): build e deploy concluídos com sucesso; **54 arquivos / 607 testes aprovados em uma única execução de CI**, typecheck e build aprovados.
+- [GitHub Pages](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; CSS publicado contém o cabeçalho corrigido. Leitura real sem mocks em 1440×900 e 390×844: login funcional renderizado, sem erros de runtime/configuração, sem overflow e sem requisições de gravação. [Registro](production-verification.json).
+- Não havia sessão no contexto novo de verificação. As telas autenticadas e suas ações publicadas **não foram homologadas em produção**. Nenhum login, OAuth, sincronização ou gravação foi executado. A ausência de marca no login móvel continua sendo F13, anterior a esta entrega.
+- Arquivos de produto: `src/components/Shell.tsx`, `src/components/PeriodPicker.tsx`, `src/components/ui/popover.tsx`, `src/components/data-sync.css`, `src/styles.css`. Demais arquivos: teste unitário, fixture/E2E/configuração e documentação/evidências.
+- Restam 11 achados sem correção publicada. Próxima entrega: F03 e F04, a partir da main atualizada após este merge.

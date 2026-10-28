@@ -328,13 +328,15 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .pacing { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; }
 .pacing-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; }
 .pacing-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--pc, var(--navy)); box-shadow: 0 0 10px var(--pc, var(--navy)); }
-.pacing-values { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.pacing-values { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; min-width: 0; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.pacing-values b, .pacing-values span { white-space: nowrap; }
 .pacing-values b { color: var(--text); font-weight: 700; }
 .pacing-track { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 999px; background: var(--surface-2); overflow: visible; }
 .pacing-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--pc, var(--navy)) 70%, transparent), var(--pc, var(--navy))); box-shadow: 0 0 14px color-mix(in srgb, var(--pc, var(--navy)) 50%, transparent); transition: width 1.2s cubic-bezier(.2,.7,.2,1); }
 .pacing-overflow { position: absolute; right: -3px; top: 50%; width: 8px; height: 8px; transform: translateY(-50%) rotate(45deg); background: var(--green); box-shadow: 0 0 10px var(--green); }
 .pacing-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text); opacity: .6; }
-.pacing-mark::after { content: attr(data-label); position: absolute; top: -16px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
+.pacing-axis { grid-column: 1 / -1; display: grid; color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1.2; }
+.pacing-axis span { grid-column: 2; }
 .pacing-foot { grid-column: 1 / -1; display: flex; justify-content: space-between; color: var(--muted-2); font-size: 10px; }
 
 /* ------------------------------------------------------------- rings */
