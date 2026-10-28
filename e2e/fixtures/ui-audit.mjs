@@ -3,11 +3,12 @@ export const apiOrigin='http://127.0.0.1:55498';
 export const user={id:'10000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'auditoria@example.invalid',app_metadata:{},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
 export const token=[{alg:'HS256',typ:'JWT'},{sub:user.id,aud:'authenticated',role:'authenticated',exp:2000000000}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.SYNTHETIC';
 export async function install(context,options={}){
+ const appOrigin=options.appOrigin??process.env.UIUX_APP_ORIGIN??'http://127.0.0.1:5196';
  const state={role:'admin',mode:'normal',auth:true,sync:'idle',writes:[],blocked:[],calls:[],...options};
  await context.addInitScript(({user,token,auth,theme})=>{localStorage.setItem('mg-dashboard-theme',theme);if(auth)localStorage.setItem('sb-127-auth-token',JSON.stringify({access_token:token,refresh_token:'SYNTHETIC',expires_at:2000000000,expires_in:7200,token_type:'bearer',user}));},{user,token,auth:state.auth,theme:state.theme??'dark'});
  await context.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());
-  if(url.origin==='http://127.0.0.1:5196')return route.continue();
+  if(url.origin===appOrigin)return route.continue();
   if(url.origin!==apiOrigin){state.blocked.push(url.origin);return route.abort();}
   state.calls.push({path:url.pathname,method:req.method(),body:req.postData()});
   const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','access-control-expose-headers':'content-range'};
@@ -39,7 +40,7 @@ export async function install(context,options={}){
   if(table==='dashboard_client_users')return json(state.mode==='pending'?null:{client_id:1,role:state.role});
   if(table==='dashboard_manual_inputs'){
    if(req.method()!=='GET'){const body=req.postDataJSON();state.writes.push({kind:'commercial',body});return json([body]);}
-   return json(url.searchParams.get('scope')==='eq.business'?null:[]);
+   return json(url.searchParams.get('scope')==='eq.business'?(state.goals?{payload:{goals:state.goals}}:null):[]);
   }
   if(table==='dashboard_sync_runs')return json({completed_at:'2026-10-27T04:00:00Z'});
   if(table==='dashboard_daily_metrics')return json({metric_date:'2026-10-27'});
