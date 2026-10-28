@@ -148,9 +148,10 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
               <ChevronDown size={15} />
             </button>
             <Popover open={periodOpen} onClose={closePeriod} anchorRef={periodAnchor} label="Escolher período" width={760}>
-              <PeriodPicker range={range} comparisonEnabled={comparisonEnabled} onApply={(r, c) => { onPeriodApply(r, c); setPeriodOpen(false); }} onClose={closePeriod} />
+              <PeriodPicker embedded range={range} comparisonEnabled={comparisonEnabled} onApply={(r, c) => { onPeriodApply(r, c); setPeriodOpen(false); }} onClose={closePeriod} />
             </Popover>
           </div>
+          <div className="topbar-tools" role="group" aria-label="Ações do dashboard">
           <button type="button" className="icon-button" onClick={toggle} aria-label="Alternar tema" title={theme === "dark" ? "Modo claro" : "Modo escuro"}>{theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button>
           <button type="button" className="icon-button" onClick={() => window.print()} aria-label="Exportar PDF" title="Exportar relatório em PDF"><Download size={17} /></button>
           {!readOnly && <button type="button" className="icon-button" onClick={onShare} aria-label="Compartilhar" title="Link somente leitura"><Link2 size={17} /></button>}
@@ -166,6 +167,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
               </Popover>
             </div>
           )}
+          </div>
         </div>
       </header>
 

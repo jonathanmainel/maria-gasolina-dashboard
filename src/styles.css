@@ -141,22 +141,26 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .agency-tag span { display: flex; flex-direction: column; font-size: 10px; color: var(--muted); }
 .agency-tag strong { color: var(--text); font-size: 11px; }
 
-.topbar { position: fixed; top: 0; right: 0; left: var(--sidebar); z-index: var(--z-topbar); height: var(--topbar); display: flex; align-items: center; gap: 14px; padding: 0 28px; background: color-mix(in srgb, var(--bg) 70%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); }
-.topbar-title { min-width: 0; }
+.topbar { position: fixed; top: 0; right: 0; left: var(--sidebar); z-index: var(--z-topbar); height: var(--topbar); display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; grid-template-areas: "title sync period tools"; align-items: center; gap: 14px; padding: 0 28px; background: color-mix(in srgb, var(--bg) 70%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); }
+.topbar-title { grid-area: title; min-width: 0; overflow: hidden; }
 .topbar-title small { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; }
 .topbar-title strong { display: block; margin-top: 2px; font-size: 15px; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.topbar-actions { display: contents; }
+.topbar-tools { grid-area: tools; display: flex; align-items: center; gap: 8px; }
+.topbar .icon-button, .topbar .avatar-button { flex: 0 0 40px; }
+.topbar .menu-button { grid-area: navigation; }
+.topbar .topbar-sync-group { grid-area: sync; min-width: 0; }
 .icon-button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 11px; color: var(--text-2); background: var(--surface); transition: .2s ease; }
 .icon-button:hover { color: var(--text); border-color: var(--line-2); background: var(--surface-2); }
 .icon-button.accent { color: #fff; background: linear-gradient(135deg, var(--red-deep), var(--red)); border-color: transparent; box-shadow: var(--glow-red); }
 .menu-button { display: none; }
-.period-control { position: relative; }
+.period-control { grid-area: period; position: relative; min-width: 0; }
 .period-button { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid var(--line); border-radius: 11px; color: var(--text); background: var(--surface); transition: .2s ease; }
 .period-button:hover { border-color: var(--line-2); background: var(--surface-2); }
 .period-button > svg:first-child { color: var(--gold); }
-.period-button span { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.period-button span { min-width: 0; display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
 .period-button small { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
-.period-button strong { font-size: 12px; font-weight: 650; white-space: nowrap; }
+.period-button strong { font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .period-button .period-short { display: none; }
 .sync-pill { display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 10.5px; white-space: nowrap; }
 .sync-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 2s ease-in-out infinite; }
@@ -840,6 +844,13 @@ tbody tr:hover { background: var(--surface-2); }
 .table-toggle:hover { border-color: var(--gold); color: var(--gold); }
 
 /* ------------------------------------------------------------ responsive */
+/* Split chrome by available space before fixed-width controls can collide. */
+@media (max-width: 1600px) {
+  :root { --topbar: 116px; }
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title tools" "sync period"; gap: 8px 14px; padding-block: 10px; }
+  .topbar-title strong { white-space: normal; }
+}
+
 @media (max-width: 1240px) {
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -855,7 +866,7 @@ tbody tr:hover { background: var(--surface-2); }
   .sidebar-navigation { flex: 0 0 auto; overflow: visible; }
   .scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: rgba(0,0,0,.5); backdrop-filter: blur(3px); }
   .menu-button { display: grid; }
-  .topbar { left: 0; padding: 0 16px; }
+  .topbar { left: 0; padding-inline: 16px; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "navigation title tools" "sync sync period"; }
   .content { margin-left: 0; padding: calc(var(--topbar) + 18px) 16px 60px; }
   .grid-3, .grid-2, .grid-split { grid-template-columns: 1fr; }
   .post-grid { grid-template-columns: 1fr; }
@@ -884,9 +895,11 @@ tbody tr:hover { background: var(--surface-2); }
   .kpi { padding: 16px 18px 14px; }
   .kpi-value strong { font-size: 26px; }
   .kpi-spark { width: 110px; height: 40px; bottom: 14px; }
-  .topbar { gap: 8px; }
-  .topbar-actions { gap: 6px; }
-  .topbar .icon-button[title="Exportar relatório em PDF"], .topbar .icon-button[title="Link somente leitura"], .topbar .icon-button[title="Modo claro"], .topbar .icon-button[title="Modo escuro"] { display: none; }
+  :root { --topbar: 152px; }
+  .topbar { grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: 40px 40px 36px; grid-template-areas: "navigation tools" "period period" "sync sync"; gap: 8px; }
+  .topbar-tools { justify-content: flex-end; gap: 6px; }
+  .topbar .period-button { width: 100%; justify-content: space-between; }
+  .topbar-sync-group, .data-sync-control { width: 100%; }
   .period-button { padding: 0 10px; gap: 6px; }
   .hero { display: flex; flex-direction: column; min-height: 0; }
   .hero-copy { order: 1; padding: 20px 18px 6px; }

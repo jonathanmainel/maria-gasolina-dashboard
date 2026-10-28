@@ -72,10 +72,39 @@ export function Popover({ open, onClose, anchorRef, label, children, width, alig
 
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const panel = panelRef.current;
+    if (!panel) return;
+    const origin = anchorRef.current ?? document.activeElement as HTMLElement | null;
+    const layer = panel.closest(".overlay-layer");
+    const background = [...document.body.children].filter((element): element is HTMLElement => element instanceof HTMLElement && element !== layer);
+    const previousInert = background.map(element => Boolean(element.inert));
+    background.forEach(element => { element.inert = true; });
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const controls = () => [...panel.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled):not([type="hidden"]),select:not(:disabled),textarea:not(:disabled),[tabindex]')]
+      .filter(element => element.tabIndex >= 0 && !element.closest('[hidden],[inert]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden");
+    const focusFirst = () => (controls()[0] ?? panel).focus({ preventScroll: true });
+    focusFirst();
+    const onFocus = (event: FocusEvent) => { if (!panel.contains(event.target as Node)) focusFirst(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
+      if (event.key !== "Tab") return;
+      const items = controls();
+      const first = items[0]; const last = items[items.length - 1];
+      if (!first) { event.preventDefault(); panel.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocus);
+      background.forEach((element, index) => { element.inert = previousInert[index]; });
+      document.body.style.overflow = previousOverflow;
+      if (origin?.isConnected) origin.focus({ preventScroll: true });
+    };
+  }, [open, onClose, anchorRef]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -84,7 +113,7 @@ export function Popover({ open, onClose, anchorRef, label, children, width, alig
       {/* O backdrop cobre a tela inteira: fecha ao clique fora e impede que o clique
           no próprio gatilho reabra o painel imediatamente. */}
       <div className="overlay-backdrop" onMouseDown={onClose} />
-      <div ref={panelRef} className={`overlay-panel ${className}`} style={style} role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={panelRef} className={`overlay-panel ${className}`} style={style} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         {children}
       </div>
     </div>,
