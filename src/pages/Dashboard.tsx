@@ -52,7 +52,7 @@ export function DashboardPage() {
   return (
     <div className={comparisonEnabled ? "" : "comparison-hidden"}>
       <Shell view={view} onViewChange={onViewChange} range={range} comparisonEnabled={comparisonEnabled} onPeriodApply={(r, c) => { setRange(r); setComparisonEnabled(c); }} lastSync={lastSync.data ?? undefined} readOnly={readOnly} onPresent={onPresent} onShare={onShare}>
-        {range.start <= reportingToday() && range.end >= reportingToday() && <div className="intraday-banner" role="note">Hoje � dados parciais. As plataformas podem atualizar m�tricas com atraso; estes n�meros ainda n�o representam o fechamento do dia.</div>}
+        {range.start <= reportingToday() && range.end >= reportingToday() && <div className="intraday-banner" role="note">Hoje · dados parciais. As plataformas podem atualizar métricas com atraso; estes números ainda não representam o fechamento do dia.</div>}
         {readOnly && <div className="readonly-banner"><Eye size={16} />Você está vendo uma versão somente leitura compartilhada pela GT+. Metas e configurações ficam ocultas.</div>}
         {/* Site trata suas consultas separadamente. Place mantém sua composição
             montada durante a atualização para preservar o modo comparativo;

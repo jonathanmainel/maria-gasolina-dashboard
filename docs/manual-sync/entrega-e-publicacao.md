@@ -1,5 +1,7 @@
 # Atualização manual real — preparação de 27/10/2026
 
+**Atualização de 28/10:** homologação integrada em infraestrutura Supabase isolada concluída, com marketing controlado autorizado. Resultados, correções e ordem de publicação/reversão em [homologacao-integrada.md](./homologacao-integrada.md). As seções abaixo registram a preparação anterior; nenhuma publicação da atualização manual em produção ou merge foi executado.
+
 Branch `codex/dashboard-manual-sync`, baseada em `codex/google-ads-service-account` (`c6a4d0a`). O PR compara somente a funcionalidade manual com essa base: não incorpora o PR #7 nem substitui a autenticação Service Account por OAuth antigo. Não houve publicação desta funcionalidade, migration aplicada ou merge.
 
 ## Google Ads: ativação autorizada concluída
