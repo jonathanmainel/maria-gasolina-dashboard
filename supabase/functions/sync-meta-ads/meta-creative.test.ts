@@ -120,7 +120,7 @@ describe("Meta creative normalization", () => {
     );
   });
 
-  it("uses a good preferred thumbnail, otherwise the largest area", () => {
+  it("does not let preferred exclude a larger metadata hint; final selection measures bytes", () => {
     const preferred = selectBestVideoThumbnail([
       { width: 3840, height: 2160, uri: "https://scontent.xx.fbcdn.net/largest.jpg" },
       { width: 1920, height: 1080, uri: "https://scontent.xx.fbcdn.net/preferred.jpg", is_preferred: true },
@@ -131,8 +131,8 @@ describe("Meta creative normalization", () => {
     ]);
 
     expect(preferred).toMatchObject({
-      url: "https://scontent.xx.fbcdn.net/preferred.jpg",
-      policy: "video_preferred_thumbnail",
+      url: "https://scontent.xx.fbcdn.net/largest.jpg",
+      policy: "video_high_res_thumbnail",
     });
     expect(largest).toMatchObject({
       url: "https://scontent.xx.fbcdn.net/large.jpg",
@@ -159,8 +159,12 @@ describe("Meta creative normalization", () => {
       "v26.0",
       "SECRET",
       "video-1",
-      async () => {
+      async (input) => {
         calls++;
+        if (String(input).startsWith('https://scontent.')) {
+          const name=String(input).includes('1920.jpg')?'large.jpg':'small.jpg';
+          return new Response(readFileSync(new URL(`../../../tests/fixtures/meta-previews/${name}`,import.meta.url)),{headers:{'content-type':'image/jpeg'}});
+        }
         if (calls === 1) {
           return new Response(JSON.stringify({ error: { code: 100 } }), {
             status: 400,

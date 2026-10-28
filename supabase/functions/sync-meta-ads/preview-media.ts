@@ -256,6 +256,23 @@ export function inspectImage(bytes: Uint8Array, mime: string): Dimensions {
   return dimensions!;
 }
 
+// Pixel floors use the encoded file, preserving its verified original ratio.
+export function videoPreviewQuality(candidate: Dimensions, originalRatio?: number): "full_hd" | "hd" | "insufficient" {
+  const { width, height } = candidate;
+  if (!(Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0)) return "insufficient";
+  const ratio = width / height;
+  if (originalRatio && Math.abs(ratio / originalRatio - 1) > .035) return "insufficient";
+  const short = Math.min(width, height), long = Math.max(width, height);
+  const r = short / long;
+  const floors = Math.abs(r / (9 / 16) - 1) <= .035
+    ? [[1080,1920],[720,1280]]
+    : Math.abs(r - 1) <= .035 ? [[1080,1080],[720,720]]
+    : Math.abs(r / .8 - 1) <= .035 ? [[1080,1350],[720,900]]
+    : [[1080,Math.ceil(1080/r)],[720,Math.ceil(720/r)]];
+  return short >= floors[0][0] && long >= floors[0][1] ? "full_hd"
+    : short >= floors[1][0] && long >= floors[1][1] ? "hd" : "insufficient";
+}
+
 // A larger area alone can conceal a worse short edge or a different crop.
 // A square fallback can become an uncropped rectangle only if BOTH edges improve.
 export function improves(candidate: Dimensions, previous: Dimensions): boolean {

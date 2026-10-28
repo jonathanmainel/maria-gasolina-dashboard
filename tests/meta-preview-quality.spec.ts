@@ -231,9 +231,18 @@ async function inspectImage(
       .locator("img")
       .evaluate((img) => getComputedStyle(img).objectFit),
   ).toBe("contain");
+  if (height > width) {
+    expect(await zoom.evaluate(el => {
+      const art=(el.closest('.present') ? el : el.closest('.creative-art')) as HTMLElement;
+      return art.offsetWidth/art.offsetHeight;
+    })).toBeCloseTo(9/16,2);
+  }
   await zoom.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText(`${width} × ${height} px`);
+  if (height > width) {
+    expect(await dialog.locator('.lightbox-frame-vertical').evaluate((el:HTMLElement)=>el.offsetWidth/el.offsetHeight)).toBeCloseTo(9/16,2);
+  }
   expect(
     await dialog
       .locator("img")
@@ -268,7 +277,8 @@ for (const [width, height] of [
       const state = await fixture(page);
       await page.setViewportSize({ width, height });
       await page.goto(`/dashboard/maria-gasolina?view=${front}`);
-      await expect(page.locator(".creative")).toHaveCount(3);
+      // Allow local lazy-module startup; media assertions keep their normal timeout.
+      await expect(page.locator(".creative")).toHaveCount(3, { timeout: 45_000 });
       await inspectImage(page, `FIXTURE ${front} 0`, 1080, 1920);
       await inspectImage(page, `FIXTURE ${front} 1`, 160, 284);
       await expect(
@@ -307,7 +317,7 @@ for (const [width, height] of [
     const state = await fixture(page);
     await page.setViewportSize({ width, height });
     await page.goto("/dashboard/maria-gasolina?view=franchise");
-    await expect(page.locator(".creative")).toHaveCount(3);
+    await expect(page.locator(".creative")).toHaveCount(3, { timeout: 45_000 });
     await page
       .getByRole("button", { name: "Modo apresentação", exact: true })
       .click();

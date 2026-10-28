@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 root = Path(__file__).parent
-for name, size in {"tiny": (64, 64), "small": (160, 284), "large": (1080, 1920), "image": (1080, 1350), "wide": (1920, 1080)}.items():
+for name, size in {"tiny": (64, 64), "small": (160, 284), "hd": (720, 1280), "daniela": (1072, 1928), "large": (1080, 1920), "image": (1080, 1350), "wide": (1920, 1080)}.items():
     image = Image.new("RGB", size, "#21333d")
     draw = ImageDraw.Draw(image)
     draw.rectangle((1, 1, size[0]-2, size[1]-2), outline="#d7982b", width=max(1, size[0]//100))

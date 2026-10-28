@@ -2,6 +2,7 @@ import {
   fetchMedia,
   inspectImage,
   improves,
+  videoPreviewQuality,
   MAX_PREVIEW_BYTES,
   PreviewError,
   readLimitedBody,
@@ -10,8 +11,7 @@ export const CREATIVE_BUCKET = "dashboard-creatives";
 export const CREATIVE_REFRESH_TTL_MS = 20 * 60 * 60 * 1000;
 const META_AD_BATCH_SIZE = 25;
 const CREATIVE_CONCURRENCY = 4;
-const PREFERRED_VIDEO_THUMBNAIL_MIN_AREA = 1280 * 720;
-export const PREVIEW_STRATEGY_VERSION = 3;
+export const PREVIEW_STRATEGY_VERSION = 4;
 
 export function validatePreviewAdIds(value: unknown): string[] | undefined {
   if (value === undefined) return undefined;
@@ -147,6 +147,8 @@ type EnrichOptions = {
   videoPictureOverrides?: Record<string, string>;
   // Backend-only selection; does not add an alternate collector endpoint.
   previewAdIds?: string[];
+  // Explicit trusted local/isolated adapter only. The collector never starts FFmpeg.
+  frameFallback?: (identity: { accountId: string; adId: string; creativeId: string | null; videoId: string }) => Promise<{ videoId: string; bytes: Uint8Array<ArrayBuffer>; mime: string } | null>;
 };
 
 export type VideoPreviewCandidate = {
@@ -156,6 +158,7 @@ export type VideoPreviewCandidate = {
   width: number | null;
   height: number | null;
   preferred: boolean;
+  originalRatio?: number;
 };
 
 type DownloadedPreview = {
@@ -743,14 +746,8 @@ export function selectBestVideoThumbnail(
       },
     ];
   });
-  const preferred = candidates.filter(
-    (candidate) =>
-      candidate.preferred &&
-      (candidate.width ?? 0) * (candidate.height ?? 0) >=
-        PREFERRED_VIDEO_THUMBNAIL_MIN_AREA,
-  );
-  const pool = preferred.length ? preferred : candidates;
-  const selected = pool.sort(
+  // Legacy metadata hint only; final selection MUST use resolveCreativePreview.
+  const selected = candidates.sort(
     (left, right) =>
       (right.width ?? 0) * (right.height ?? 0) -
       (left.width ?? 0) * (left.height ?? 0),
@@ -758,7 +755,7 @@ export function selectBestVideoThumbnail(
   if (!selected) return null;
   return {
     ...selected,
-    policy: preferred.length
+    policy: selected.preferred
       ? "video_preferred_thumbnail"
       : "video_high_res_thumbnail",
   };
@@ -883,11 +880,14 @@ export async function fetchVideoCandidates(
     `https://graph.facebook.com/${apiVersion}/${encodeURIComponent(videoId)}/thumbnails`,
   );
   url.searchParams.set("fields", "height,width,uri,is_preferred");
-  url.searchParams.set("limit", "100");
+  url.searchParams.set("limit", "50");
   let next: string | null = url.toString(),
     pages = 0;
   try {
-    while (next && pages++ < 3) {
+    const visited = new Set<string>();
+    while (next && pages++ < 6) {
+      if (visited.has(next)) { errors.push("meta_thumbnail_page_cycle"); break; }
+      visited.add(next);
       const payload = await graphJson(next, accessToken, fetchImpl);
       for (const thumbnail of arrayValue(payload.data)) {
         const uri = stringValue(thumbnail.uri);
@@ -908,6 +908,7 @@ export async function fetchVideoCandidates(
     if (next) errors.push("meta_thumbnail_page_limit");
   } catch (error) {
     errors.push(safeErrorCode(error));
+    errors.push("meta_thumbnail_collection_incomplete");
   }
   // format dimensions refer to video, so never trust them as picture dimensions.
   try {
@@ -920,6 +921,10 @@ export async function fetchVideoCandidates(
       accessToken,
       fetchImpl,
     );
+    const native = arrayValue(payload.format).find((f) => f.filter === "native");
+    const originalRatio = native && Number(native.width) > 0 && Number(native.height) > 0
+      ? Number(native.width) / Number(native.height) : undefined;
+    for (const candidate of candidates) candidate.originalRatio = originalRatio;
     for (const format of arrayValue(payload.format)) {
       const picture = stringValue(format.picture);
       if (picture)
@@ -930,6 +935,7 @@ export async function fetchVideoCandidates(
           width: Number(format.width) || null,
           height: Number(format.height) || null,
           preferred: false,
+          originalRatio,
         });
     }
     if (stringValue(payload.picture))
@@ -940,6 +946,7 @@ export async function fetchVideoCandidates(
         width: null,
         height: null,
         preferred: false,
+        originalRatio,
       });
   } catch (error) {
     errors.push(safeErrorCode(error));
@@ -963,17 +970,10 @@ export async function fetchBestVideoThumbnail(
     videoId,
     fetchImpl,
   );
-  const preferred = candidates.filter(
-    (c) =>
-      c.preferred &&
-      (c.width ?? 0) * (c.height ?? 0) >= PREFERRED_VIDEO_THUMBNAIL_MIN_AREA,
+  const resolved = await resolveCreativePreview(
+    normalizeMetaCreative({ creative:{object_type:"VIDEO",video_id:videoId} }), candidates, fetchImpl,
   );
-  return (
-    (preferred.length ? preferred : candidates).sort(
-      (a, b) =>
-        (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0),
-    )[0] ?? null
-  );
+  return resolved.selected ? {...resolved.selected.candidate,width:resolved.selected.file.width,height:resolved.selected.file.height} : null;
 }
 
 async function fetchImageCandidates(
@@ -1053,7 +1053,7 @@ export async function fetchAccountVideoPictures(
   return found;
 }
 
-const MAX_CANDIDATES = 8;
+const MAX_CANDIDATES = 320;
 function deduplicateCandidates(
   candidates: VideoPreviewCandidate[],
 ): VideoPreviewCandidate[] {
@@ -1065,42 +1065,60 @@ function deduplicateCandidates(
   });
 }
 
-async function resolveCreativePreview(
+export async function resolveCreativePreview(
   creative: NormalizedMetaCreative,
   extra: VideoPreviewCandidate[],
   fetchImpl: typeof fetch,
+  frameFallback?: () => Promise<{ videoId: string; bytes: Uint8Array<ArrayBuffer>; mime: string } | null>,
+  reviewedThumbnail?: { videoId: string; sha256: string },
 ) {
-  // Configured artwork first makes ties deterministic; no dimension hint decides quality.
-  const prioritized = [...extra].sort(
-    (a, b) =>
-      (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0),
-  );
-  const candidates = deduplicateCandidates([
-    ...(creative.candidates ?? []),
-    ...prioritized,
-  ]);
+  // API hints and is_preferred never exclude a candidate or determine its quality.
+  const video = creative.metadata.preview_media_type === "video" || creative.creativeType === "video";
+  const all = deduplicateCandidates([...(creative.candidates ?? []), ...extra]);
+  const official = video ? all.filter(c => c.source === "video.thumbnails") : [];
+  const fallback = video ? all.filter(c => c.source !== "video.thumbnails") : all;
+  const candidates = [...official, ...fallback];
+  const originalRatio = extra.find(c => c.originalRatio)?.originalRatio;
   let selected: {
     candidate: VideoPreviewCandidate;
     file: DownloadedPreview;
   } | null = null;
+  let reviewed: {candidate:VideoPreviewCandidate;file:DownloadedPreview} | null = null;
   const comparisons: Array<Record<string, unknown>> = [];
+  if (candidates.length > MAX_CANDIDATES) {
+    return {selected:null,comparisons:[{result:"candidate_limit",omitted:candidates.length-MAX_CANDIDATES}],inspected:0};
+  }
+  let inspected = 0;
   for (const candidate of candidates.slice(0, MAX_CANDIDATES)) {
+    // Finish the entire official collection before considering alternate artwork.
+    if (selected?.candidate.source === "video.thumbnails" && video && candidate.source !== "video.thumbnails" &&
+        videoPreviewQuality({width:selected.file.width!,height:selected.file.height!},originalRatio) === "full_hd") break;
+    inspected++;
     try {
       const file = await downloadPreview(candidate.url, fetchImpl);
+      const quality = video ? videoPreviewQuality({ width:file.width!, height:file.height! }, originalRatio) : null;
       comparisons.push({
         source: candidate.source,
         width: file.width,
         height: file.height,
         sha256: file.sha256,
         bytes: file.bytes.length,
-        result: "valid",
+        preferred: candidate.preferred,
+        quality,
+        result: quality === "insufficient" ? "below_hd_or_ratio_mismatch" : "valid",
       });
+      if (quality === "insufficient") continue;
+      if (candidate.source === "video.thumbnails" && reviewedThumbnail?.videoId === creative.videoId &&
+          reviewedThumbnail.sha256 === file.sha256) reviewed = {candidate,file};
       if (
         !selected ||
-        improves(
+        (video ?
+          (quality === "full_hd" && videoPreviewQuality({width:selected.file.width!,height:selected.file.height!},originalRatio) !== "full_hd") ||
+          (quality === videoPreviewQuality({width:selected.file.width!,height:selected.file.height!},originalRatio) && file.width! * file.height! > selected.file.width! * selected.file.height!)
+          : improves(
           { width: file.width!, height: file.height! },
           { width: selected.file.width!, height: selected.file.height! },
-        )
+        ))
       )
         selected = { candidate, file };
     } catch (error) {
@@ -1110,12 +1128,27 @@ async function resolveCreativePreview(
       });
     }
   }
-  if (candidates.length > MAX_CANDIDATES)
-    comparisons.push({
-      result: "candidate_limit",
-      omitted: candidates.length - MAX_CANDIDATES,
-    });
-  return { selected, comparisons };
+  if (reviewed && selected && reviewed.file.width! >= selected.file.width! && reviewed.file.height! >= selected.file.height!) {
+    selected = reviewed;
+  }
+  // Callback is absent in the deployed endpoint: no recurrent video processing.
+  if (!selected && video && creative.videoId && frameFallback) {
+    try {
+      const frame = await frameFallback();
+      if (frame) {
+        if (frame.videoId !== creative.videoId) throw new PreviewError("frame_identity_mismatch");
+        if (frame.bytes.length > MAX_PREVIEW_BYTES) throw new PreviewError("preview_size_limit");
+        const dims = inspectImage(frame.bytes, frame.mime);
+        const quality = videoPreviewQuality(dims, originalRatio);
+        comparisons.push({source:"video.local_frame",...dims,quality,result:quality === "insufficient" ? "below_hd_or_ratio_mismatch" : "valid"});
+        if (quality !== "insufficient") selected = {
+          candidate:{url:"",source:"video.local_frame",policy:"explicit_frame_fallback",width:dims.width,height:dims.height,preferred:false},
+          file:{bytes:frame.bytes,mime:frame.mime,sha256:await sha256(frame.bytes),...dims},
+        };
+      }
+    } catch (error) { comparisons.push({source:"video.local_frame",result:safeErrorCode(error)}); }
+  }
+  return { selected, comparisons, inspected, visuallyReviewed: !!selected && selected === reviewed };
 }
 
 function mergedMetadata(
@@ -1531,6 +1564,24 @@ export async function enrichMetaCreativePreviews(
     0,
   );
 
+  // Small per-run cache: shared videos may serve several ads of the SAME account.
+  // Keep only selected bytes, never all downloaded candidates or a permanent cache.
+  const resolutions = new Map<string, Promise<Awaited<ReturnType<typeof resolveCreativePreview>>>>();
+  const resolve = (creative: NormalizedMetaCreative, extras: VideoPreviewCandidate[], ref: CreativeAdRef, reviewedThumbnail?: {videoId:string;sha256:string}) => {
+    const key = JSON.stringify([ref.account_id, creative.videoId, creative.assetKey,
+      [...(creative.candidates ?? []), ...extras].map(c=>c.url),reviewedThumbnail]);
+    if (!options.frameFallback && creative.videoId && resolutions.has(key)) return resolutions.get(key)!;
+    const result = resolveCreativePreview(creative, extras, fetchImpl,
+      options.frameFallback && creative.videoId
+        ? () => options.frameFallback!({accountId:ref.account_id,adId:ref.ad_id,creativeId:creative.creativeId,videoId:creative.videoId!})
+        : undefined, reviewedThumbnail);
+    if (!options.frameFallback && creative.videoId) {
+      if (resolutions.size >= CREATIVE_CONCURRENCY) resolutions.delete(resolutions.keys().next().value!);
+      resolutions.set(key,result);
+    }
+    return result;
+  };
+
   const processed = await mapWithConcurrency(
     candidates,
     CREATIVE_CONCURRENCY,
@@ -1612,22 +1663,32 @@ export async function enrichMetaCreativePreviews(
         ? imageCandidates.get(`${ref.account_id}:${creative.imageHash}`)
         : undefined;
       if (originalImage) extras.push(originalImage);
+      const reviewed = objectValue(current?.metadata?.preview_reviewed_thumbnail);
+      const reviewedThumbnail = reviewed?.video_id === creative.videoId && /^[a-f0-9]{64}$/.test(String(reviewed?.sha256))
+        ? {videoId:creative.videoId!,sha256:String(reviewed!.sha256)} : undefined;
+      let collectionIncomplete = !!creative.videoId && (lookupErrors.get(creative.videoId) ?? []).some(code =>
+        ["meta_thumbnail_page_limit", "meta_thumbnail_page_cycle", "meta_thumbnail_collection_incomplete"].includes(code));
       const resolved =
-        reuse || (oldPreview && !sameIdentity)
+        reuse || (oldPreview && !sameIdentity) || collectionIncomplete
           ? {
               selected: null,
               comparisons: [] as Array<Record<string, unknown>>,
+              visuallyReviewed: false,
             }
-          : await resolveCreativePreview(creative, extras, fetchImpl);
+          : await resolve(creative, extras, ref, reviewedThumbnail);
+      if (resolved.comparisons.some(c => c.result === "candidate_limit")) collectionIncomplete = true;
       const file = resolved.selected?.file;
       let previousWidth = Number(current?.metadata?.preview_width) || 0,
         previousHeight = Number(current?.metadata?.preview_height) || 0;
       let existingError: string | null = null;
+      let previousVerified = false;
       if (oldPreview && file && file.sha256 === oldPreview.sha256) {
         previousWidth = file.width!;
         previousHeight = file.height!;
+        previousVerified = true;
       }
-      if (oldPreview && file && (!previousWidth || !previousHeight)) {
+      if (oldPreview && !reuse && ((file && file.sha256 !== oldPreview.sha256) ||
+          (!file && creative.videoId && videoPreviewQuality({width:previousWidth,height:previousHeight}) !== "insufficient"))) {
         try {
           const { data, error } = await options.supabase.storage
             .from(CREATIVE_BUCKET)
@@ -1643,6 +1704,7 @@ export async function enrichMetaCreativePreviews(
           const dimensions = inspectImage(bytes, oldPreview.mime);
           previousWidth = dimensions.width;
           previousHeight = dimensions.height;
+          previousVerified = true;
         } catch {
           existingError = "existing_preview_unverified";
         }
@@ -1662,10 +1724,12 @@ export async function enrichMetaCreativePreviews(
         downloaded = false;
       let outcome = reuse
         ? "reused"
+        : collectionIncomplete ? "pending_collection_incomplete"
         : !sameIdentity && oldPreview
           ? "preserved_identity_uncertain"
           : !file
-            ? "preserved_no_candidate"
+            ? previousVerified && creative.videoId && videoPreviewQuality({width:previousWidth,height:previousHeight}) !== "insufficient"
+              ? "preserved_adequate" : creative.videoId ? "pending_no_hd_source" : "preserved_no_candidate"
             : sameHash
               ? "unchanged_hash"
               : !replace
@@ -1773,11 +1837,19 @@ export async function enrichMetaCreativePreviews(
         }
       }
       const errorCode =
-        !file && !reuse
+        existingError ? existingError : collectionIncomplete ? "preview_collection_incomplete"
+        : !file && !reuse && outcome !== "preserved_adequate"
           ? oldPreview && !sameIdentity
             ? "preview_identity_uncertain"
-            : "preview_unavailable"
+            : creative.videoId ? "preview_hd_pending" : "preview_unavailable"
           : existingError;
+      if (!reuse) metadata.preview_quality_status = collectionIncomplete ? "pending_collection_incomplete"
+        : existingError ? "pending_existing_unverified"
+        : previousVerified && oldPreview && !replace && creative.videoId ? videoPreviewQuality({width:previousWidth,height:previousHeight})
+        : file && creative.videoId ? videoPreviewQuality({width:file.width!,height:file.height!})
+        : creative.videoId ? "pending_no_hd_source" : null;
+      if (!reuse && file && creative.videoId && replace) metadata.preview_visual_review =
+        resolved.visuallyReviewed ? "reviewed_thumbnail_match" : "pending_visual_review";
       metadata.preview_last_attempt = {
         at: nowIso,
         result: outcome,
@@ -1792,6 +1864,7 @@ export async function enrichMetaCreativePreviews(
             }
           : null,
         candidates: resolved.comparisons,
+        quality: file && creative.videoId ? videoPreviewQuality({width:file.width!,height:file.height!}) : null,
         lookup_errors: [
           ...(creative.videoId
             ? (lookupErrors.get(creative.videoId) ?? [])
@@ -1800,7 +1873,7 @@ export async function enrichMetaCreativePreviews(
         ],
       };
       if (
-        ((file || reuse) && !existingError && sameIdentity) ||
+        (file && !existingError && sameIdentity) ||
         replace ||
         (!oldPreview && file)
       )

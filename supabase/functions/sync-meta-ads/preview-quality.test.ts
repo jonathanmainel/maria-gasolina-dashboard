@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -7,8 +7,9 @@ import {
   downloadPreview,
   PREVIEW_STRATEGY_VERSION,
   validatePreviewAdIds,
+  resolveCreativePreview,
 } from "./meta-creative.ts";
-import { improves, inspectImage, MAX_PREVIEW_BYTES } from "./preview-media.ts";
+import { improves, inspectImage, MAX_PREVIEW_BYTES, videoPreviewQuality } from "./preview-media.ts";
 
 const raster = (name = "large.png") =>
   new Uint8Array(
@@ -63,6 +64,8 @@ function harness(
     rows?: any[];
     ads?: any[];
     thumbnails?: any[];
+    thumbnailPages?: any[][];
+    thumbnailCycle?: boolean;
     format?: any[];
     picture?: string;
     apiError?: boolean;
@@ -80,9 +83,7 @@ function harness(
     if (stored.preview_storage_path)
       objects.set(
         stored.preview_storage_path,
-        raster(
-          stored.preview_mime_type === "image/jpeg" ? "small.jpg" : "small.png",
-        ),
+        raster(readdirSync(new URL("../../../tests/fixtures/meta-previews/",import.meta.url)).find(name => !name.endsWith('.py') && hash(raster(name)) === stored.preview_sha256) ?? "small.png"),
       );
   const uploads: string[] = [],
     removes: string[] = [],
@@ -225,9 +226,12 @@ function harness(
         return json({ data: settings.ads ?? [ad()] });
       if (url.pathname.endsWith("/thumbnails"))
         return json({
-          data: settings.thumbnails ?? [
+          data: settings.thumbnailPages ? settings.thumbnailPages[Number(url.searchParams.get('page') ?? 0)] : settings.thumbnails ?? [
             { uri: media("large.png"), width: 1080, height: 1920 },
           ],
+          paging: settings.thumbnailCycle ? {next: 'https://graph.facebook.com/v26.0/video-1/thumbnails'}
+            : settings.thumbnailPages && Number(url.searchParams.get('page') ?? 0) + 1 < settings.thumbnailPages.length
+              ? {next:`https://graph.facebook.com/v26.0/video-1/thumbnails?page=${Number(url.searchParams.get('page') ?? 0)+1}`} : undefined,
         });
       if (url.pathname.endsWith("/adimages"))
         return json({ data: settings.images ?? [] });
@@ -358,6 +362,89 @@ describe("complete file validation and bounded downloads", () => {
   });
 });
 
+describe("absolute HD policy and complete official collection", () => {
+  it("respects a reviewed hash for the same video only, without reducing resolution",async()=>{
+    const reviewed=raster('large.png');
+    const other=new Uint8Array(reviewed); // another valid image with equal pixel dimensions
+    const candidates=[{url:media('large.jpg'),source:'video.thumbnails',policy:'video_high_res_thumbnail',width:1080,height:1920,preferred:false},{url:media('large.png'),source:'video.thumbnails',policy:'video_high_res_thumbnail',width:1080,height:1920,preferred:false}];
+    const fetcher=async(input:any)=>new Response(String(input).endsWith('.jpg')?raster('large.jpg'):other,{headers:{'content-type':String(input).endsWith('.jpg')?'image/jpeg':'image/png'}});
+    const creative=normalizeMetaCreative(ad());
+    const result=await resolveCreativePreview(creative,candidates,fetcher,undefined,{videoId:'video-1',sha256:hash(reviewed)});
+    expect(result.selected?.file.sha256).toBe(hash(reviewed));expect(result.visuallyReviewed).toBe(true);
+    const wrong=await resolveCreativePreview(creative,candidates,fetcher,undefined,{videoId:'other',sha256:hash(reviewed)});
+    expect(wrong.selected?.file.sha256).toBe(hash(raster('large.jpg')));expect(wrong.visuallyReviewed).toBe(false);
+    const h=harness({rows:[row('small.png',{metadata:{video_id:'video-1',preview_reviewed_thumbnail:{video_id:'video-1',sha256:hash(raster('hd.png'))}}})],thumbnails:[{uri:media('hd.png')},{uri:media('large.png')}]});
+    await h.run();expect(h.rows[0].metadata.preview_width).toBe(1080);
+  });
+  it("does not pretend a truncated candidate set is a complete audit",async()=>{
+    let downloads=0;
+    const candidates=Array.from({length:321},(_,i)=>({url:media(`${i}.png`),source:'video.thumbnails',policy:'video_high_res_thumbnail',width:64,height:64,preferred:false}));
+    const result=await resolveCreativePreview(normalizeMetaCreative(ad()),candidates,async()=>{downloads++;throw Error('must not download')});
+    expect(downloads).toBe(0);expect(result.selected).toBeNull();expect(result.comparisons[0].result).toBe('candidate_limit');
+  });
+  it("shares a video's inspection only within one account and invocation",async()=>{
+    const h=harness({rows:[row(),row('small.png',{entity_id:'ad-2',ad_id:'ad-2',preview_storage_path:'1/meta_ads/acct-a/ad/ad-2/old.png'})],ads:[ad(),{...ad(),id:'ad-2'}]});
+    h.options.previewAdIds=['ad-1','ad-2'];h.options.adRows.push({account_id:'acct-a',ad_id:'ad-2'});
+    await h.run();expect(h.requests.filter(u=>u===media('large.png'))).toHaveLength(1);
+    expect(h.uploads).toHaveLength(2);
+  });
+  it.each([[160,284,"insufficient"],[720,1279,"insufficient"],[720,1280,"hd"],[1072,1928,"hd"],[1080,1920,"full_hd"]])("classifies decoded %s×%s",(width,height,result)=>{
+    expect(videoPreviewQuality({width:Number(width),height:Number(height)})).toBe(result);
+  });
+  it("keeps the old file and records pending when the best file is only 160×284",async()=>{
+    const h=harness({thumbnails:[{uri:media('small.png'),width:1080,height:1920}]});
+    const old=clone(h.rows[0]);await h.run();
+    expect(h.uploads).toEqual([]);expect(h.rows[0].preview_sha256).toBe(old.preview_sha256);
+    expect(h.rows[0].metadata.preview_quality_status).toBe('pending_no_hd_source');
+    expect(h.rows[0].metadata.preview_last_attempt.result).toBe('pending_no_hd_source');
+  });
+  it("uses HD when Full HD is unavailable",async()=>{
+    const h=harness({thumbnails:[{uri:media('hd.png'),width:64,height:64}]});await h.run();
+    expect(h.rows[0].metadata).toMatchObject({preview_width:720,preview_height:1280,preview_quality_status:'hd'});
+  });
+  it("checks a configured official cover when the collection has only HD",async()=>{
+    const h=harness({ads:[ad({object_story_spec:{video_data:{video_id:'video-1',image_url:media('large.png')}}})],thumbnails:[{uri:media('hd.png')}]});
+    await h.run();expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920,preview_quality_status:'full_hd'});
+  });
+  it("measures the nonpreferred tenth candidate despite tiny declared dimensions",async()=>{
+    const h=harness({thumbnails:[...Array.from({length:9},(_,i)=>({uri:media(`bad-${i}.png`),width:1080,height:1920,is_preferred:i===0})),{uri:media('daniela.png'),width:480,height:864,is_preferred:false}],files:Object.fromEntries(Array.from({length:9},(_,i)=>[`bad-${i}.png`,raster('small.png')]))});
+    await h.run();expect(h.rows[0].metadata).toMatchObject({preview_width:1072,preview_height:1928,preferred_thumbnail:false,preview_quality_status:'hd'});
+    expect(h.rows[0].metadata.preview_last_attempt.candidates.filter((c:any)=>c.source==='video.thumbnails')).toHaveLength(10);
+  });
+  it("continues to the next page after a valid HD thumbnail and chooses Full HD",async()=>{
+    const h=harness({thumbnailPages:[[{uri:media('hd.png'),is_preferred:true}],[{uri:media('large.png'),is_preferred:false}]]});await h.run();
+    expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920,preferred_thumbnail:false});
+    expect(h.requests.some(url=>url.includes('page=1'))).toBe(true);
+  });
+  it("preserves the current file after a pagination cycle instead of claiming complete coverage",async()=>{
+    const h=harness({thumbnailCycle:true});await h.run();
+    expect(h.uploads).toEqual([]);expect(h.rows[0].metadata.preview_quality_status).toBe('pending_collection_incomplete');
+  });
+  it("does not invoke frame processing when an official HD thumbnail exists",async()=>{
+    let calls=0;const h=harness({thumbnails:[{uri:media('hd.png')}]});
+    h.options.frameFallback=async()=>{calls++;return null};await h.run();expect(calls).toBe(0);
+  });
+  it("accepts an explicit native HD frame only after thumbnails fail the floor",async()=>{
+    const h=harness({thumbnails:[{uri:media('small.png')}]});
+    h.options.frameFallback=async()=>({videoId:'video-1',bytes:raster('hd.png'),mime:'image/png'});
+    await h.run();expect(h.rows[0].metadata).toMatchObject({preview_width:720,preview_source:'video.local_frame'});
+  });
+  it.each(['wrong-id','too-small','failed'])("preserves the old preview after %s frame fallback",async(kind)=>{
+    const h=harness({thumbnails:[]});
+    h.options.frameFallback=async()=>{if(kind==='failed')throw new Error('private transport');return {videoId:kind==='wrong-id'?'other-video':'video-1',bytes:raster(kind==='too-small'?'small.png':'hd.png'),mime:'image/png'}};
+    await h.run();expect(h.uploads).toEqual([]);expect(h.rows[0].preview_storage_path).toContain('old.png');
+    expect(JSON.stringify(h.rows)).not.toContain('private transport');
+  });
+  it("measures the stored file even when its dimension metadata exists but is wrong",async()=>{
+    const current=row('large.png');const h=harness({rows:[current],thumbnails:[{uri:media('hd.png')}]});await h.run();
+    expect(h.downloads).toContain(current.preview_storage_path);expect(h.uploads).toEqual([]);
+    expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920});
+  });
+  it("does not accept a different crop based only on its HD pixels",()=>{
+    expect(videoPreviewQuality({width:1080,height:1080},9/16)).toBe('insufficient');
+  });
+});
+
 describe("enrichment integration with real raster bytes and controlled transports", () => {
   it.each(["tiny.png", "small.png"])(
     "upgrades %s to 1080×1920 and keeps old objects",
@@ -467,7 +554,7 @@ describe("enrichment integration with real raster bytes and controlled transport
     expect(h.rows[0].metadata).toMatchObject(current.metadata);
     expect(h.uploads).toEqual([]);
     expect(h.rows[0].metadata.preview_last_attempt.result).toBe(
-      "preserved_not_better",
+      "preserved_adequate",
     );
   });
   it.each(["api", "expired", "storage", "database", "no-candidate"])(

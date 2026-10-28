@@ -1,5 +1,8 @@
 # Seleção de previews Meta — implementação local
 
+> Registro da primeira versão. Para o piso HD, coleção completa, apresentação
+> 9:16 e cobertura atual, consultar [padronização HD](padronizacao-hd-e-cobertura-2026-10-28.md).
+
 Implementação aprovada em 28/10/2026, branch `codex/meta-creative-preview-quality`,
 worktree exclusiva `work/meta-creative-preview-quality`. Produção não foi alterada.
 
