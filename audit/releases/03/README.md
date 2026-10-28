@@ -1,6 +1,6 @@
 # Entrega 03 · Estados proporcionais às fontes
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base: `b1103467737289c765c3b190a6cb61e2d96bf34b`, após o PR #12 e confirmação de seu Pages.
+Estado: **publicado; validado localmente e leitura pública confirmada; homologação autenticada pendente**. Base: `b1103467737289c765c3b190a6cb61e2d96bf34b`, após o PR #12 e confirmação de seu Pages.
 
 ## F12/P2
 
@@ -32,4 +32,11 @@ Reprodução: o mesmo build com URL/chave sintéticas descrito na entrega 02, se
 
 [Loading próprio em 360×800](images/settings-own-loading.png) · [Erro próprio em 360×800](images/settings-own-error.png). Os pares em 390×844 mostram o viewport inicial do documento; o cabeçalho também incorpora a entrega 01 já publicada. Capturas integrais de cada resolução permanecem em `artifacts/uiux-03/`.
 
-PR, commit, Actions/Pages e leitura pública serão registrados após a integração. A homologação autenticada de produção permanece pendente sem sessão autorizada no contexto de verificação.
+## Publicação concluída em 28/10/2026
+
+- [PR #13](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/13), correção `ea83123f4d56f93899266a97da687474d01bc7a8`, merge `743ca6fc561bdfe4a8b6d846f4ca11410c7598be`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40736973721): build/deploy concluídos; **55 arquivos / 624 testes aprovados**, typecheck e build aprovados.
+- [Pages](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; código lazy publicado contém os estados por fonte. Leitura real do login em 1440×900 e 390×844 sem erros ou overflow, sem requisições de gravação. [Registro](production-verification.json).
+- Homologação autenticada de Configurações/Orgânico **pendente**: navegador novo sem sessão, sem credenciais, OAuth ou mocks na verificação de produção.
+- Arquivos de produto: `src/pages/Dashboard.tsx`, `src/lib/use-dashboard.ts`, `src/lib/manual-inputs.ts` (uma linha no retorno do hook). Demais arquivos são testes, documentação e evidências. Nenhum backend/coleção/permissão alterado.
+- Restam oito achados P2/P3. Próxima entrega: F05/F06, sobre a main atualizada após esta publicação.
