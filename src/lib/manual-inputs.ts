@@ -163,6 +163,7 @@ export function useManualData() {
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error as Error | null,
+    refetch: query.refetch,
   };
 }
 

@@ -1,6 +1,6 @@
 # Entrega 02 · Metas e apresentação
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base atualizada após o PR #11: `acf5844c8c67890e7e26bc5eb3ea98d3c57db49b`.
+Estado: **publicado; validado localmente e leitura pública confirmada; homologação autenticada pendente**. Base atualizada após o PR #11: `acf5844c8c67890e7e26bc5eb3ea98d3c57db49b`.
 
 ## Correções
 
@@ -34,4 +34,11 @@ As imagens usam a mesma data e dados controlados do diagnóstico, sem consultas/
 
 `Presentation.tsx` e `presentation-layout.ts` são compartilhados pela apresentação de criativos. A alteração restringe-se às páginas de metas e à permanência do conteúdo durante resize. Seleção/ranking, quantidade por página de criativos, extração, armazenamento, atualização seletiva e coletores Meta não mudaram; não foi antecipado código do PR #10.
 
-PR, commit, Actions/Pages e leitura pública serão registrados após a integração. A homologação autenticada em produção continua separada e pendente sem sessão autorizada disponível.
+## Publicação concluída em 28/10/2026
+
+- [PR #12](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/12), correção `0d1cef15fa140426c88dd42d3b6136d8310859bc`, merge `b1103467737289c765c3b190a6cb61e2d96bf34b`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40694444935): build/deploy concluídos, **54 arquivos / 614 testes aprovados**, typecheck e build aprovados.
+- Leitura real em [Pages](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; CSS global com a nova legenda e CSS lazy da apresentação com a nova grade confirmados. Login em 1440×900 e 390×844 sem runtime/configuração/overflow ou requisição de gravação; capturas idênticas byte a byte à entrega 01. [Registro](production-verification.json).
+- Homologação autenticada de Pacing e apresentação **pendente**. Contexto novo sem sessão, sem credenciais, OAuth, fixtures ou sincronização de produção.
+- Arquivos de produto: `src/components/ui/primitives.tsx`, `src/styles.css`, `src/presentation.css`, `src/lib/presentation-layout.ts`, `src/views/Presentation.tsx`. Demais arquivos: testes, harness local, documentação e evidências.
+- Quatro P1 publicados. Restam nove achados P2/P3; próxima entrega: F12, isoladamente e sobre a main atualizada.
