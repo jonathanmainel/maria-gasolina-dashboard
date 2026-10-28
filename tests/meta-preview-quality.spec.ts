@@ -276,7 +276,7 @@ for (const [width, height] of [
     }, info) => {
       const state = await fixture(page);
       await page.setViewportSize({ width, height });
-      await page.goto(`/dashboard/maria-gasolina?view=${front}`);
+      await page.goto(`/dashboard/maria-gasolina?view=${front}`, { waitUntil: "domcontentloaded" });
       // Allow local lazy-module startup; media assertions keep their normal timeout.
       await expect(page.locator(".creative")).toHaveCount(3, { timeout: 45_000 });
       await inspectImage(page, `FIXTURE ${front} 0`, 1080, 1920);
@@ -316,7 +316,7 @@ for (const [width, height] of [
   }, info) => {
     const state = await fixture(page);
     await page.setViewportSize({ width, height });
-    await page.goto("/dashboard/maria-gasolina?view=franchise");
+    await page.goto("/dashboard/maria-gasolina?view=franchise", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".creative")).toHaveCount(3, { timeout: 45_000 });
     await page
       .getByRole("button", { name: "Modo apresentação", exact: true })

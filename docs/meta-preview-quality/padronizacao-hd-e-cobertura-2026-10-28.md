@@ -163,6 +163,19 @@ mobile passou isoladamente. O registro da outra falha mostra a tela de preparaç
 do módulo lazy. A espera inicial por cards foi ajustada para até 45 s, mantendo
 as mesmas condições de aceite e os tempos das verificações de mídia. Nenhum
 comportamento do aplicativo ou causa de produção foi inferido/alterado para isso.
+A navegação do ensaio aguarda `domcontentloaded` e depois as condições explícitas
+dos cards/imagens, em vez de bloquear pelo evento global `load` de todos os recursos.
+O trace confirmou requisições de módulos locais levando 18–22 s no servidor de
+desenvolvimento. A validação final passou sobre build local já empacotado, com o
+mesmo ambiente fictício e transportes controlados: **6 de 6 cenários passaram
+juntos**. `tests/serve-meta-preview-test.mjs` compila em pasta de artefatos
+ignorada e serve somente em 127.0.0.1; não publica a aplicação. O build inicial
+fica fora do tempo de cada cenário, limitado a 180 s no setup.
+
+Na nova verificação de disponibilidade após a instrução de continuar, o inventário
+do navegador deixou de apresentar o Chrome autorizado. Permanecem disponíveis
+apenas o navegador interno e MCP Apps. Isso mantém pendente a consulta completa
+dos 33; não foi tentado transportar cookies ou credenciais entre navegadores.
 
 O primeiro teste de geometria incluiu a transformação de inclinação dos cards;
 foi corrigido para medir a caixa de layout sem confundir a inclinação já existente

@@ -13,11 +13,10 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command:
-      "node node_modules/vite/bin/vite.js --configLoader runner --host 127.0.0.1 --port 4196 --strictPort",
+    command: "node tests/serve-meta-preview-test.mjs",
     url: "http://127.0.0.1:4196/login",
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 180_000,
     env: {
       VITE_SUPABASE_URL: "https://preview-quality-test.supabase.co",
       VITE_SUPABASE_PUBLISHABLE_KEY:
