@@ -40,6 +40,8 @@ export async function install(context,options={}){
   if(table==='dashboard_client_users')return json(state.mode==='pending'?null:{client_id:1,role:state.role});
   if(table==='dashboard_manual_inputs'){
    if(req.method()!=='GET'){const body=req.postDataJSON();state.writes.push({kind:'commercial',body});return json([body]);}
+   for(let i=0;state.settingsMode==='loading'&&i<200;i++)await new Promise(resolve=>setTimeout(resolve,100));
+   if(state.settingsMode==='error')return json({message:'Falha controlada nas configurações',code:'AUDIT_SETTINGS'},400);
    return json(url.searchParams.get('scope')==='eq.business'?(state.goals?{payload:{goals:state.goals}}:null):[]);
   }
   if(table==='dashboard_sync_runs')return json({completed_at:'2026-10-27T04:00:00Z'});
