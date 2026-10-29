@@ -1,0 +1,22 @@
+[
+  {
+    "file": "published-1440-light.png",
+    "sameBytesAsRelease06": true,
+    "sha256": "08cc0231655bdda422ec28c3d68b6d79de87a286739dca9964a9be4c2db5b54c"
+  },
+  {
+    "file": "published-1440.png",
+    "sameBytesAsRelease06": true,
+    "sha256": "3eac72730468d789a34d050bdecf111030bbcf7950359bf14919bc4c9303f3fa"
+  },
+  {
+    "file": "published-390-light.png",
+    "sameBytesAsRelease06": true,
+    "sha256": "6222c4f1898895e66273d6c101bd58836539f392d18e84bd578a5527c2d8f4dc"
+  },
+  {
+    "file": "published-390.png",
+    "sameBytesAsRelease06": true,
+    "sha256": "863938cb161c324a2951a4d061dd9371ffb43439cb6e3287a69e184fda03da49"
+  }
+]
