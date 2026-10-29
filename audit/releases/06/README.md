@@ -1,6 +1,6 @@
 # Entrega 06 · Origem do Orgânico e marca no login
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base publicada: `465ff9b850913ec8e865b5d6b6fdcbd3e08ca1e8`, após o PR #15.
+Estado: **publicado; marca validada no login público; Orgânico autenticado pendente**. Base publicada: `465ff9b850913ec8e865b5d6b6fdcbd3e08ca1e8`, após o PR #15.
 
 ## F08/P2 · Origem explícita desde a primeira leitura
 
@@ -35,3 +35,13 @@ Reprodução: build com a URL/chave sintéticas da [entrega 02](../02/README.md)
 O par orgânico usa a mesma demonstração preexistente e período controlado. No par de login, o “antes” é a leitura pública da entrega 05, sem sessão; o “depois” é local com o botão focado. A borda de foco já existia e não é uma alteração da marca. A comparação pública após o deploy será registrada separadamente. [Login tablet](login-768-dark.png) · [Limite de 901 px](login-901-light.png).
 
 Homologação autenticada do Orgânico e login real via OAuth permanecem fora da evidência disponível, sem sessão/credenciais autorizadas. A leitura pública do login poderá confirmar a marca após a publicação.
+
+## Publicação concluída em 29/10/2026
+
+- [PR #16](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/16), correção `77906419e6119b4bb851af2bad03921d4c4c6e6a`, merge `91105a3e6d9ad71cad6b633187e58a11473d62f8`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40880092346): **55 arquivos / 627 testes aprovados**, typecheck, build e deploy concluídos.
+- [Login publicado](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; uma marca visível em 1440×900 e 390×844 nos dois temas. Capturas reais inspecionadas, sem erros de execução/configuração, overflow ou gravações. [Registro](production-verification.json) · [Antes/depois público](production-comparison-login-390-light.png).
+- A primeira assinatura do verificador exigia uma ordem de propriedades CSS. A inspeção confirmou os arquivos corretos; a assinatura passou a aceitar a ordem alterada pelo minificador. Nenhum código da aplicação precisou mudar.
+- F13 validado visualmente no login público; OAuth real não foi executado. F08 publicado, com os textos confirmados no arquivo gerado; leitura autenticada do Orgânico permanece **pendente**, sem sessão autorizada.
+- Arquivos de produto: `src/views/Organic.tsx` (copy/aviso), `src/components/Shell.tsx` (rodapé), `src/pages/Login.tsx` (alt da imagem) e `src/styles.css` (logo/marcador). Nenhuma integração ou autenticação alterada.
+- Restam somente **F10/F11/F14, todos P3**.

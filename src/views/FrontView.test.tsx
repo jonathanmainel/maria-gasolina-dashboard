@@ -51,6 +51,9 @@ describe("frentes sem fonte associada", () => {
     show(front);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(label);
     expect(screen.getAllByRole("status").map(node => node.textContent).join(" ")).toContain("Dados ainda não disponíveis");
+    const sections = [...document.querySelectorAll<HTMLDetailsElement>(".unavailable-section")];
+    expect(sections).toHaveLength(3);
+    expect(sections.every((section) => !section.open)).toBe(true);
     expect(document.querySelectorAll(".kpi-value strong")).toHaveLength(6);
     document.querySelectorAll(".kpi-value strong").forEach((value) => expect(value.textContent).toBe("—"));
     expect(screen.getByText("Nenhuma campanha vinculada a esta frente.")).not.toBeNull();
@@ -66,6 +69,8 @@ describe("frentes sem fonte associada", () => {
 
   it("troca filtros e níveis sem buscar campanhas ou reutilizar o cache de outra frente", async () => {
     show("company");
+    fireEvent.click(screen.getByText("Campanhas e detalhamento", { exact: true }));
+    fireEvent.click(screen.getByText("Indicadores de mídia", { exact: true }));
     fireEvent.click(screen.getByRole("tab", { name: "Palavras-chave" }));
     fireEvent.click(screen.getByRole("tab", { name: "Meta Ads" }));
     expect(screen.queryByRole("tab", { name: "Palavras-chave" })).toBeNull();

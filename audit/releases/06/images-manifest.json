@@ -30,5 +30,13 @@
   "login-901-light.png": {
     "sha256": "57d45963f8182bf22e78a50d3a6cb1a10950792e9666597bb9a50cd8196758f3",
     "bytes": 164774
+  },
+  "production-after-390-light.png": {
+    "sha256": "6222c4f1898895e66273d6c101bd58836539f392d18e84bd578a5527c2d8f4dc",
+    "bytes": 25310
+  },
+  "production-comparison-login-390-light.png": {
+    "sha256": "7b2a6a0708fc51e10f0cc560698a7b415632de7958a09dcc4bae99e1302d16dd",
+    "bytes": 48087
   }
 }
