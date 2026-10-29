@@ -42,5 +42,9 @@
   "hero-mobile-dark.png": {
     "sha256": "6e31c7349795ee4e20273fe5d81ecfe4c937b3cf163afa820d23a58618cc02b6",
     "bytes": 576235
+  },
+  "production-login-390-light.png": {
+    "sha256": "6222c4f1898895e66273d6c101bd58836539f392d18e84bd578a5527c2d8f4dc",
+    "bytes": 25310
   }
 }

@@ -10,9 +10,11 @@ Repositório `jonathanmainel/maria-gasolina-dashboard`. Trabalho isolado em `cod
 | [04 · Legibilidade](04/README.md) | F05/F06 | [#14](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/14) | `5970651b08756d49608af19e3bb5f7644c1431f0` | [624 testes, build/Pages aprovados](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40750640374) |
 | [05 · Tabelas](05/README.md) | F07 | [#15](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/15) | `465ff9b850913ec8e865b5d6b6fdcbd3e08ca1e8` | [624 testes, build/Pages aprovados](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40875280376) |
 | [06 · Origem e marca](06/README.md) | F08/F13 | [#16](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/16) | `91105a3e6d9ad71cad6b633187e58a11473d62f8` | [627 testes, build/Pages aprovados](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40880092346) |
-| [07 · Painéis e CSS](07/README.md) | F10/F11/F14 | Em validação | — | — |
+| [07 · Painéis e CSS](07/README.md) | F10/F11/F14 | [#17](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/17) | `33c7e11627bfa8bcb73b388bc3902dd88f089dca` | [627 testes, build/Pages aprovados](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40887762415) |
 
 Cada relatório acima registra os arquivos alterados, testes locais relevantes, capturas antes/depois, limites e verificação após a publicação. Os contadores na tabela são das execuções completas de CI correspondentes; não são somas de reexecuções locais.
+
+**14/14 achados corrigidos e publicados.** Não restam correções de implementação dentro do diagnóstico aprovado. Continua pendente a leitura autenticada das telas internas em produção.
 
 ## Homologação e limites
 

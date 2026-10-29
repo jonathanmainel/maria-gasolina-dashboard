@@ -33,3 +33,13 @@ Os testes estão em `e2e/uiux-panels.spec.ts`, executados com `playwright.uiux-p
 As capturas completas e os relatórios brutos permanecem em `artifacts/uiux-07/`; as evidências selecionadas e hashes ficam neste diretório. A primeira execução parcial foi interrompida ao identificar capturas com rolagem residual. O roteiro final volta ao topo e espera a estabilização dos gráficos. Não foi uma correção da aplicação.
 
 Homologação autenticada de produção permanece pendente, sem sessão autorizada. Dados, imagens e sessões sintéticos são evidência local, nunca evidência de produção.
+
+## Publicação concluída em 29/10/2026
+
+- [PR #17](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/17), correção `e8b5aa519a0feb4a12c6815fb28d2d24e107bc0c`, merge `33c7e11627bfa8bcb73b388bc3902dd88f089dca`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40887762415): **55 arquivos / 627 testes aprovados**, typecheck, build e deploy concluídos com sucesso.
+- [Aplicação real](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; CSS e código publicados contêm as novas seções e regras de composição. Login inspecionado em 1440×900 e 390×844 nos dois temas, sem erros de execução/configuração, overflow ou requisições de gravação. [Registro](production-verification.json) · [Login real](production-login-390-light.png).
+- As quatro imagens públicas são idênticas byte a byte às da entrega 06, confirmando a preservação do login. [Comparação](production-comparison.json).
+- O primeiro verificador esperava a escrita longa de `flex`. A leitura dos arquivos confirmou que a compilação produz os equivalentes `flex:none` e `flex:auto`; o verificador local foi corrigido para reconhecer essas formas. Nenhuma alteração da aplicação foi necessária após o merge.
+- F10/F11/F14 publicados e validados localmente; leitura autenticada de produção **pendente**. As páginas internas não foram verificadas com uma sessão real, nem substituídas por mocks em produção.
+- **Não restam correções de implementação entre os 14 achados aprovados.** [Balanço das sete entregas](../CONCLUSAO.md). O catálogo e o diagnóstico preservam a pendência de homologação autenticada.
