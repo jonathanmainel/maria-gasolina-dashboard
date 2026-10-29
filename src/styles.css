@@ -193,7 +193,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .view-head h1 em { font-style: normal; background: linear-gradient(90deg, var(--gold-text), var(--red)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .view-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; max-width: 720px; }
 .view-head .eyebrow { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; font-weight: 800; }
-.eyebrow i { width: 8px; height: 8px; border-radius: 50%; }
+.eyebrow i { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; }
 .section-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 30px 0 14px; flex-wrap: wrap; }
 .section-title h2 { margin: 0; font-size: 17px; font-weight: 720; letter-spacing: -.02em; }
 .section-title p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
@@ -825,6 +825,7 @@ tbody tr:hover { background: var(--surface-2); }
 .auth-form-panel { display: grid; place-items: center; padding: 40px; }
 .login-card { width: min(100%, 390px); }
 .login-logo { display: none; }
+.login-logo img { width: 58px; height: 64px; object-fit: contain; }
 .login-card .eyebrow { margin: 0 0 10px; color: var(--gold-text); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; font-weight: 800; }
 .login-card h2 { margin: 0; font-size: 30px; letter-spacing: -.04em; }
 .login-description { margin: 10px 0 27px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
@@ -915,6 +916,7 @@ tbody tr:hover { background: var(--surface-2); }
 @media (max-width: 900px) {
   .auth-page { grid-template-columns: 1fr; }
   .auth-brand-panel { display: none; }
+  .login-logo { display: flex; margin-bottom: 22px; }
 }
 @media (max-width: 640px) {
   .grid-4, .grid-6 { grid-template-columns: 1fr; }

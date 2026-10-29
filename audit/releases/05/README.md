@@ -1,6 +1,6 @@
 # Entrega 05 · Tabelas legíveis e rolagem acessível
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base publicada: `5970651b08756d49608af19e3bb5f7644c1431f0`, após o PR #14.
+Estado: **publicado; validação local e leitura pública confirmadas; homologação autenticada pendente**. Base publicada: `5970651b08756d49608af19e3bb5f7644c1431f0`, após o PR #14.
 
 ## F07/P2
 
@@ -36,4 +36,12 @@ Nas capturas, a rolagem suave da página é desativada apenas pelo teste, e a na
 
 `DataTable.tsx` só ganha o import e a região externa; o código de preview/zoom permanece idêntico. Reconciliar esse contêiner com eventuais alterações futuras do PR #10, preservando sua lógica. Arquivos de produto: `src/components/ui/table-viewport.tsx`, `src/components/AnalyticsTables.tsx`, `src/components/CampaignTable.tsx`, `src/components/DataTable.tsx` e `src/styles.css`.
 
-Homologação autenticada de produção permanece pendente sem sessão autorizada. Publicação será registrada após o merge/deploy aprovado.
+Homologação autenticada de produção permanece pendente sem sessão autorizada.
+
+## Publicação concluída em 29/10/2026
+
+- [PR #15](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/15), correção `ed8d819e09d39cc05e097e18bb5ff57dc3c95974`, merge `465ff9b850913ec8e865b5d6b6fdcbd3e08ca1e8`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40875280376): **55 arquivos / 624 testes aprovados**, typecheck, build e deploy concluídos.
+- [Pages](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200, CSS das tabelas confirmado. Login real em 1440×900 e 390×844 nos dois temas sem erros, overflow ou gravações; capturas idênticas às da entrega anterior. [Registro](production-verification.json) · [Comparação de imagens](production-login-comparison.json).
+- A leitura autenticada das tabelas em produção permanece **pendente**, por ausência de sessão autorizada. Nenhuma fixture foi usada na leitura pública.
+- Restam cinco achados: F08/F13 (P2) e F10/F11/F14 (P3). Próxima entrega: origem do Orgânico e marca no login, após atualizar a base da main.

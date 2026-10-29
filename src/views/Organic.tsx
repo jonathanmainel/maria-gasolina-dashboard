@@ -13,6 +13,7 @@ export type OrganicScope = "overview" | "instagram" | "facebook";
 
 export function OrganicView({ data, scope, onScopeChange }: { data: DashboardData; scope: OrganicScope; onScopeChange: (scope: OrganicScope) => void }) {
   const colors = useChartColors();
+  const connected = data.organicOrigin === "supabase";
   const [metric, setMetric] = useState<"followers" | "reach" | "interactions">("followers");
   const cur = useMemo(() => scope === "overview" ? merge(organicSummary(data.organicRows, "instagram"), organicSummary(data.organicRows, "facebook")) : organicSummary(data.organicRows, scope), [data.organicRows, scope]);
   const prev = useMemo(() => scope === "overview" ? merge(organicSummary(data.organicPrevRows, "instagram"), organicSummary(data.organicPrevRows, "facebook")) : organicSummary(data.organicPrevRows, scope), [data.organicPrevRows, scope]);
@@ -46,20 +47,21 @@ export function OrganicView({ data, scope, onScopeChange }: { data: DashboardDat
     <div className="view-enter">
       <div className="view-head">
         <div>
-          <span className="eyebrow"><i style={{ background: "var(--violet)" }} />Presença orgânica · Meta Graph API</span>
+          <span className="eyebrow"><i style={{ background: "var(--violet)" }} />Presença orgânica · {connected ? "dados conectados" : "demonstração · integração pendente"}</span>
           <h1>A marca crescendo <em>sem pagar por clique</em></h1>
-          <p>Seguidores, alcance, interações e as publicações que mais converteram atenção em conversa. Números vêm direto da conta oficial via Graph API.</p>
+          <p>{connected
+            ? "Seguidores, alcance, interações e publicações de Instagram e Facebook no período selecionado."
+            : "Exemplos de seguidores, alcance, interações e publicações. A integração orgânica está pendente; os valores desta seção são ilustrativos."}</p>
         </div>
         <div className="organic-scope"><Segmented value={scope} onChange={onScopeChange} options={[{ id: "overview", label: "Visão Geral" }, { id: "instagram", label: "Instagram" }, { id: "facebook", label: "Facebook" }]} /></div>
       </div>
 
-      {data.organicOrigin === "demo" && (
+      {!connected && (
         <div className="demo-note">
           <Info size={16} />
           <span>
-            <b>Dados de demonstração.</b> A ingestão do Instagram e do Facebook orgânicos (Meta Graph API) ainda não existe no backend —
-            não há tabela nem RPC para esses números. A tela fica de pé com uma série ilustrativa até a integração ser ligada;
-            nenhum número desta seção deve ser usado em relatório.
+            <b>Dados de demonstração.</b> A conexão com Instagram e Facebook ainda não está disponível.
+            Os valores desta seção são ilustrativos e não devem ser usados em relatórios.
           </span>
         </div>
       )}
