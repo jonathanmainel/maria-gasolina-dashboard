@@ -1,5 +1,9 @@
 # Publicação do PR #10 — bloqueio no despacho seletivo
 
+> Registro histórico. A extensão seletiva foi autorizada e homologada; o frontend
+> foi publicado separadamente no PR #19. Estado atual e gate de produção em
+> [publicação simplificada de 29/10](publicacao-simplificada-2026-10-29.md).
+
 28/10/2026. **Publicação interrompida antes de qualquer deploy ou gravação remota.**
 O responsável determinou que os lotes usem exclusivamente as reservas legítimas
 e o coordenador existentes, e que uma alteração desse protocolo exija aprovação

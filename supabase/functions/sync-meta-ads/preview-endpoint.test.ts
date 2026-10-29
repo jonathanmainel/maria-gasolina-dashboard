@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ enrich: vi.fn() }));
+vi.mock('./preview-receipts.ts',()=>({previewReceipts:async()=>[{ad_id:'123',outcome:'preserved_adequate'}]}));
 vi.mock("../_shared/dashboard.ts", () => ({
   resolveDashboardClient: async () => ({ data: { id: 1 }, error: null }),
   listSourceAccounts: async () => ({
@@ -96,17 +97,24 @@ describe("selective endpoint retains the integrated collector guards", () => {
       }),
     );
   });
-  it("write mode still claims the integrated reservation before enrichment", async () => {
+  it("rejects a metric reservation for selective writes", async () => {
+    const {response}=await call({...body,dry_run:false,automation_run_id:'10000000-0000-4000-8000-000000000001'});
+    expect(response.status).toBe(409);
+    expect(mocks.enrich).not.toHaveBeenCalled();
+  });
+  it("write mode claims only the exact preview reservation before enrichment", async () => {
+    const selection={ad_ids:['123','456'],approved_assets:[],ads:['123','456'].map(ad_id=>({ad_id,creative_id:'789',video_id:'999',asset_key:'video:999',previous_sha256:null,previous_path:null,previous_updated_at:'2026-10-28T00:00:00Z'}))};
     const { response, rpc } = await call({
       ...body,
       dry_run: false,
       automation_run_id: "10000000-0000-4000-8000-000000000001",
+      operation:'previews',preview_account_id:'123',preview_selection:selection,selection_fingerprint:'a'.repeat(64),
     });
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith(
-      "begin_dashboard_sync_collection",
-      expect.objectContaining({ p_client_id: 1, p_source: "meta_ads" }),
+      "begin_dashboard_preview_collection",
+      expect.objectContaining({ p_client_id: 1, p_account_id: '123',p_selection:selection }),
     );
     expect(fetch).not.toHaveBeenCalled();
     expect(mocks.enrich).toHaveBeenCalledTimes(1);

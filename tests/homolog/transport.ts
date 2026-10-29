@@ -1,6 +1,8 @@
 // TEST PACKAGE ONLY. Never import into a production entrypoint.
 // Supabase authentication, RPCs, queue, persistence and audit remain real.
 import { withSupabase } from "@supabase/server";
+import {createPreviewProvider} from './preview-provider.ts';
+import {fixtures} from './preview-fixtures.ts';
 declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void };
 const REF = "uwafdxsdsgqysjjxfywo";
 const ORIGIN = `https://${REF}.supabase.co`;
@@ -10,6 +12,7 @@ type Source = "google_ads" | "meta_ads" | "ga4";
 type Control = { scenario: string; generation: number };
 let control: Control = { scenario: "partial", generation: 1 };
 let providerStarted: (() => void) | undefined;
+let previewProvider:ReturnType<typeof createPreviewProvider>|undefined;
 const fixtureEnvironment = new Map<string, string>();
 export const homologEnv = (name: string): string | undefined => fixtureEnvironment.get(name);
 const today = () => {
@@ -43,6 +46,7 @@ export async function createHomologCollector(source: Source, collector: { fetch:
   fixtureEnvironment.set("META_API_VERSION", "v25.0");
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init); const url = new URL(request.url);
+    const preview=previewProvider&&await previewProvider(request);if(preview)return preview;
     if (url.origin === ORIGIN) return nativeFetch(request, { redirect: "error" });
     if (url.href === "https://oauth2.googleapis.com/token" && request.method === "POST") {
       providerStarted?.();
@@ -98,13 +102,18 @@ export async function createHomologCollector(source: Source, collector: { fetch:
       if (id) await ctx.supabaseAdmin.from("manual_sync_homolog_receipts").upsert({ run_id: id, source, execution_id: Deno.env.get("SB_EXECUTION_ID"), started_at: new Date().toISOString() });
       let signalStarted!: () => void;
       const started = new Promise<void>(resolve => { signalStarted = resolve; }); providerStarted = signalStarted;
-      const native = Promise.resolve(collector.fetch(req));
+      previewProvider=source==='meta_ads'&&body.operation==='previews'?createPreviewProvider(nativeFetch,control,()=>providerStarted?.(),fixtures):undefined;
+      const native = Promise.resolve().then(()=>collector.fetch(req)).catch(async error=>{
+        const diagnostic={test_error_name:error?.name??'unknown',test_error_type:'COLLECTOR_REJECTED'};
+        if(id)await ctx.supabaseAdmin.from('manual_sync_homolog_receipts').update({finished_at:new Date().toISOString(),outcome:'failed',counts:diagnostic}).eq('run_id',id);
+        return Response.json({ok:false,error_code:'HOMOLOG_COLLECTOR_REJECTED',...diagnostic},{status:500});
+      });
       const finish = async (response: Response) => {
         let output: Record<string, unknown> = {}; try { output = await response.clone().json(); } catch { /* safe status only */ }
-        if (id) await ctx.supabaseAdmin.from("manual_sync_homolog_receipts").update({ finished_at: new Date().toISOString(), http_status: response.status, write_performed: output.database_write_performed === true, write_status: output.database_write_status ?? null, counts: output.counts ?? {}, outcome: response.ok && output.ok === true ? "success" : "failed" }).eq("run_id", id);
+        if (id) await ctx.supabaseAdmin.from("manual_sync_homolog_receipts").update({ finished_at: new Date().toISOString(), http_status: response.status, write_performed: output.database_write_performed === true, write_status: output.database_write_status ?? null, counts: body.operation==='previews'?{preview_results:output.preview_results??null}:output.counts ?? {}, outcome: response.ok && output.ok === true ? "success" : "failed" }).eq("run_id", id);
         return response;
       };
-      if (source === "google_ads" && control.scenario === "indeterminate") {
+      if ((source === "google_ads"||source==='meta_ads'&&body.operation==='previews') && control.scenario === "indeterminate") {
         const early = await Promise.race([started.then(() => null), native]);
         if (early) return finish(early);
         EdgeRuntime.waitUntil(native.then(finish).catch(async () => { if (id) await ctx.supabaseAdmin.from("manual_sync_homolog_receipts").update({ finished_at: new Date().toISOString(), outcome: "failed" }).eq("run_id", id); }));

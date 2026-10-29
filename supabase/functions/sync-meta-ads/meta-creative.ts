@@ -7,6 +7,7 @@ import {
   PreviewError,
   readLimitedBody,
 } from "./preview-media.ts";
+import type {PreviewSelection} from '../_shared/preview-operation.ts';
 export const CREATIVE_BUCKET = "dashboard-creatives";
 export const CREATIVE_REFRESH_TTL_MS = 20 * 60 * 60 * 1000;
 const META_AD_BATCH_SIZE = 25;
@@ -147,6 +148,7 @@ type EnrichOptions = {
   videoPictureOverrides?: Record<string, string>;
   // Backend-only selection; does not add an alternate collector endpoint.
   previewAdIds?: string[];
+  reservationSelection?: PreviewSelection;
   // Explicit trusted local/isolated adapter only. The collector never starts FFmpeg.
   frameFallback?: (identity: { accountId: string; adId: string; creativeId: string | null; videoId: string }) => Promise<{ videoId: string; bytes: Uint8Array<ArrayBuffer>; mime: string } | null>;
 };
@@ -1587,6 +1589,12 @@ export async function enrichMetaCreativePreviews(
     CREATIVE_CONCURRENCY,
     async (ref) => {
       const current = existing.get(`${ref.account_id}:${ref.ad_id}`);
+      const snapshot=options.reservationSelection?.ads.find(a=>a.ad_id===ref.ad_id);
+      if(options.reservationSelection&&(!snapshot||current?.creative_id!==snapshot.creative_id
+        ||current?.updated_at!==snapshot.previous_updated_at
+        ||(current?.preview_sha256??null)!==snapshot.previous_sha256||(current?.preview_storage_path??null)!==snapshot.previous_path
+        ||(current?.metadata?.video_id??null)!==snapshot.video_id||(current?.metadata?.preview_asset_key??null)!==snapshot.asset_key))
+        throw new PreviewError('preview_reservation_snapshot_conflict');
       const ad = fetched.get(`${ref.account_id}:${ref.ad_id}`);
       const fetchFailure = fetchFailures.get(`${ref.account_id}:${ref.ad_id}`);
       if (!ad || fetchFailure) {
@@ -1664,7 +1672,9 @@ export async function enrichMetaCreativePreviews(
         : undefined;
       if (originalImage) extras.push(originalImage);
       const reviewed = objectValue(current?.metadata?.preview_reviewed_thumbnail);
-      const reviewedThumbnail = reviewed?.video_id === creative.videoId && /^[a-f0-9]{64}$/.test(String(reviewed?.sha256))
+      const approved=options.reservationSelection?.approved_assets.find(a=>a.ad_id===ref.ad_id);
+      const reviewedThumbnail = approved?.video_id===creative.videoId ? {videoId:creative.videoId!,sha256:approved.sha256}
+        : reviewed?.video_id === creative.videoId && /^[a-f0-9]{64}$/.test(String(reviewed?.sha256))
         ? {videoId:creative.videoId!,sha256:String(reviewed!.sha256)} : undefined;
       let collectionIncomplete = !!creative.videoId && (lookupErrors.get(creative.videoId) ?? []).some(code =>
         ["meta_thumbnail_page_limit", "meta_thumbnail_page_cycle", "meta_thumbnail_collection_incomplete"].includes(code));
@@ -1678,6 +1688,8 @@ export async function enrichMetaCreativePreviews(
           : await resolve(creative, extras, ref, reviewedThumbnail);
       if (resolved.comparisons.some(c => c.result === "candidate_limit")) collectionIncomplete = true;
       const file = resolved.selected?.file;
+      if(approved&&(!file||file.sha256!==approved.sha256||creative.creativeId!==approved.creative_id
+        ||(approved.video_id!==undefined&&creative.videoId!==approved.video_id)))throw new PreviewError('preview_approved_candidate_unavailable');
       let previousWidth = Number(current?.metadata?.preview_width) || 0,
         previousHeight = Number(current?.metadata?.preview_height) || 0;
       let existingError: string | null = null;
@@ -1954,7 +1966,7 @@ export async function enrichMetaCreativePreviews(
             ? safeErrorCode(result.reason)
             : "creative_unknown";
         const current = existing.get(`${ref.account_id}:${ref.ad_id}`);
-        if (code === "preview_concurrent_update") return;
+        if (code === "preview_concurrent_update"||code==='preview_reservation_snapshot_conflict') return;
         const query = current
           ? options.supabase
               .from("dashboard_creative_previews")
@@ -2002,7 +2014,7 @@ export async function enrichMetaCreativePreviews(
       ) {
         stats.video_preview_failed++;
       }
-      if (stats.failures.length < 25) {
+      if (stats.failures.length < (options.reservationSelection ? 50 : 25)) {
         stats.failures.push({ ad_id: ref.ad_id, code });
       }
       return;
@@ -2015,7 +2027,7 @@ export async function enrichMetaCreativePreviews(
       ) {
         stats.video_preview_failed++;
       }
-      if (stats.failures.length < 25) {
+      if (stats.failures.length < (options.reservationSelection ? 50 : 25)) {
         stats.failures.push({
           ad_id: result.value.adId,
           code: result.value.code,
@@ -2031,7 +2043,7 @@ export async function enrichMetaCreativePreviews(
     if (result.value.downloaded) stats.preview_downloaded++;
     if (result.value.errorCode) {
       stats.failed++;
-      if (stats.failures.length < 25)
+      if (stats.failures.length < (options.reservationSelection ? 50 : 25))
         stats.failures.push({ ad_id: ref.ad_id, code: result.value.errorCode });
     }
     if (result.value.reused) stats.reused++;

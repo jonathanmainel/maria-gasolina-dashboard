@@ -1,4 +1,6 @@
 import { authorizeCollection } from "../_shared/sync-control.ts";
+import {previewSelection} from '../_shared/preview-operation.ts';
+import {previewReceipts} from './preview-receipts.ts';
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 import {
@@ -500,6 +502,8 @@ export default {
 
       const reservationError = await authorizeCollection(ctx.supabaseAdmin, body, dashboardClient.id, "meta_ads", start_date, end_date);
       if (reservationError) return reservationError;
+      const previewOperation=(body as any).operation==='previews';
+      const reservedSelection=previewOperation&&previewSelection((body as any).preview_selection)?(body as any).preview_selection:undefined;
 
       try {
         const { data: sourceAccounts, error: sourceAccountsError } =
@@ -786,13 +790,14 @@ export default {
               clientId: dashboardClient.id,
               apiVersion: metaApiVersion,
               accessToken: metaAccessToken,
-              accountIds: sourceAccounts.map((account) => account.account_id),
+              accountIds: sourceAccounts.filter(account=>!previewOperation||account.account_id===(body as any).preview_account_id).map((account) => account.account_id),
               startDate: start_date,
               endDate: end_date,
               adRows: normalizedAdRows,
               dryRun: dry_run,
               videoRefreshOnly: refresh_video_previews_only,
               previewAdIds: preview_ad_ids,
+              reservationSelection: reservedSelection,
               videoPictureOverrides: video_picture_overrides,
             }),
           };
@@ -830,7 +835,14 @@ export default {
               ? "partial_success"
               : "success"
             : null);
-        const responseOk = !refresh_previews_only ||
+        let preview_results;
+        if(previewOperation&&!dry_run){
+          try {preview_results=await previewReceipts(ctx.supabaseAdmin,dashboardClient.id,(body as any).preview_account_id,reservedSelection,creativeEnrichment);}
+          catch {return Response.json({ok:false,error_code:'PREVIEW_RESULT_UNCONFIRMED',database_write_performed:false},{status:503});}
+        }
+        const responseOk = previewOperation&&!dry_run
+          ? !!preview_results?.every(r=>['updated','preserved_adequate','preserved_inadequate'].includes(r.outcome))
+          : !refresh_previews_only ||
           (creativeEnrichment.status === "success" &&
             creativeEnrichment.failed === 0);
 
@@ -918,6 +930,7 @@ export default {
           database_write_status: responseWriteStatus,
           database_write_result: databaseWriteResult,
           creative_enrichment: creativeEnrichment,
+          ...(previewOperation?{operation:'previews',preview_results}:{}),
 
           message: refresh_previews_only
             ? dry_run
