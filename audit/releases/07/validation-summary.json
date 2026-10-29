@@ -1,0 +1,145 @@
+{
+  "sourceBase": "91105a3e6d9ad71cad6b633187e58a11473d62f8",
+  "unit": {
+    "files": 5,
+    "passed": 48,
+    "executions": [
+      {
+        "files": 4,
+        "passed": 35
+      },
+      {
+        "files": 1,
+        "passed": 13
+      }
+    ]
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "matrix": {
+    "startTime": "2026-10-29T13:44:28.634Z",
+    "duration": 430066.62100000004,
+    "expected": 27,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "criticalFinalBuild": {
+    "startTime": "2026-10-29T13:54:07.238Z",
+    "duration": 60200.875,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "review": {
+    "panelCompositions": 165,
+    "contactSheets": 21,
+    "extraCriticalCompositions": 20,
+    "nativeCrops": 6,
+    "beforeAfterPairs": 2
+  },
+  "criticalPixelComparisons": [
+    {
+      "file": "company-closed-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "company-expanded-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "crm-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "executive-1440-light.png",
+      "sameSize": true,
+      "samePixels": false
+    },
+    {
+      "file": "gym-closed-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "gym-expanded-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "hospital-closed-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "hospital-expanded-1440-light.png",
+      "sameSize": true,
+      "samePixels": false
+    },
+    {
+      "file": "settings-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "settings-editor-1440-light.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "company-closed-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "company-expanded-360-dark.png",
+      "sameSize": true,
+      "samePixels": false
+    },
+    {
+      "file": "crm-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "executive-360-dark.png",
+      "sameSize": true,
+      "samePixels": false
+    },
+    {
+      "file": "gym-closed-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "gym-expanded-360-dark.png",
+      "sameSize": true,
+      "samePixels": false
+    },
+    {
+      "file": "hospital-closed-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "hospital-expanded-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "settings-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    },
+    {
+      "file": "settings-editor-360-dark.png",
+      "sameSize": true,
+      "samePixels": true
+    }
+  ],
+  "productionAuthenticated": "pending: no authorized session"
+}

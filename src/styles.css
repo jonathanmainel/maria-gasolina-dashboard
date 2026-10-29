@@ -206,11 +206,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .grid-hero { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 .grid-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .grid-wide { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-/* Coluna lateral de painéis empilhados que se esticam até a altura do vizinho. */
+/* Coluna de painéis empilhados; o preenchimento de altura é optativo. */
 .panel-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-/* O painel empilhado também vira coluna, para o corpo poder absorver a sobra em vez
-   de empurrar tudo para cima e deixar um vão embaixo do conteúdo. */
-.panel-stack > .panel { flex: 1 1 auto; display: flex; flex-direction: column; }
+/* Altura do conteúdo por padrão; a composição decide quando absorver a sobra. */
+.panel-stack > .panel { flex: 0 0 auto; display: flex; flex-direction: column; }
+.panel-stack-fill > .panel { flex: 1 1 auto; }
 /* Título de seção usado dentro de uma coluna empilhada: o espaçamento vem do gap. */
 .panel-stack > .section-title { margin: 8px 0 0; }
 /* Painel de gráfico que cresce para fechar com a coluna ao lado, sem sobra embaixo. */
@@ -807,6 +807,16 @@ tbody tr:hover { background: var(--surface-2); }
 
 .demo-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 15px; margin-bottom: 16px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--violet) 55%, transparent); background: color-mix(in srgb, var(--violet) 9%, transparent); color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
 .demo-note svg { flex: 0 0 auto; margin-top: 1px; color: var(--violet); }
+.unavailable-sections { display: grid; gap: 14px; }
+.unavailable-section { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.unavailable-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 700; }
+.unavailable-section > summary::-webkit-details-marker { display: none; }
+.unavailable-section > summary > span { min-width: 0; }
+.unavailable-section > summary small { display: block; margin-top: 4px; color: var(--muted); font-size: 10.5px; font-weight: 500; line-height: 1.5; }
+.unavailable-section > summary > svg { flex-shrink: 0; transition: transform .2s ease; }
+.unavailable-section[open] > summary > svg { transform: rotate(180deg); }
+.unavailable-section > summary:focus-visible { outline: 2px solid var(--gold-text); outline-offset: -2px; border-radius: var(--radius); }
+.unavailable-section-content { padding: 0 20px 20px; }
 
 /* ------------------------------------------------------------ auth */
 .auth-page { position: relative; z-index: 1; min-height: 100vh; display: grid; grid-template-columns: minmax(360px, .9fr) minmax(480px, 1.1fr); }
@@ -934,10 +944,10 @@ tbody tr:hover { background: var(--surface-2); }
   .topbar .period-button { width: 100%; justify-content: space-between; }
   .topbar-sync-group, .data-sync-control { width: 100%; }
   .period-button { padding: 0 10px; gap: 6px; }
-  .hero { display: flex; flex-direction: column; min-height: 0; }
+  .hero { display: flex; flex-direction: column; min-height: 340px; }
   .hero-copy { order: 1; padding: 20px 18px 6px; }
   .hero-canvas { order: 2; position: relative; height: 260px; }
-  .hero-stats { order: 3; position: static; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 0 14px 12px; }
+  .hero-stats { order: 3; grid-template-columns: 1fr; gap: 6px; padding: 0 14px 12px; }
   .hero-stat { min-width: 0; padding: 8px 10px; }
   .hero-stat strong { font-size: 15px; }
   .hero-legend { order: 4; position: static; padding: 0 18px 16px; gap: 10px; }
@@ -968,8 +978,6 @@ tbody tr:hover { background: var(--surface-2); }
   .mobile-details > div { display: grid; gap: 3px; min-width: 0; }
   .mobile-details > div > strong { color: var(--text); }
   .mobile-details b { color: var(--text); }
-  .hero { min-height: 340px; }
-  .hero-stats { grid-template-columns: 1fr; }
   .creative-grid { grid-template-columns: 1fr; }
   .present .kpi-value strong { font-size: 26px; }
   .present-top .r { display: none; }

@@ -67,9 +67,8 @@ export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string
         ? "Seu perfil permite somente leitura de metas e configurações."
         : "Edição de metas e configurações bloqueada até a liberação das permissões operacionais."}</p>}
 
-      {/* Duas colunas de altura equivalente: as metas e o bloco de conteúdos sobem
-          para o lado dos painéis utilitários em vez de deixar um card de metas
-          esticado e meio vazio com a seção de baixo empurrada para fora da tela. */}
+      {/* Metas e conteúdos usam altura intrínseca; a coluna utilitária não deve
+          distribuir sua sobra vertical dentro dos painéis de leitura/edição. */}
       <div className="grid grid-wide">
         <div className="panel-stack">
           <ManualNumbersPanel

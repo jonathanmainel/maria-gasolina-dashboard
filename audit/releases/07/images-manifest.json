@@ -1,0 +1,46 @@
+{
+  "after-company-360-dark.png": {
+    "sha256": "331b8b2b2ba086081ecb401aab126bb0b648ac2869f15cd713f0924be3c6dc72",
+    "bytes": 92923
+  },
+  "after-settings-1440-light.png": {
+    "sha256": "4143fb3f77379d2ffacaf12329a8f9ef0e00937af5b7639915cebd01e3147152",
+    "bytes": 263208
+  },
+  "before-company-360-dark.png": {
+    "sha256": "4a2ae52f5d8c9af4296a1275b4e327387724c3e250d4d44a904273c2f465abaf",
+    "bytes": 198448
+  },
+  "before-settings-1440-light.png": {
+    "sha256": "8be9a7ff1fe1840787139263f5790a9ba1d0a557040f51ea5c2f303d88f2a31a",
+    "bytes": 264817
+  },
+  "comparison-company-360-dark.png": {
+    "sha256": "2f29419fd05535c31e79c5d6c899fc92c4185755ee1d7062eef8a859e1dddb84",
+    "bytes": 277694
+  },
+  "comparison-settings-1440-light.png": {
+    "sha256": "349d9eacd168efea41a98f812036b8c3223212d897f3360bd5ad7b6bc89d29d9",
+    "bytes": 246240
+  },
+  "crm-768-light.png": {
+    "sha256": "cb75403e9b1b29ba916a342b302e01d1f170e4cb9c0726ec93fcee5b333d2583",
+    "bytes": 331495
+  },
+  "editor-settings-360-light.png": {
+    "sha256": "3b5525c2ac59bbf6d40c708bf587925f0446f2e0fdefd5619d79c3f77d0be269",
+    "bytes": 216690
+  },
+  "executive-1024-dark.png": {
+    "sha256": "ffc58a072babf0d05a0349695d6c9fc9d20c17450eb53408cad761b6ecb88d5f",
+    "bytes": 635579
+  },
+  "expanded-company-360-dark.png": {
+    "sha256": "9effd89bb79ac601581d2a22c79881712628ecaa64e449e2935d104ad29f24d5",
+    "bytes": 219878
+  },
+  "hero-mobile-dark.png": {
+    "sha256": "6e31c7349795ee4e20273fe5d81ecfe4c937b3cf163afa820d23a58618cc02b6",
+    "bytes": 576235
+  }
+}

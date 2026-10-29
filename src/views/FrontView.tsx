@@ -1,5 +1,5 @@
 import { CommercialFunnelPanel } from "../components/CommercialFunnelPanel";
-import { AlertCircle, ArrowLeftRight, ArrowRight, Eye, Info, MousePointerClick, Percent, Target, Wallet, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, ArrowRight, ChevronDown, Eye, Info, MousePointerClick, Percent, Target, Wallet, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented, Skeleton, useTilt } from "../components/ui/primitives";
@@ -77,26 +77,43 @@ function UnavailableFrontView({ front, range, channelFilter, onChannelChange, on
   return <div className="view-enter" data-testid="unavailable-front" data-front={front}>
     <FrontHeader front={front} channelFilter={channelFilter} onChannelChange={onChannelChange} onCompare={onCompare} compareButton={compareButton} />
     <div className="demo-note" role="status"><Info size={15} /><span>Dados ainda não disponíveis para esta frente.</span></div>
-    <div className="grid grid-6 kpi-grid-empty">
-      <Kpi label="Investimento" value={null} format={money} accent={meta.accent} icon={<Wallet size={16} />} hideDelta foot="Sem dados associados" />
-      <Kpi label="Leads" value={null} format={integer} accent={meta.accent} icon={<Target size={16} />} hideDelta foot="Sem dados associados" />
-      <Kpi label="Custo por lead" value={null} format={money} accent="green" icon={<Zap size={16} />} hideDelta foot="Sem dados associados" />
-      <Kpi label="Conversão clique → lead" value={null} format={percent} accent="sky" icon={<Percent size={16} />} hideDelta foot="Sem dados associados" />
-      <Kpi label="Cliques" value={null} format={integer} accent="navy" icon={<MousePointerClick size={16} />} hideDelta foot="Sem dados associados" />
-      <Kpi label="Impressões" value={null} format={compact} accent="navy" icon={<Eye size={16} />} hideDelta foot="Sem dados associados" />
+    <div className="unavailable-sections">
+      <details className="unavailable-section">
+        <summary><span>Indicadores de mídia<small>Sem dados associados · expandir para consultar as seções</small></span><ChevronDown size={16} aria-hidden /></summary>
+        <div className="unavailable-section-content">
+          <div className="grid grid-6 kpi-grid-empty">
+            <Kpi label="Investimento" value={null} format={money} accent={meta.accent} icon={<Wallet size={16} />} hideDelta foot="Sem dados associados" />
+            <Kpi label="Leads" value={null} format={integer} accent={meta.accent} icon={<Target size={16} />} hideDelta foot="Sem dados associados" />
+            <Kpi label="Custo por lead" value={null} format={money} accent="green" icon={<Zap size={16} />} hideDelta foot="Sem dados associados" />
+            <Kpi label="Conversão clique → lead" value={null} format={percent} accent="sky" icon={<Percent size={16} />} hideDelta foot="Sem dados associados" />
+            <Kpi label="Cliques" value={null} format={integer} accent="navy" icon={<MousePointerClick size={16} />} hideDelta foot="Sem dados associados" />
+            <Kpi label="Impressões" value={null} format={compact} accent="navy" icon={<Eye size={16} />} hideDelta foot="Sem dados associados" />
+          </div>
+          <div className="grid grid-hero" style={{ marginTop: 14 }}>
+            <Panel title="Leads e investimento ao longo do tempo" actions={<Segmented value={chartMode} onChange={setChartMode} options={[{ id: "daily", label: "Diário" }, { id: "weekly", label: "Semanal" }, { id: "monthly", label: "Mensal" }]} />}><div className="chart-box empty-chart">{empty}</div></Panel>
+            <Panel title="Metas do mês">{empty}</Panel>
+          </div>
+          <div className="grid grid-3" style={{ marginTop: 14 }}>
+            <Panel title="Meta Ads" badge={<span className="chip meta">Meta</span>}>{empty}</Panel>
+            <Panel title="Google Ads" badge={<span className="chip google">Google</span>}>{empty}</Panel>
+            <Panel title="Leads por semana">{empty}</Panel>
+          </div>
+        </div>
+      </details>
+      <details className="unavailable-section">
+        <summary><span>Campanhas e detalhamento<small>Níveis e filtros disponíveis · sem campanhas vinculadas</small></span><ChevronDown size={16} aria-hidden /></summary>
+        <div className="unavailable-section-content">
+          <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={[]} />
+        </div>
+      </details>
+      <details className="unavailable-section">
+        <summary><span>Criativos<small>Sem anúncios associados a esta frente</small></span><ChevronDown size={16} aria-hidden /></summary>
+        <div className="unavailable-section-content">
+          <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Os criativos serão exibidos quando houver anúncios associados.</p></div></div>
+          <CreativeRanking creatives={[]} emptyLabel="Nenhum criativo vinculado a esta frente." />
+        </div>
+      </details>
     </div>
-    <div className="grid grid-hero" style={{ marginTop: 14 }}>
-      <Panel title="Leads e investimento ao longo do tempo" actions={<Segmented value={chartMode} onChange={setChartMode} options={[{ id: "daily", label: "Diário" }, { id: "weekly", label: "Semanal" }, { id: "monthly", label: "Mensal" }]} />}><div className="chart-box empty-chart">{empty}</div></Panel>
-      <Panel title="Metas do mês">{empty}</Panel>
-    </div>
-    <div className="grid grid-3" style={{ marginTop: 14 }}>
-      <Panel title="Meta Ads" badge={<span className="chip meta">Meta</span>}>{empty}</Panel>
-      <Panel title="Google Ads" badge={<span className="chip google">Google</span>}>{empty}</Panel>
-      <Panel title="Leads por semana">{empty}</Panel>
-    </div>
-    <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={[]} />
-    <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Os criativos serão exibidos quando houver anúncios associados.</p></div></div>
-    <CreativeRanking creatives={[]} emptyLabel="Nenhum criativo vinculado a esta frente." />
     <div style={{ marginTop: 24 }}><CommercialFunnelPanel front={front} summary={summary} /></div>
   </div>;
 }

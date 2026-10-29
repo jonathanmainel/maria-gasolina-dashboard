@@ -237,12 +237,12 @@ Estados: **pendente → em execução → corrigido → publicado → validado**
 | F05 · Sparklines dos KPIs | P2 | publicado | [04 · PR #14](releases/04/README.md) · validado localmente; autenticado pendente |
 | F06 · Contraste | P2 | publicado | [04 · PR #14](releases/04/README.md) · validado localmente; autenticado pendente |
 | F07 · Tabelas em tablet | P2 | publicado | [05 · PR #15](releases/05/README.md) · validado localmente; autenticado pendente |
-| F08 · Origem no Orgânico | P2 | corrigido | [06 · Origem e marca no login](releases/06/README.md) · publicação pendente |
+| F08 · Origem no Orgânico | P2 | publicado | [06 · PR #16](releases/06/README.md) · validado localmente; autenticado pendente |
 | F09 · Tema no celular | P2 | publicado | 01 · PR #11 · validado localmente; autenticado pendente |
-| F10 · Painéis indisponíveis | P3 | pendente | A definir |
-| F11 · Distribuição vertical | P3 | pendente | A definir |
+| F10 · Painéis indisponíveis | P3 | corrigido | [07 · Composição de painéis](releases/07/README.md) · publicação pendente |
+| F11 · Distribuição vertical | P3 | corrigido | [07 · Composição de painéis](releases/07/README.md) · publicação pendente |
 | F12 · Erro de mídia em Settings | P2 | publicado | [03 · PR #13](releases/03/README.md) · validado localmente; autenticado pendente |
-| F13 · Marca no login móvel | P2 | corrigido | [06 · Origem e marca no login](releases/06/README.md) · publicação pendente |
-| F14 · Responsabilidades do CSS | P3 | pendente | Consolidação restrita aos componentes corrigidos |
+| F13 · Marca no login móvel | P2 | validado | [06 · PR #16](releases/06/README.md) · login público confirmado; OAuth real não exercitado |
+| F14 · Responsabilidades do CSS | P3 | corrigido | [07 · Contratos e consolidação](releases/07/README.md) · publicação pendente |
 
 Os scripts e as 521 capturas do diagnóstico pertencem ao pacote local original; não são incluídos integralmente no Git. Os testes de regressão das entregas ficam em `src/` e `e2e/`, com evidências selecionadas em `audit/releases/` e saídas integrais locais em `artifacts/`.

@@ -132,7 +132,7 @@ export function CrmView({ data, readOnly, range, preview, onPreviewChange, selec
           {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando integração com CRM Elo.</p>}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
-        {/* Coluna lateral: ciclo e resultado dividem a altura do pipeline. */}
+        {/* Coluna lateral: ciclo e resultado mantêm a altura do conteúdo. */}
         <div className="panel-stack">
           <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days != null ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando integração com CRM Elo."}>
             {(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? (

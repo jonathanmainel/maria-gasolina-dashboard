@@ -194,7 +194,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: colors.red }} />Franquias</span><span><i style={{ background: colors.gold }} />Condomínios</span></div>
         </Panel>
         {/* Coluna lateral: os dois painéis se esticam para fechar com a altura do gráfico. */}
-        <div className="panel-stack">
+        <div className="panel-stack panel-stack-fill">
           <Panel title="Origem dos leads" description={organicAvailable ? "Volume por canal no período" : "Volume de mídia paga no período"}>
             <BarList items={channelMix} format={integer} />
           </Panel>
