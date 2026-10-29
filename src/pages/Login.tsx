@@ -37,7 +37,7 @@ export function LoginPage() {
       </section>
       <section className="auth-form-panel">
         <div className="login-card">
-          <div className="login-logo"><img src={brandLogoUrl} alt="" /></div>
+          <div className="login-logo"><img src={brandLogoUrl} alt="Maria Gasolina Express" /></div>
           <p className="eyebrow">Portal de resultados</p>
           <h2>Bem-vindo</h2>
           <p className="login-description">Entre com sua conta Google autorizada para acessar o dashboard.</p>

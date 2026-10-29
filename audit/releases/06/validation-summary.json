@@ -1,0 +1,254 @@
+{
+  "sourceBase": "465ff9b850913ec8e865b5d6b6fdcbd3e08ca1e8",
+  "unit": {
+    "files": 3,
+    "passed": 32
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "authenticatedProduction": "pending: no authorized session; OAuth not executed",
+  "probe": {
+    "stats": {
+      "startTime": "2026-10-29T12:49:31.368Z",
+      "duration": 95777.22,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "origin and login 360 dark",
+        "status": "unexpected"
+      },
+      {
+        "title": "callback error returns to branded login 360 dark",
+        "status": "expected"
+      }
+    ]
+  },
+  "fullMatrix": {
+    "stats": {
+      "startTime": "2026-10-29T12:52:06.470Z",
+      "duration": 267906.058,
+      "expected": 30,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "origin and login 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1152 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 960 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 900 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 901 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1152 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 960 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 900 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 901 light",
+        "status": "expected"
+      },
+      {
+        "title": "callback error returns to branded login 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "callback error returns to branded login 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "callback error returns to branded login 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "callback error returns to branded login 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 1440",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 1024",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 390",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 360",
+        "status": "expected"
+      },
+      {
+        "title": "shared mobile theme remains reachable",
+        "status": "expected"
+      },
+      {
+        "title": "front filters, Top 3/9 and lightbox remain functional",
+        "status": "expected"
+      }
+    ]
+  },
+  "finalCompositions": {
+    "stats": {
+      "startTime": "2026-10-29T13:10:08.473Z",
+      "duration": 112714.99799999999,
+      "expected": 20,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "origin and login 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1152 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 960 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 900 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 901 dark",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 1152 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 960 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 900 light",
+        "status": "expected"
+      },
+      {
+        "title": "origin and login 901 light",
+        "status": "expected"
+      }
+    ]
+  }
+}

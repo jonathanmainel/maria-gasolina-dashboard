@@ -128,7 +128,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         )}
         </nav>
         <div className="sidebar-footer">
-          <p>Dados sincronizados diariamente com Meta Ads, Google Ads, GA4 e Meta Graph API.</p>
+          <p>A disponibilidade e a atualização de cada fonte são sinalizadas no dashboard.</p>
           <div className="agency-tag"><b>GT+</b><span><strong>Gestão GT+</strong>Marketing de performance</span></div>
         </div>
       </aside>

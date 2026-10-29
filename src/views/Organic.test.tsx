@@ -36,6 +36,24 @@ function TestOrganic() {
 }
 
 describe("Orgânico: Instagram e Facebook", () => {
+  it.each(["demo", undefined] as const)("sinaliza demonstração sem afirmar conexão oficial quando a origem é %s", (origin) => {
+    render(<OrganicView data={{ ...data, organicOrigin: origin } as DashboardData} scope="overview" onScopeChange={() => {}} />);
+    const heading = document.querySelector(".view-head")!;
+    expect(heading.textContent).toContain("demonstração · integração pendente");
+    expect(heading.textContent).not.toContain("conta oficial");
+    expect(screen.getByText("Dados de demonstração.")).not.toBeNull();
+    expect(document.querySelector(".kpi-value strong")?.textContent).toBe("300");
+  });
+
+  it("preserva os mesmos valores e remove o aviso ilustrativo apenas para uma origem conectada explícita", () => {
+    const result = render(<OrganicView data={data} scope="overview" onScopeChange={() => {}} />);
+    const previous = [...document.querySelectorAll(".kpi-value strong")].map((e) => e.textContent);
+    result.rerender(<OrganicView data={{ ...data, organicOrigin: "supabase" }} scope="overview" onScopeChange={() => {}} />);
+    expect(document.querySelector(".view-head")?.textContent).toContain("dados conectados");
+    expect(screen.queryByText("Dados de demonstração.")).toBeNull();
+    expect([...document.querySelectorAll(".kpi-value strong")].map((e) => e.textContent)).toEqual(previous);
+  });
+
   it("expõe apenas Visão Geral, Instagram e Facebook — o Site saiu para a aba própria", () => {
     render(<TestOrganic />);
     const tabs = within(document.querySelector(".organic-scope") as HTMLElement).getAllByRole("tab");
