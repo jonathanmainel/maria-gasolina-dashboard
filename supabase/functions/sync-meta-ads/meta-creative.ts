@@ -8,6 +8,8 @@ import {
   readLimitedBody,
 } from "./preview-media.ts";
 import type {PreviewSelection} from '../_shared/preview-operation.ts';
+import { bindApprovedSource, defaultManifestPin, loadApprovedSources } from "./approved-preview-source.ts";
+import type { ApprovedSource, ManifestPin } from "./approved-preview-source.ts";
 export const CREATIVE_BUCKET = "dashboard-creatives";
 export const CREATIVE_REFRESH_TTL_MS = 20 * 60 * 60 * 1000;
 const META_AD_BATCH_SIZE = 25;
@@ -149,6 +151,8 @@ type EnrichOptions = {
   // Backend-only selection; does not add an alternate collector endpoint.
   previewAdIds?: string[];
   reservationSelection?: PreviewSelection;
+  // Backend test adapter only; index.ts never reads a pin or URL from a request.
+  approvedManifestPin?: ManifestPin;
   // Explicit trusted local/isolated adapter only. The collector never starts FFmpeg.
   frameFallback?: (identity: { accountId: string; adId: string; creativeId: string | null; videoId: string }) => Promise<{ videoId: string; bytes: Uint8Array<ArrayBuffer>; mime: string } | null>;
 };
@@ -1620,6 +1624,8 @@ export async function enrichMetaCreativePreviews(
     return result;
   };
 
+  const manifestPin = options.approvedManifestPin ?? defaultManifestPin;
+  let manifest: ReturnType<typeof loadApprovedSources> | undefined;
   const processed = await mapWithConcurrency(
     candidates,
     CREATIVE_CONCURRENCY,
@@ -1714,7 +1720,23 @@ export async function enrichMetaCreativePreviews(
         ? {videoId:creative.videoId!,sha256:String(reviewed!.sha256)} : undefined;
       let collectionIncomplete = !!creative.videoId && (lookupErrors.get(creative.videoId) ?? []).some(code =>
         ["meta_thumbnail_page_limit", "meta_thumbnail_page_cycle", "meta_thumbnail_collection_incomplete"].includes(code));
-      const resolved =
+      let directSource: ApprovedSource | undefined;
+      if (approved && manifestPin.ad_ids.includes(ref.ad_id)) {
+        if (!snapshot || !sameIdentity) throw new PreviewError('preview_approved_identity_mismatch');
+        manifest ??= loadApprovedSources(manifestPin);
+        directSource = bindApprovedSource(await manifest, options.clientId, ref.account_id, approved, snapshot, creative);
+      }
+      const directResolution = async (source: ApprovedSource) => {
+        const file = await downloadPreview(source.url, fetchImpl);
+        if(file.sha256!==source.sha256) throw new PreviewError('preview_approved_reference_hash_mismatch');
+        if(file.mime!==source.mime || file.width!==source.width || file.height!==source.height ||
+          videoPreviewQuality({width:file.width!,height:file.height!},9/16)==='insufficient')
+          throw new PreviewError('preview_approved_reference_file_invalid');
+        const candidate = {url:source.url,source:'approved.official_reference',policy:'approved_reference_exact_hash',width:file.width,height:file.height,preferred:false};
+        return {selected:{candidate,file},comparisons:[{source:candidate.source,result:'valid',sha256:file.sha256,width:file.width,height:file.height}] as Array<Record<string,unknown>>,
+          visuallyReviewed:true,approval:{code:'preview_approved_reference_valid',approved_sha256:source.sha256,candidate_count:1,measured_count:1,download_failure_count:0,matched_sha256:file.sha256,general_selected_sha256:null}};
+      };
+      const resolved = directSource ? await directResolution(directSource) :
         reuse || (oldPreview && !sameIdentity) || collectionIncomplete
           ? {
               selected: null,
@@ -1731,14 +1753,17 @@ export async function enrichMetaCreativePreviews(
         const identityMismatch = creative.creativeId !== approved.creative_id || !sameIdentity ||
           (approved.video_id !== undefined && creative.videoId !== approved.video_id);
         const code = identityMismatch ? 'preview_approved_identity_mismatch'
+          : directSource ? 'preview_approved_reference_valid'
           : lookup.some(c=>['meta_thumbnail_page_limit','meta_thumbnail_page_cycle'].includes(c)) ? 'preview_approved_pagination_limit'
-          : collectionIncomplete ? resolved.comparisons.some(c=>c.result==='candidate_limit') ? 'preview_approved_candidate_limit' : 'preview_approved_collection_incomplete'
+          : collectionIncomplete && !directSource ? resolved.comparisons.some(c=>c.result==='candidate_limit') ? 'preview_approved_candidate_limit' : 'preview_approved_collection_incomplete'
           : resolved.approval?.code ?? 'preview_approved_hash_not_found';
-        const accepted = !identityMismatch && !collectionIncomplete && file?.sha256 === approved.sha256;
+        const accepted = !identityMismatch && (!collectionIncomplete || !!directSource) && file?.sha256 === approved.sha256;
         approvedDetails = {approval:{...resolved.approval,code,approved_sha256:approved.sha256,
-            candidate_count:deduplicateCandidates([...(creative.candidates??[]),...extras]).length,
+            candidate_count:directSource ? 1 : deduplicateCandidates([...(creative.candidates??[]),...extras]).length,
             measured_count:resolved.comparisons.filter(c=>typeof c.sha256==='string').length,
             collection_complete:!collectionIncomplete,
+            source_mode:directSource ? 'approved_reference' : 'official_collection',
+            ...(directSource ? {manifest_sha256:manifestPin.sha256} : {}),
             bytes_hash_differences:resolved.comparisons.filter(c=>typeof c.sha256==='string'&&c.sha256!==approved.sha256).length},
           identity:{expected_creative_id:approved.creative_id,current_creative_id:creative.creativeId,
             expected_video_id:approved.video_id??null,current_video_id:creative.videoId},
@@ -1794,7 +1819,7 @@ export async function enrichMetaCreativePreviews(
         downloaded = false;
       let outcome = reuse
         ? "reused"
-        : collectionIncomplete ? "pending_collection_incomplete"
+        : collectionIncomplete && !directSource ? "pending_collection_incomplete"
         : !sameIdentity && oldPreview
           ? "preserved_identity_uncertain"
           : !file
@@ -1869,6 +1894,7 @@ export async function enrichMetaCreativePreviews(
           preview_bytes: file.bytes.length,
           representative_policy: resolved.selected.candidate.policy,
           preferred_thumbnail: resolved.selected.candidate.preferred,
+          ...(directSource ? {preview_approved_manifest_sha256:manifestPin.sha256} : {}),
           preview_for_creative_id: creative.creativeId,
           video_id: creative.videoId,
         };
@@ -1907,13 +1933,13 @@ export async function enrichMetaCreativePreviews(
         }
       }
       const errorCode =
-        existingError ? existingError : collectionIncomplete ? "preview_collection_incomplete"
+        existingError ? existingError : collectionIncomplete && !directSource ? "preview_collection_incomplete"
         : !file && !reuse && outcome !== "preserved_adequate"
           ? oldPreview && !sameIdentity
             ? "preview_identity_uncertain"
             : creative.videoId ? "preview_hd_pending" : "preview_unavailable"
           : existingError;
-      if (!reuse) metadata.preview_quality_status = collectionIncomplete ? "pending_collection_incomplete"
+      if (!reuse) metadata.preview_quality_status = collectionIncomplete && !directSource ? "pending_collection_incomplete"
         : existingError ? "pending_existing_unverified"
         : previousVerified && oldPreview && !replace && creative.videoId ? videoPreviewQuality({width:previousWidth,height:previousHeight})
         : file && creative.videoId ? videoPreviewQuality({width:file.width!,height:file.height!})

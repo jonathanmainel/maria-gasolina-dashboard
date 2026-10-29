@@ -1,5 +1,9 @@
 # Diagnóstico dos dois previews e correção restrita por hash — 29/10/2026
 
+> Registro anterior ao redeploy autorizado. A atualização de produção Meta v18 e
+> o código técnico observado estão em [Dry run Meta v18](dry-run-meta-v18-2026-10-29.md).
+> As referências abaixo à v17 descrevem o estado anterior à nova autorização.
+
 ## Conclusão comprovada
 
 Os dois arquivos aprovados continuam recuperáveis pelas fontes oficiais. Foram

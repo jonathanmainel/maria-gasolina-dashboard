@@ -10,6 +10,7 @@ import {
   resolveCreativePreview,
 } from "./meta-creative.ts";
 import { improves, inspectImage, MAX_PREVIEW_BYTES, videoPreviewQuality } from "./preview-media.ts";
+import { loadApprovedSources } from "./approved-preview-source.ts";
 
 const raster = (name = "large.png") =>
   new Uint8Array(
@@ -276,6 +277,87 @@ function harness(
     run: () => enrichMetaCreativePreviews(options),
   };
 }
+
+describe("pinned approved official references", () => {
+  it.skipIf(!process.env.META_APPROVED_SOURCE_PACKAGE)('validates the exact private package and live approved bytes without remote writes',async()=>{
+    const packageFile=JSON.parse(readFileSync(process.env.META_APPROVED_SOURCE_PACKAGE!,'utf-8'));
+    expect(packageFile.project_id).toBe('hlqrpreqvvxtkruwsolg');
+    const config=packageFile.files.find((f:any)=>f.name.endsWith('/approved-preview-manifest.ts')).content;
+    const pin=JSON.parse(config.match(/APPROVED_PREVIEW_MANIFEST = (\{.*\});/s)[1]);
+    const entries=await loadApprovedSources(pin);
+    expect(entries.length).toBe(7);
+    for(const e of entries){
+      // No provider URL or exception is retained in a test failure.
+      let file;try{file=await downloadPreview(e.url,fetch);}catch{throw Error('APPROVED_REFERENCE_READ_FAILED_'+e.ad_id);}
+      expect({sha256:file.sha256,width:file.width,height:file.height,mime:file.mime}).toEqual({sha256:e.sha256,width:e.width,height:e.height,mime:e.mime});
+    }
+  },60000);
+  const setup=(kind='normal')=>{
+    const current=row(kind==='downgrade'?'large.png':'small.png',{account_id:'4',entity_id:'1',ad_id:'1',creative_id:'2',
+      creative_type:kind==='dynamic'?'dynamic':'video',preview_storage_path:'1/meta_ads/4/ad/1/old.png',
+      metadata:{video_id:'3'}});
+    const creative={...ad().creative,id:'2',video_id:'3',...(kind==='dynamic'?{asset_feed_spec:{videos:[{video_id:'3'},{video_id:'9'}]}}:{})};
+    const h=harness({rows:[current],ads:[{id:'1',creative}],concurrent:kind==='cas'});
+    h.options.accountIds=['4'];h.options.adRows=[{account_id:'4',ad_id:'1'}];h.options.previewAdIds=['1'];
+    const snapshot={ad_id:'1',creative_id:'2',video_id:'3',asset_key:null,previous_sha256:current.preview_sha256,previous_path:current.preview_storage_path,previous_updated_at:current.updated_at};
+    const approved={ad_id:'1',creative_id:'2',video_id:'3',sha256:hash(raster('hd.png'))};
+    const entry={client_id:1,source:'meta_ads',account_id:'4',...approved,asset_key:'video:3',width:720,height:1280,mime:'image/png',url:media('hd.png'),
+      previous:{creative_id:'2',video_id:'3',asset_key:null,sha256:current.preview_sha256,path:current.preview_storage_path,updated_at:current.updated_at,mime:'image/png',metadata:current.metadata}};
+    const pin={path:'',sha256:'',ad_ids:['1'],data:''};
+    const publish=()=>{pin.data=JSON.stringify({version:1,entries:[entry]});pin.sha256=hash(new TextEncoder().encode(pin.data));pin.path=`1/meta_ads/approved-sources/${pin.sha256}.json`;h.options.approvedManifestPin=pin;};
+    h.options.reservationSelection={ad_ids:['1'],approved_assets:[approved],ads:[snapshot]};publish();
+    const fetcher=h.options.fetchImpl;
+    h.options.fetchImpl=async(raw:string)=>new URL(raw).pathname.endsWith('/thumbnails')?Response.json({error:{code:10}},{status:400}):fetcher(raw);
+    return {...h,entry,pin,publish,snapshot,approved};
+  };
+  it('accepts only the approved reference with an incomplete collection, without writes in dry run',async()=>{
+    const h=setup();h.options.dryRun=true;const result=await h.run();
+    expect(result.failures).toEqual([]);expect(result.decisions?.[0]).toMatchObject({result:'improved',approval:{code:'preview_approved_reference_valid',source_mode:'approved_reference',collection_complete:false,measured_count:1}});
+    expect(h.requests.filter(x=>!x.includes('graph.facebook.com'))).toEqual([media('hd.png')]);
+    expect(h.uploads).toEqual([]);expect(h.writes).toEqual([]);
+  });
+  it.each(['hash','bytes','dimensions','mime','tiny','expired','identity','dynamic','snapshot','digest','unpackaged','client','account','asset'])('rejects approved source divergence: %s',async kind=>{
+    const h=setup(kind==='dynamic'?'dynamic':'normal');
+    if(kind==='hash')h.entry.sha256='a'.repeat(64);
+    if(kind==='dimensions')h.entry.width=721;
+    if(kind==='mime')h.entry.mime='image/jpeg';
+    if(kind==='tiny'){h.entry.url=media('small.png');h.entry.sha256=h.approved.sha256=hash(raster('small.png'));}
+    if(kind==='bytes')h.entry.url=media('large.png');
+    if(kind==='identity')h.entry.video_id='9';
+    if(kind==='snapshot')h.entry.previous.sha256='a'.repeat(64);
+    if(kind==='client')h.entry.client_id=2;
+    if(kind==='account')h.entry.account_id='9';
+    if(kind==='asset')h.entry.asset_key='video:9';
+    h.publish();
+    if(kind==='digest')h.pin.data='{}';
+    if(kind==='unpackaged')delete (h.pin as any).data;
+    if(kind==='expired') {const f=h.options.fetchImpl;h.options.fetchImpl=(url:string)=>url===h.entry.url?new Response(null,{status:403}):f(url);}
+    h.options.dryRun=true;const result=await h.run();expect(result.failed).toBe(1);expect(h.uploads).toEqual([]);expect(h.writes).toEqual([]);
+  });
+  it.each(['http://scontent.xx.fbcdn.net/a','https://127.0.0.1/a','https://[::1]/a','https://localhost/a','https://169.254.169.254/a','https://scontent.xx.fbcdn.net.evil.test/a','https://user@scontent.xx.fbcdn.net/a','https://scontent.xx.fbcdn.net:444/a'])('rejects unsafe manifest URL %s',async url=>{
+    const h=setup();h.entry.url=url;h.publish();h.options.dryRun=true;expect((await h.run()).failed).toBe(1);expect(h.uploads).toEqual([]);
+  });
+  it('rejects an unsafe redirect and never logs signed references',async()=>{
+    const h=setup();h.entry.url+='?signature=PRIVATE_REFERENCE';h.publish();const f=h.options.fetchImpl;
+    h.options.fetchImpl=(url:string)=>url===h.entry.url?new Response(null,{status:302,headers:{location:'http://169.254.169.254/latest'}}):f(url);
+    h.options.dryRun=true;const r=await h.run();expect(r.failed).toBe(1);expect(JSON.stringify(r)).not.toContain('PRIVATE_REFERENCE');expect(h.uploads).toEqual([]);
+  });
+  it('preserves an existing Full HD file against an approved HD downgrade',async()=>{
+    const h=setup('downgrade');h.options.dryRun=true;const r=await h.run();expect(r.failed).toBe(0);expect(r.decisions?.[0].result).toBe('preserved_not_better');expect(h.uploads).toEqual([]);
+  });
+  it('keeps immutable objects, CAS and rejects stale replay without another upload',async()=>{
+    const h=setup();expect((await h.run()).failed).toBe(0);expect(h.uploads).toHaveLength(1);expect(h.objects.has(h.entry.previous.path)).toBe(true);
+    expect(h.rows[0].metadata.preview_approved_manifest_sha256).toBe(h.pin.sha256);
+    expect(h.filters).toContainEqual(['dashboard_creative_previews','updated_at',h.snapshot.previous_updated_at]);
+    const again=await h.run();expect(again.failed).toBe(1);expect(h.uploads).toHaveLength(1);
+    expect(again.failures[0].code).toBe('preview_reservation_snapshot_conflict');
+  });
+  it('does not overwrite a concurrent preview',async()=>{const h=setup('cas');const r=await h.run();expect(r.failures[0].code).toBe('preview_concurrent_update');expect(h.rows[0].metadata).toEqual({newer:true});});
+  it('requires a backend pin and exact approval; browser reference fields have no effect',async()=>{
+    const h=setup();delete h.options.reservationSelection;h.options.approved_reference=h.entry;h.options.dryRun=true;
+    const r=await h.run();expect(r.decisions?.[0].result).toBe('pending_collection_incomplete');expect(h.downloads).not.toContain(h.pin.path);expect(h.uploads).toEqual([]);
+  });
+});
 
 describe("complete file validation and bounded downloads", () => {
   it("requires an explicit bounded selection and never treats an empty list as all ads", () => {
