@@ -11,6 +11,7 @@ describe('creative image inspection',()=>{
   it('shows actual dimensions and caps a low resolution source',()=>{
     render(<ImageLightbox src="https://storage.example/low.jpg" label="Vídeo" onClose={()=>{}}/>);
     const img=load(160,284);
+    expect(img.closest('.lightbox-frame')?.classList.contains('lightbox-frame-vertical')).toBe(true);
     expect(screen.getByText(/160 × 284 px/).textContent).toContain('baixa resolução');
     expect(img.style.maxWidth).toBe('320px');expect(img.style.maxHeight).toBe('568px');
   });

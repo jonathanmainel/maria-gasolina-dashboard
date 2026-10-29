@@ -47,6 +47,8 @@
 .present.responsive-present .presentation-creatives .creative-grid { height: 100%; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
 .present.responsive-present .creative { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; overflow: visible; }
 .present.responsive-present .creative-art { aspect-ratio: auto; min-height: 0; border-radius: 14px 14px 0 0; }
+.present.responsive-present .creative-art-vertical { container-type: size; }
+.present.responsive-present .creative-art-vertical .creative-zoom { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100cqw, calc(100cqh * 9 / 16)); height: min(100cqh, calc(100cqw * 16 / 9)); aspect-ratio: 9 / 16; }
 .present.responsive-present .creative-body { padding: clamp(12px, 1.2vw, 28px); }
 .present.responsive-present .creative-copy strong { min-height: 0; font-size: clamp(12px, 1.15vw, 27px); }
 .present.responsive-present .creative-copy small { font-size: clamp(10px, .9vw, 20px); }
