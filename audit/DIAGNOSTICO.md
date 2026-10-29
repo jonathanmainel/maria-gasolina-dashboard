@@ -234,9 +234,9 @@ Estados: **pendente → em execução → corrigido → publicado → validado**
 | F02 · Foco do período | P1 | publicado | [01 · PR #11](releases/01/README.md) · validado localmente; autenticado pendente |
 | F03 · Marcador hoje | P1 | publicado | [02 · PR #12](releases/02/README.md) · validado localmente; autenticado pendente |
 | F04 · Metas na apresentação móvel | P1 | publicado | [02 · PR #12](releases/02/README.md) · validado localmente; autenticado pendente |
-| F05 · Sparklines dos KPIs | P2 | corrigido | [04 · KPIs e legibilidade](releases/04/README.md) · publicação pendente |
-| F06 · Contraste | P2 | corrigido | [04 · KPIs e legibilidade](releases/04/README.md) · publicação pendente |
-| F07 · Tabelas em tablet | P2 | pendente | A definir |
+| F05 · Sparklines dos KPIs | P2 | publicado | [04 · PR #14](releases/04/README.md) · validado localmente; autenticado pendente |
+| F06 · Contraste | P2 | publicado | [04 · PR #14](releases/04/README.md) · validado localmente; autenticado pendente |
+| F07 · Tabelas em tablet | P2 | corrigido | [05 · Tabelas e rolagem acessível](releases/05/README.md) · publicação pendente |
 | F08 · Origem no Orgânico | P2 | pendente | A definir |
 | F09 · Tema no celular | P2 | publicado | 01 · PR #11 · validado localmente; autenticado pendente |
 | F10 · Painéis indisponíveis | P3 | pendente | A definir |

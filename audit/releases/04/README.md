@@ -1,6 +1,6 @@
 # Entrega 04 · KPIs e legibilidade
 
-Estado: **corrigido e validado localmente; publicação pendente**. Base publicada: `743ca6fc561bdfe4a8b6d846f4ca11410c7598be` (PR #13).
+Estado: **publicado; validação local e leitura pública confirmadas; homologação autenticada pendente**. Base publicada: `743ca6fc561bdfe4a8b6d846f4ca11410c7598be` (PR #13).
 
 ## F05/P2 · Espaço próprio para número, comparação e gráfico
 
@@ -37,4 +37,13 @@ Reprodução: build sintético da [entrega 02](../02/README.md) e `npx playwrigh
 
 O login do diagnóstico foi capturado no servidor de desenvolvimento, que exibe o link “Abrir demonstração local”; o build de validação, assim como a publicação, omite esse link por uma condição preexistente. Essa diferença não pertence à correção de contraste nem altera autenticação. O problema de marca ausente no móvel permanece em F13.
 
-Homologação autenticada de produção permanece pendente sem sessão autorizada no contexto de leitura. Publicação será registrada após concluir a validação local.
+Homologação autenticada de produção permanece pendente sem sessão autorizada no contexto de leitura.
+
+## Publicação concluída em 28/10/2026
+
+- [PR #14](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/14), correção `7a7ea6036b51c6e64d969aa7ba7ea51e144bb289`, merge `5970651b08756d49608af19e3bb5f7644c1431f0`.
+- [Actions/Pages](https://github.com/jonathanmainel/maria-gasolina-dashboard/actions/runs/40750640374): **55 arquivos / 624 testes aprovados**, typecheck, build e deploy concluídos.
+- [Site publicado](https://jonathanmainel.github.io/maria-gasolina-dashboard/): HTTP 200; CSS novo confirmado. Login real inspecionado em 1440×900 e 390×844 nos dois temas, sem erro de execução/configuração, overflow ou requisição de gravação. [Registro](production-verification.json).
+- [Antes/depois do login público em 390 px](production-comparison-390-light.png), ambos em navegador novo e sem sessão; mostra o ganho de contraste em produção. Os KPIs internos continuam com homologação autenticada **pendente**; nenhuma fixture foi usada na leitura pública.
+- Arquivos de produto: `src/styles.css`, `src/presentation.css`, `src/components/ui/primitives.tsx`, `src/lib/use-dashboard.ts` (somente cores), `src/views/FrontView.tsx` (somente ChannelCard). Demais arquivos são testes, documentação e evidências.
+- Restam **seis achados**: F07/F08/F13 (P2) e F10/F11/F14 (P3). Próxima entrega: F07, sobre a main atualizada após esta publicação.
