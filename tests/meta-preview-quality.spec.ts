@@ -240,6 +240,7 @@ async function inspectImage(
   await zoom.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText(`${width} × ${height} px`);
+  if (Math.min(width, height) < 600) await expect(dialog).toContainText("baixa resolução");
   if (height > width) {
     expect(await dialog.locator('.lightbox-frame-vertical').evaluate((el:HTMLElement)=>el.offsetWidth/el.offsetHeight)).toBeCloseTo(9/16,2);
   }
@@ -281,6 +282,7 @@ for (const [width, height] of [
       await expect(page.locator(".creative")).toHaveCount(3, { timeout: 45_000 });
       await inspectImage(page, `FIXTURE ${front} 0`, 1080, 1920);
       await inspectImage(page, `FIXTURE ${front} 1`, 160, 284);
+      await expect(page.locator(".creative").filter({ hasText: `FIXTURE ${front} 1` }).locator(".creative-resolution")).toHaveText("Miniatura de baixa resolução");
       await expect(
         page
           .locator(".creative")

@@ -49,7 +49,7 @@ export async function install(context,options={}){
   if(state.mode==='loading'&&(table==='dashboard_campaign_daily'||table==='get_dashboard_overview')){await new Promise(r=>setTimeout(r,20000));return json([]);}
   if((state.mode==='error'||state.mode==='partial')&&(table==='dashboard_campaign_daily'||table==='get_dashboard_ga4_landing_pages'))return json({message:'Falha controlada na auditoria',code:'AUDIT'},state.errorStatus??503);
   if(table==='dashboard_campaign_daily'){
-   const rows=[];if(state.mode!=='empty')for(let d=1;d<=27;d++)for(const front of ['FRANQUIA','CONDOMINIOS'])for(const source of ['meta_ads','google_ads'])rows.push({source,campaign_id:`${front}-${source}`,campaign_name:`MG | ${front} | Campanha sintética de auditoria com nome extenso`,campaign_status:'ACTIVE',metric_date:`2026-10-${String(d).padStart(2,'0')}`,impressions:2000+d*11,reach:1800,clicks:50+d,link_clicks:20,conversions:5+d%7,spend:100+d});return json(rows);
+   const rows=[];if(state.mode!=='empty')for(const month of (state.history?['09','10']:['10']))for(let d=1;d<=27;d++)for(const front of ['FRANQUIA','CONDOMINIOS'])for(const source of ['meta_ads','google_ads'])rows.push({source,campaign_id:`${front}-${source}`,campaign_name:`MG | ${front} | Campanha sintética de auditoria com nome extenso`,campaign_status:'ACTIVE',metric_date:`2026-${month}-${String(d).padStart(2,'0')}`,impressions:2000+d*11,reach:1800,clicks:50+d,link_clicks:20,conversions:5+d%7+(month==='09'?3:0),spend:(100+d)*(month==='09'?1.5:1)*(state.spendScale??1)});return json(rows);
   }
   if(table==='dashboard_ad_daily')return json(state.mode==='empty'?[]:['FRANQUIA','CONDOMINIOS'].flatMap(front=>Array.from({length:10},(_,i)=>({source:'meta_ads',ad_id:`${front}-${i}`,ad_name:`Imagem de auditoria ${i+1} com título extenso para conferir distribuição`,campaign_name:`MG | ${front} | Campanha local`,impressions:1000,clicks:30,conversions:20-i,spend:150}))));
   if(table==='dashboard_creative_previews')return json(['FRANQUIA','CONDOMINIOS'].flatMap(front=>Array.from({length:10},(_,i)=>({ad_id:`${front}-${i}`,creative_type:'image',preview_kind:'image',preview_storage_path:`${front}-${i}.svg`,preview_available:true,metadata:{preview_width:600,preview_height:750,preview_media_type:'image'}}))));
@@ -60,7 +60,14 @@ export async function install(context,options={}){
   }
   if(table==='get_dashboard_ga4_acquisition')return json({items:state.mode==='empty'?[]:['Organic Search','Paid Search','Paid Social','Direct','Referral','Organic Social'].map((channel,i)=>({channel_group:channel,source_medium:channel+' / audit',sessions:2000-i*200,engaged_sessions:1200,active_users:1500,new_users:1200,generate_leads:50-i*5,engagement_rate:60,lead_rate:2.5})),total_count:6,next_cursor:null});
   if(table==='get_dashboard_ga4_events')return json({items:state.mode==='empty'?[]:['page_view','scroll','form_submit','generate_lead','session_start','click'].map((event_name,i)=>({event_name,event_count:1000-i*100,daily_average:30,key_events:0,share_of_total:16})),total_count:6,next_cursor:null});
-  if(table==='get_dashboard_ga4_landing_pages')return json({items:state.mode==='empty'?[]:Array.from({length:7},(_,i)=>({landing_page:`/pagina-de-auditoria-${i}/nome-extenso`,sessions:1000-i*80,engaged_sessions:600,active_users:800,new_users:600,generate_leads:20-i,engagement_rate:60,lead_rate:2,views:1200})),total_count:7,next_cursor:null});
+  if(table==='get_dashboard_ga4_landing_pages')return json({items:state.mode==='empty'?[]:Array.from({length:7},(_,i)=>({landing_page:state.longNames?`/${"segmento".repeat(35)}/pagina-${i}`:`/pagina-de-auditoria-${i}/nome-extenso`,sessions:1000-i*80,engaged_sessions:600,active_users:800,new_users:600,generate_leads:20-i,engagement_rate:60,lead_rate:2,views:1200})),total_count:7,next_cursor:null});
+  if(table==='get_dashboard_entities'&&state.tableDetails){
+   const {p_source:source,p_level:level}=req.postDataJSON();
+   const k={has_data:true,spend:1000,impressions:12345,clicks:100,results:10,ctr:1,cost_per_result:100};
+   const campaign={...k,source,level:'campaign',item_id:`CONDOMINIOS-${source}`,item_name:'MG | CONDOMINIOS | Campanha de auditoria',item_status:'ACTIVE',parent_id:null,parent_name:null};
+   const items=level==='campaign'?[campaign]:Array.from({length:9},(_,i)=>({...k,source,level,item_id:`${source}-${level}-${i}`,item_name:`Grupo de auditoria ${i} ${state.longNames?'com nome extenso '.repeat(12):''}`,item_status:'ACTIVE',parent_id:campaign.item_id,parent_name:campaign.item_name,spend:1000-i*25,results:i+1}));
+   return json({items,total_count:items.length,next_cursor:null});
+  }
   if(url.pathname.includes('/rpc/'))return json({items:[],total_count:0,next_cursor:null});
   return json([]);
  });

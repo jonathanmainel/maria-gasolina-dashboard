@@ -1,0 +1,354 @@
+{
+  "sourceBase": "5970651b08756d49608af19e3bb5f7644c1431f0",
+  "unit": {
+    "files": 4,
+    "passed": 66
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "productionAuthenticated": "pending: no authorized session",
+  "critical": {
+    "stats": {
+      "startTime": "2026-10-29T12:15:21.709Z",
+      "duration": 30298.049,
+      "expected": 5,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "tables 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables respond to resizing without stale hints",
+        "status": "expected"
+      },
+      {
+        "title": "tables retain empty and partial source states",
+        "status": "expected"
+      }
+    ]
+  },
+  "firstMatrix": {
+    "stats": {
+      "startTime": "2026-10-29T12:17:26.198Z",
+      "duration": 205713.57,
+      "expected": 26,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "dialog keyboard and navigation 1440",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 1024",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 390",
+        "status": "expected"
+      },
+      {
+        "title": "dialog keyboard and navigation 360",
+        "status": "expected"
+      },
+      {
+        "title": "shared mobile theme remains reachable",
+        "status": "expected"
+      },
+      {
+        "title": "front filters, Top 3/9 and lightbox remain functional",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables respond to resizing without stale hints",
+        "status": "expected"
+      },
+      {
+        "title": "tables retain empty and partial source states",
+        "status": "expected"
+      },
+      {
+        "title": "tables keep columns within the print layout",
+        "status": "unexpected"
+      }
+    ]
+  },
+  "firstCaptureRevision": {
+    "stats": {
+      "startTime": "2026-10-29T12:25:15.787Z",
+      "duration": 197680.36899999998,
+      "expected": 19,
+      "skipped": 0,
+      "unexpected": 2,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "tables 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 dark",
+        "status": "unexpected"
+      },
+      {
+        "title": "long URLs 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 light",
+        "status": "unexpected"
+      },
+      {
+        "title": "long URLs 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables respond to resizing without stale hints",
+        "status": "expected"
+      },
+      {
+        "title": "tables retain empty and partial source states",
+        "status": "expected"
+      },
+      {
+        "title": "tables keep columns within the print layout",
+        "status": "expected"
+      }
+    ]
+  },
+  "finalTables": {
+    "stats": {
+      "startTime": "2026-10-29T12:30:25.767Z",
+      "duration": 211645.318,
+      "expected": 21,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "tables 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1440 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 1024 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 390 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 360 dark",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 1920 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 768 light",
+        "status": "expected"
+      },
+      {
+        "title": "long URLs 360 light",
+        "status": "expected"
+      },
+      {
+        "title": "tables respond to resizing without stale hints",
+        "status": "expected"
+      },
+      {
+        "title": "tables retain empty and partial source states",
+        "status": "expected"
+      },
+      {
+        "title": "tables keep columns within the print layout",
+        "status": "expected"
+      }
+    ]
+  }
+}

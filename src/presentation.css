@@ -56,7 +56,7 @@
 .present.responsive-present .creative-stats b { white-space: nowrap; font-size: clamp(14px, 1.45vw, 32px); }
 .present.responsive-present .creative-stats span { font-size: clamp(9px, .75vw, 17px); }
 .presentation-commercial { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: clamp(8px, 1.1dvh, 24px); }
-.presentation-source { margin: 0; color: var(--gold); font-size: clamp(11px, 1vw, 23px); line-height: 1.4; }
+.presentation-source { margin: 0; color: var(--gold-text); font-size: clamp(11px, 1vw, 23px); line-height: 1.4; }
 .presentation-funnel { display: flex; flex-direction: column; }
 .present.responsive-present .presentation-funnel .funnel3d { flex: 1; height: 100%; min-height: 0; grid-template-columns: minmax(75px, .4fr) minmax(0, 1fr); align-items: stretch; gap: 24px; }
 .present.responsive-present .funnel3d-shape, .present.responsive-present .funnel3d-shape svg { height: 100%; min-height: 0; }

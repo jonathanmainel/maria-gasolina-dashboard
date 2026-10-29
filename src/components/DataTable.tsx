@@ -1,3 +1,4 @@
+import { TableViewport } from "./ui/table-viewport";
 import { ChevronDown, ChevronsUpDown, ChevronUp, ImageOff, PlayCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DetailRow } from "../lib/detail-rows";
@@ -78,7 +79,7 @@ export function DataTable({
           {sort.direction === "asc" ? "Menor primeiro" : "Maior primeiro"}
         </button>
       </div>
-      <div className="desktop-table">
+      <TableViewport label="Tabela de detalhamento">
         <table>
           <thead>
             <tr>
@@ -97,7 +98,7 @@ export function DataTable({
             {rows.visibleRows.map((item) => <DataRow key={item.key} item={item} showChannel={showChannel} showAssetType={withAssetType} onZoom={setZoomed} />)}
           </tbody>
         </table>
-      </div>
+      </TableViewport>
       <div className="mobile-rows">
         {rows.visibleRows.map((item) => {
           const open = expanded === item.key;

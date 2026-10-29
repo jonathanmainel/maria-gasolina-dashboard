@@ -1,3 +1,4 @@
+import { TableViewport } from "./ui/table-viewport";
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { compact, integer, percent } from "../lib/format";
@@ -49,7 +50,7 @@ export function AnalyticsAcquisitionTable({ items, resetToken = "", orderBy = "s
 
   return (
     <div className="table-wrap analytics-table" data-testid="ga4-acquisition-table">
-      <div className="desktop-table">
+      <TableViewport label="Tabela de aquisição de tráfego">
         <table>
           <thead><tr>
             <SortHead label="Canal" field="channel_group" current={sort} onClick={changeSort} wide />
@@ -68,7 +69,7 @@ export function AnalyticsAcquisitionTable({ items, resetToken = "", orderBy = "s
             <td>{percent(item.engagement_rate)}</td><td>{integer(item.new_users)}</td><td>{integer(item.generate_leads)}</td><td>{percent(item.lead_rate)}</td>
           </tr>)}</tbody>
         </table>
-      </div>
+      </TableViewport>
       <div className="mobile-rows">{rows.visibleRows.map((item) => {
         const key = `${item.channel_group}:${item.source_medium}`;
         const open = expanded === key;
@@ -103,7 +104,7 @@ export function AnalyticsLandingPagesTable({ items, resetToken = "" }: SharedPro
 
   return (
     <div className="table-wrap analytics-table" data-testid="ga4-landing-pages-table">
-      <div className="desktop-table">
+      <TableViewport label="Tabela de páginas de destino">
         <table>
           <thead><tr>
             <SortHead label="Página" field="landing_page" current={sort} onClick={changeSort} wide />
@@ -119,7 +120,7 @@ export function AnalyticsLandingPagesTable({ items, resetToken = "" }: SharedPro
             <td>{percent(item.engagement_rate)}</td><td>{integer(item.new_users)}</td><td>{integer(item.views)}</td>
           </tr>)}</tbody>
         </table>
-      </div>
+      </TableViewport>
       <div className="mobile-rows">{rows.visibleRows.map((item) => {
         const open = expanded === item.landing_page;
         return <article className="mobile-row" key={item.landing_page}>
@@ -148,7 +149,7 @@ export function AnalyticsEventsTable({ items, resetToken = "" }: SharedProps & {
 
   return (
     <div className="table-wrap analytics-table" data-testid="ga4-events-table">
-      <div className="desktop-table">
+      <TableViewport label="Tabela de eventos do site">
         <table>
           <thead><tr>
             <SortHead label="Evento" field="event_name" current={sort} onClick={changeSort} wide />
@@ -162,7 +163,7 @@ export function AnalyticsEventsTable({ items, resetToken = "" }: SharedProps & {
             <td>{compact(item.daily_average)}</td><td>{percent(item.share_of_total)}</td><td>{integer(item.key_events)}</td>
           </tr>)}</tbody>
         </table>
-      </div>
+      </TableViewport>
       <div className="mobile-rows">{rows.visibleRows.map((item) => {
         const open = expanded === item.event_name;
         return <article className="mobile-row" key={item.event_name}>

@@ -83,7 +83,7 @@ export function useChartColors() {
   const dark = theme === "dark";
   return {
     red: dark ? "#d8443a" : "#b3301f",
-    gold: dark ? "#e9ad3f" : "#c88a19",
+    gold: dark ? "#e9ad3f" : "#b57912",
     violet: dark ? "#9b7bff" : "#6a4de0",
     sky: dark ? "#5ab4ff" : "#1f7fd6",
     green: dark ? "#3ccd8f" : "#1f9e6a",
@@ -92,7 +92,7 @@ export function useChartColors() {
     instagram: dark ? "#ff7ab8" : "#d62976",
     facebook: dark ? "#7db9ff" : "#1877f2",
     grid: dark ? "rgba(255,255,255,.06)" : "#e6ebef",
-    tick: "#7d8b98",
+    tick: "var(--chart-tick)",
     text: dark ? "#eef2f5" : "#17222b",
   };
 }
