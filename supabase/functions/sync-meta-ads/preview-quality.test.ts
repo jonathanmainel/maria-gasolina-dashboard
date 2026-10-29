@@ -363,6 +363,56 @@ describe("complete file validation and bounded downloads", () => {
 });
 
 describe("absolute HD policy and complete official collection", () => {
+  it("selects the required approved HD hash even when another official image is Full HD",async()=>{
+    const candidates=['large.png','hd.png'].map(name=>({url:media(name),source:'video.thumbnails',policy:'video_high_res_thumbnail',width:null,height:null,preferred:false}));
+    const fetcher=async(input:any)=>new Response(raster(String(input).endsWith('hd.png')?'hd.png':'large.png'),{headers:{'content-type':'image/png'}});
+    const result=await resolveCreativePreview(normalizeMetaCreative(ad()),candidates,fetcher,undefined,{videoId:'video-1',sha256:hash(raster('hd.png')),required:true});
+    expect(result.selected?.file.sha256).toBe(hash(raster('hd.png')));
+    expect(result.approval).toMatchObject({code:'preview_approved_hash_found_not_selected',general_selected_sha256:hash(raster('large.png')),matched_sha256:hash(raster('hd.png')),measured_count:3});
+  });
+  it.each(['missing','wrong-video','below-hd','download-failed','candidate-limit'])('fails closed with a specific approved-hash diagnostic: %s',async kind=>{
+    const name=kind==='below-hd'?'small.png':'hd.png';
+    const candidate={url:media(name)+'?token=DO_NOT_LOG',source:'video.thumbnails',policy:'video_high_res_thumbnail',width:null,height:null,preferred:false};
+    const candidates=kind==='candidate-limit'?Array.from({length:321},(_,i)=>({...candidate,url:media(`${i}.png`)})):[candidate];
+    const fetcher=async()=>kind==='download-failed'?new Response('expired',{status:403}):new Response(raster(name),{headers:{'content-type':'image/png'}});
+    const result=await resolveCreativePreview(normalizeMetaCreative(ad()),candidates,fetcher,undefined,{videoId:kind==='wrong-video'?'other':'video-1',sha256:kind==='missing'?'a'.repeat(64):hash(raster(name)),required:true});
+    expect(result.selected).toBeNull();
+    expect(result.approval?.code).toBe(({missing:'preview_approved_hash_not_found','wrong-video':'preview_approved_identity_mismatch','below-hd':'preview_approved_file_invalid','download-failed':'preview_approved_download_unconfirmed','candidate-limit':'preview_approved_candidate_limit'})[kind]);
+    expect(JSON.stringify(result.comparisons)).not.toContain('DO_NOT_LOG');
+    expect(JSON.stringify(result.approval)).not.toContain('https:');
+  });
+  it('keeps looking for an exact approved official fallback after a Full HD thumbnail',async()=>{
+    const creative=normalizeMetaCreative(ad({thumbnail_url:undefined}));
+    const candidates=[{url:media('large.png'),source:'video.thumbnails',policy:'video_high_res_thumbnail',width:null,height:null,preferred:false},{url:media('hd.png'),source:'video.picture',policy:'video_thumbnail_fallback',width:null,height:null,preferred:false}];
+    const result=await resolveCreativePreview(creative,candidates,async(input:any)=>new Response(raster(String(input).endsWith('hd.png')?'hd.png':'large.png'),{headers:{'content-type':'image/png'}}),undefined,{videoId:'video-1',sha256:hash(raster('hd.png')),required:true});
+    expect(result.selected?.file.sha256).toBe(hash(raster('hd.png')));expect(result.inspected).toBe(2);
+  });
+  const approvedHarness=(settings:any={})=>{
+    const h=harness(settings),r=h.rows[0];
+    h.options.reservationSelection={ad_ids:['ad-1'],approved_assets:[{ad_id:'ad-1',creative_id:'creative-1',video_id:'video-1',sha256:hash(raster('hd.png'))}],ads:[{ad_id:'ad-1',creative_id:r.creative_id,video_id:r.metadata.video_id,asset_key:r.metadata.preview_asset_key??null,previous_sha256:r.preview_sha256,previous_path:r.preview_storage_path,previous_updated_at:r.updated_at}]};
+    return h;
+  };
+  it('retains API/pagination failure diagnostics instead of reporting a definitive missing hash',async()=>{
+    const h=approvedHarness({thumbnailCycle:true});h.options.dryRun=true;
+    const stats=await h.run();expect(stats.failures[0].code).toBe('preview_approved_pagination_limit');
+    expect(stats.decisions?.[0]).toMatchObject({approval:{collection_complete:false,measured_count:0},lookup_errors:expect.arrayContaining(['meta_thumbnail_page_cycle'])});
+    expect(h.writes).toEqual([]);expect(h.uploads).toEqual([]);
+  });
+  it('retains a safe Meta error code without leaking API messages, tokens or URLs',async()=>{
+    const h=approvedHarness(),fetcher=h.options.fetchImpl;h.options.dryRun=true;
+    h.options.fetchImpl=async(input:any,init:any)=>new URL(String(input)).pathname.endsWith('/video-1/thumbnails')
+      ?Response.json({error:{code:100,message:'DO_NOT_LOG token=SECRET https://private.example/signed'}},{status:400}):fetcher(input,init);
+    const stats=await h.run();expect(stats.failures[0].code).toBe('preview_approved_collection_incomplete');
+    expect(stats.decisions?.[0].lookup_errors).toEqual(expect.arrayContaining(['meta_100','meta_thumbnail_collection_incomplete']));
+    expect(JSON.stringify(stats)).not.toContain('DO_NOT_LOG');expect(JSON.stringify(stats)).not.toContain('SECRET');
+    expect(h.writes).toEqual([]);expect(h.uploads).toEqual([]);
+  });
+  it('does not downgrade an existing Full HD preview to the approved HD bytes',async()=>{
+    const h=approvedHarness({rows:[row('large.png',{metadata:{video_id:'video-1',preview_width:1080,preview_height:1920}})],thumbnails:[{uri:media('large.png')},{uri:media('hd.png')}]});
+    const stats=await h.run();expect(stats.failures).toEqual([]);expect(h.uploads).toEqual([]);
+    expect(h.rows[0].preview_sha256).toBe(hash(raster('large.png')));
+    expect(stats.decisions?.[0].approval).toMatchObject({code:'preview_approved_hash_found_not_selected'});
+  });
   it("respects a reviewed hash for the same video only, without reducing resolution",async()=>{
     const reviewed=raster('large.png');
     const other=new Uint8Array(reviewed); // another valid image with equal pixel dimensions
@@ -371,6 +421,8 @@ describe("absolute HD policy and complete official collection", () => {
     const creative=normalizeMetaCreative(ad());
     const result=await resolveCreativePreview(creative,candidates,fetcher,undefined,{videoId:'video-1',sha256:hash(reviewed)});
     expect(result.selected?.file.sha256).toBe(hash(reviewed));expect(result.visuallyReviewed).toBe(true);
+    const exact=await resolveCreativePreview(creative,candidates,fetcher,undefined,{videoId:'video-1',sha256:hash(reviewed),required:true});
+    expect(exact.approval?.code).toBe('preview_approved_hash_valid');
     const wrong=await resolveCreativePreview(creative,candidates,fetcher,undefined,{videoId:'other',sha256:hash(reviewed)});
     expect(wrong.selected?.file.sha256).toBe(hash(raster('large.jpg')));expect(wrong.visuallyReviewed).toBe(false);
     const h=harness({rows:[row('small.png',{metadata:{video_id:'video-1',preview_reviewed_thumbnail:{video_id:'video-1',sha256:hash(raster('hd.png'))}}})],thumbnails:[{uri:media('hd.png')},{uri:media('large.png')}]});

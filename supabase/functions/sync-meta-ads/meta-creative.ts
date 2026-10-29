@@ -171,6 +171,17 @@ type DownloadedPreview = {
   height: number | null;
 };
 
+type ReviewedThumbnail = { videoId: string; sha256: string; required?: boolean };
+type ApprovedPreviewDiagnostic = {
+  code: string;
+  approved_sha256: string;
+  candidate_count: number;
+  measured_count: number;
+  download_failure_count: number;
+  matched_sha256: string | null;
+  general_selected_sha256: string | null;
+};
+
 class CreativeRequestError extends Error {
   constructor(
     message: string,
@@ -1072,7 +1083,7 @@ export async function resolveCreativePreview(
   extra: VideoPreviewCandidate[],
   fetchImpl: typeof fetch,
   frameFallback?: () => Promise<{ videoId: string; bytes: Uint8Array<ArrayBuffer>; mime: string } | null>,
-  reviewedThumbnail?: { videoId: string; sha256: string },
+  reviewedThumbnail?: ReviewedThumbnail,
 ) {
   // API hints and is_preferred never exclude a candidate or determine its quality.
   const video = creative.metadata.preview_media_type === "video" || creative.creativeType === "video";
@@ -1086,20 +1097,33 @@ export async function resolveCreativePreview(
     file: DownloadedPreview;
   } | null = null;
   let reviewed: {candidate:VideoPreviewCandidate;file:DownloadedPreview} | null = null;
+  let matched: {candidate:VideoPreviewCandidate;file:DownloadedPreview;valid:boolean} | null = null;
   const comparisons: Array<Record<string, unknown>> = [];
+  const required = reviewedThumbnail?.required === true;
+  const diagnostic = (code: string): ApprovedPreviewDiagnostic | undefined => required ? {
+    code, approved_sha256: reviewedThumbnail!.sha256, candidate_count: candidates.length,
+    measured_count: comparisons.filter(c => typeof c.sha256 === 'string').length,
+    download_failure_count: comparisons.filter(c => c.sha256 === undefined && c.result !== 'candidate_limit').length,
+    matched_sha256: matched?.file.sha256 ?? null, general_selected_sha256: selected?.file.sha256 ?? null,
+  } : undefined;
+  if (required && reviewedThumbnail!.videoId !== creative.videoId) {
+    return {selected:null,comparisons,inspected:0,visuallyReviewed:false,approval:diagnostic('preview_approved_identity_mismatch')};
+  }
   if (candidates.length > MAX_CANDIDATES) {
-    return {selected:null,comparisons:[{result:"candidate_limit",omitted:candidates.length-MAX_CANDIDATES}],inspected:0};
+    comparisons.push({result:"candidate_limit",omitted:candidates.length-MAX_CANDIDATES});
+    return {selected:null,comparisons,inspected:0,visuallyReviewed:false,approval:diagnostic('preview_approved_candidate_limit')};
   }
   let inspected = 0;
   for (const candidate of candidates.slice(0, MAX_CANDIDATES)) {
     // Finish the entire official collection before considering alternate artwork.
-    if (selected?.candidate.source === "video.thumbnails" && video && candidate.source !== "video.thumbnails" &&
+    if (!required && selected?.candidate.source === "video.thumbnails" && video && candidate.source !== "video.thumbnails" &&
         videoPreviewQuality({width:selected.file.width!,height:selected.file.height!},originalRatio) === "full_hd") break;
     inspected++;
     try {
       const file = await downloadPreview(candidate.url, fetchImpl);
       const quality = video ? videoPreviewQuality({ width:file.width!, height:file.height! }, originalRatio) : null;
       comparisons.push({
+        candidate_index: inspected - 1,
         source: candidate.source,
         width: file.width,
         height: file.height,
@@ -1109,6 +1133,7 @@ export async function resolveCreativePreview(
         quality,
         result: quality === "insufficient" ? "below_hd_or_ratio_mismatch" : "valid",
       });
+      if (required && reviewedThumbnail!.sha256 === file.sha256) matched = {candidate,file,valid:quality !== 'insufficient'};
       if (quality === "insufficient") continue;
       if (candidate.source === "video.thumbnails" && reviewedThumbnail?.videoId === creative.videoId &&
           reviewedThumbnail.sha256 === file.sha256) reviewed = {candidate,file};
@@ -1125,6 +1150,7 @@ export async function resolveCreativePreview(
         selected = { candidate, file };
     } catch (error) {
       comparisons.push({
+        candidate_index: inspected - 1,
         source: candidate.source,
         result: safeErrorCode(error),
       });
@@ -1132,6 +1158,16 @@ export async function resolveCreativePreview(
   }
   if (reviewed && selected && reviewed.file.width! >= selected.file.width! && reviewed.file.height! >= selected.file.height!) {
     selected = reviewed;
+  }
+  if (required) {
+    const code = matched ? !matched.valid ? 'preview_approved_file_invalid'
+      : selected?.file.sha256 === matched.file.sha256 ? 'preview_approved_hash_valid' : 'preview_approved_hash_found_not_selected'
+      : comparisons.some(c=>c.sha256===undefined) ? 'preview_approved_download_unconfirmed' : 'preview_approved_hash_not_found';
+    const approval = diagnostic(code);
+    // An explicit authorization binds bytes, not the winner of quality ranking.
+    // A missing/invalid match never silently accepts another candidate or frame.
+    selected = matched?.valid ? {candidate:matched.candidate,file:matched.file} : null;
+    return {selected,comparisons,inspected,visuallyReviewed:!!selected,approval};
   }
   // Callback is absent in the deployed endpoint: no recurrent video processing.
   if (!selected && video && creative.videoId && frameFallback) {
@@ -1150,7 +1186,7 @@ export async function resolveCreativePreview(
       }
     } catch (error) { comparisons.push({source:"video.local_frame",result:safeErrorCode(error)}); }
   }
-  return { selected, comparisons, inspected, visuallyReviewed: !!selected && selected === reviewed };
+  return { selected, comparisons, inspected, visuallyReviewed: !!selected && selected === reviewed, approval:undefined };
 }
 
 function mergedMetadata(
@@ -1569,7 +1605,7 @@ export async function enrichMetaCreativePreviews(
   // Small per-run cache: shared videos may serve several ads of the SAME account.
   // Keep only selected bytes, never all downloaded candidates or a permanent cache.
   const resolutions = new Map<string, Promise<Awaited<ReturnType<typeof resolveCreativePreview>>>>();
-  const resolve = (creative: NormalizedMetaCreative, extras: VideoPreviewCandidate[], ref: CreativeAdRef, reviewedThumbnail?: {videoId:string;sha256:string}) => {
+  const resolve = (creative: NormalizedMetaCreative, extras: VideoPreviewCandidate[], ref: CreativeAdRef, reviewedThumbnail?: ReviewedThumbnail) => {
     const key = JSON.stringify([ref.account_id, creative.videoId, creative.assetKey,
       [...(creative.candidates ?? []), ...extras].map(c=>c.url),reviewedThumbnail]);
     if (!options.frameFallback && creative.videoId && resolutions.has(key)) return resolutions.get(key)!;
@@ -1673,7 +1709,7 @@ export async function enrichMetaCreativePreviews(
       if (originalImage) extras.push(originalImage);
       const reviewed = objectValue(current?.metadata?.preview_reviewed_thumbnail);
       const approved=options.reservationSelection?.approved_assets.find(a=>a.ad_id===ref.ad_id);
-      const reviewedThumbnail = approved?.video_id===creative.videoId ? {videoId:creative.videoId!,sha256:approved.sha256}
+      const reviewedThumbnail: ReviewedThumbnail | undefined = approved ? {videoId:approved.video_id ?? creative.videoId ?? '',sha256:approved.sha256,required:true}
         : reviewed?.video_id === creative.videoId && /^[a-f0-9]{64}$/.test(String(reviewed?.sha256))
         ? {videoId:creative.videoId!,sha256:String(reviewed!.sha256)} : undefined;
       let collectionIncomplete = !!creative.videoId && (lookupErrors.get(creative.videoId) ?? []).some(code =>
@@ -1684,12 +1720,34 @@ export async function enrichMetaCreativePreviews(
               selected: null,
               comparisons: [] as Array<Record<string, unknown>>,
               visuallyReviewed: false,
+              approval: undefined as ApprovedPreviewDiagnostic | undefined,
             }
           : await resolve(creative, extras, ref, reviewedThumbnail);
       if (resolved.comparisons.some(c => c.result === "candidate_limit")) collectionIncomplete = true;
       const file = resolved.selected?.file;
-      if(approved&&(!file||file.sha256!==approved.sha256||creative.creativeId!==approved.creative_id
-        ||(approved.video_id!==undefined&&creative.videoId!==approved.video_id)))throw new PreviewError('preview_approved_candidate_unavailable');
+      let approvedDetails: Record<string, unknown> | undefined;
+      if (approved) {
+        const lookup = creative.videoId ? lookupErrors.get(creative.videoId) ?? [] : [];
+        const identityMismatch = creative.creativeId !== approved.creative_id || !sameIdentity ||
+          (approved.video_id !== undefined && creative.videoId !== approved.video_id);
+        const code = identityMismatch ? 'preview_approved_identity_mismatch'
+          : lookup.some(c=>['meta_thumbnail_page_limit','meta_thumbnail_page_cycle'].includes(c)) ? 'preview_approved_pagination_limit'
+          : collectionIncomplete ? resolved.comparisons.some(c=>c.result==='candidate_limit') ? 'preview_approved_candidate_limit' : 'preview_approved_collection_incomplete'
+          : resolved.approval?.code ?? 'preview_approved_hash_not_found';
+        const accepted = !identityMismatch && !collectionIncomplete && file?.sha256 === approved.sha256;
+        approvedDetails = {approval:{...resolved.approval,code,approved_sha256:approved.sha256,
+            candidate_count:deduplicateCandidates([...(creative.candidates??[]),...extras]).length,
+            measured_count:resolved.comparisons.filter(c=>typeof c.sha256==='string').length,
+            collection_complete:!collectionIncomplete,
+            bytes_hash_differences:resolved.comparisons.filter(c=>typeof c.sha256==='string'&&c.sha256!==approved.sha256).length},
+          identity:{expected_creative_id:approved.creative_id,current_creative_id:creative.creativeId,
+            expected_video_id:approved.video_id??null,current_video_id:creative.videoId},
+          lookup_errors:lookup};
+        if (!accepted) {
+          stats.decisions?.push({ad_id:ref.ad_id,result:'approved_hash_rejected',...approvedDetails,candidates:resolved.comparisons});
+          throw new PreviewError(code);
+        }
+      }
       let previousWidth = Number(current?.metadata?.preview_width) || 0,
         previousHeight = Number(current?.metadata?.preview_height) || 0;
       let existingError: string | null = null;
@@ -1935,6 +1993,7 @@ export async function enrichMetaCreativePreviews(
       stats.decisions?.push({
         ad_id: ref.ad_id,
         result: outcome,
+        ...approvedDetails,
         previous_width: previousWidth || null,
         previous_height: previousHeight || null,
         candidates: resolved.comparisons,
