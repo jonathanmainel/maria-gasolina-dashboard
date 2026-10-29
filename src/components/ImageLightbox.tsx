@@ -64,11 +64,13 @@ export function ImageLightbox({ src, label, onClose, refreshSrc }: Props) {
         </button>
         <figure>
           <div className="lightbox-media">
+            <div className={`lightbox-frame${dimensions.height > dimensions.width ? " lightbox-frame-vertical" : ""}`}>
             {failed ? <p role="status" className="lightbox-error">Não foi possível carregar esta imagem. Feche e abra novamente para tentar renovar o acesso.</p> :
               <img src={resolvedSrc} alt={label}
                 style={quality.limited ? { maxWidth: dimensions.width * 2, maxHeight: dimensions.height * 2 } : undefined}
                 onLoad={(event) => setDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
                 onError={() => { void recover(); }} />}
+            </div>
           </div>
           <figcaption>{label}
             {!failed && quality.known && <small className={quality.limited ? "lightbox-resolution-limited" : ""}>

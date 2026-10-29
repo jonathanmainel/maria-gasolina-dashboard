@@ -367,7 +367,7 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
   return (
     <>
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`creative tilt ${rank <= 3 ? "creative-top" : "creative-secondary"}${revealed ? " creative-reveal" : ""}`} style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
-      <div className={`creative-art${image ? " creative-art-preview" : ""}${quality.limited ? " creative-art-limited" : ""}${format === "video" || c.preview_media_type === "video" ? " creative-art-video" : ""}`}>
+      <div className={`creative-art${image ? " creative-art-preview" : ""}${image && dimensions.height > dimensions.width ? " creative-art-vertical" : ""}${quality.limited ? " creative-art-limited" : ""}${format === "video" || c.preview_media_type === "video" ? " creative-art-video" : ""}`}>
         {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
           <img src={image} alt="" style={quality.limited ? { maxWidth: dimensions.width * 2, maxHeight: dimensions.height * 2 } : undefined}
             onLoad={(event) => setDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
@@ -378,8 +378,8 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
         {!image && <h4>{c.headline}</h4>}
       </div>
       <div className="creative-body">
-        {image && quality.known && <p className={`creative-resolution${quality.limited ? " creative-resolution-limited" : ""}`}>
-          {quality.label}{quality.limited ? " · Miniatura de baixa resolução" : ""}
+        {image && quality.limited && <p className="creative-resolution creative-resolution-limited">
+          Miniatura de baixa resolução
         </p>}
         {!image && <p className="creative-resolution" role="status">Imagem indisponível no momento</p>}
         <div className="creative-copy">
