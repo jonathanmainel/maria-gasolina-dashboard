@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 const out='artifacts/meta-preview-publicacao-20261029/packages';
 const project_id='hlqrpreqvvxtkruwsolg';
 const modules={
@@ -37,5 +38,5 @@ for(const name of migrations){
  migrationManifest.push({name,sha256:sha(bytes)});
 }
 await fs.writeFile(path.join(out,'manifest.json'),JSON.stringify({production_deploy_authorized:false,
- project_id,packages:manifest,migrations:migrationManifest},null,2)+'\n');
+ project_id,source_commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),packages:manifest,migrations:migrationManifest},null,2)+'\n');
 console.log(JSON.stringify({project_id,production_deploy_authorized:false,packages:manifest.map(({name,package_sha256})=>({name,package_sha256})),migrations:migrationManifest}));

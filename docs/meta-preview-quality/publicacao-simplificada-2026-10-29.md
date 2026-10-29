@@ -14,7 +14,8 @@ Top 3/Top 9, modal e apresentação. Corrigida uma diferença pontual no cálcul
 da moldura mobile. A aplicação publicada foi aberta com sessão autenticada:
 cards reais, aviso de baixa resolução, modal com dimensões, sem erros de console.
 Nenhum backend ou arquivo real foi publicado nesta entrega; a resolução atual
-permanece a mesma. O frontend do PR #10 deve ficar idêntico à main publicada.
+permanece a mesma. A main publicada foi incorporada ao PR #10; seu frontend é
+idêntico ao publicado, sem alterações em `src/`, workflows ou Google/GA4 no diff restante.
 
 ## Entrega 2: protocolo homologado; produção ainda depende do gate
 
@@ -43,7 +44,8 @@ secrets, RLS, permissões existentes ou mudanças nos coletores Google/GA4:
 
 Resultados confirmados:
 
-- 209 testes backend em 16 arquivos e asserções SQL do protocolo, com rollback.
+- 209 testes backend em 16 arquivos, 15 testes Python locais de mídia e asserções
+  SQL do protocolo, com rollback.
 - Lote `a8d15392-d011-47f0-bd56-4981bfe8fc2e`: seis arquivos sintéticos
   atualizados, quatro preservados, recibo terminal confirmado.
 - Idempotência `0cf866a0-c21d-4116-9924-1ac701384421`: zero atualizações e dez
@@ -79,7 +81,7 @@ contra os hashes do banco/corpus. Nenhuma escrita remota foi feita.
 | AD3 - Mais do que uma franquia | 120251781898970114 | Full HD 1080×1920 |
 | AD01 - | 120233201881890114 | Full HD 1080×1920 |
 | Novo anúncio de Engajamento | 120241847281150114 | Full HD 1080×1920 |
-| Novo anúncio de Engajamento — Cópia | 120242286711110114 | HD 720×1280 |
+| Novo anúncio de Engajamento — Cópia | 120242286711110114 | HD 1072×1928 |
 
 CTV 1 - Depoimento (`120242449606530114`) mantém o Full HD atual e fica fora
 de todos os pedidos. Os 33 restantes não foram consultados nesta entrega.

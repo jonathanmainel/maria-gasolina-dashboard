@@ -135,9 +135,9 @@ são suporte **exclusivo do sandbox**, não migrations de produção. O reconcil
 de testes já existente foi estendido para exigir término real e recibo de mídia
 verificado antes de liberar um timeout; ele não será transportado para produção.
 
-Resultados finais das suítes, versões, runs e capturas são registrados ao fim
-da homologação nesta seção. Enquanto não houver esse fechamento, o estado é
-**implementado; homologação em andamento; não publicado em produção**.
+O fechamento das suítes, versões, runs e comparações está no relatório de
+[29/10](publicacao-simplificada-2026-10-29.md). Estado atual: **homologado no
+projeto isolado; frontend publicado; backend não publicado em produção**.
 
 ## Reversão e futura publicação — não executar nesta autorização
 
