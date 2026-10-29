@@ -1,5 +1,10 @@
 # Publicação simplificada dos previews — 29/10/2026
 
+> Atualização após autorização final: migrations e backend publicados em
+> produção. O dry run remoto do piloto não confirmou os candidatos aprovados;
+> nenhuma imagem foi alterada e os lotes foram interrompidos. Ver
+> [resultado da publicação controlada](producao-2026-10-29.md).
+
 ## Entrega 1: publicada
 
 O PR [#19](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/19)
