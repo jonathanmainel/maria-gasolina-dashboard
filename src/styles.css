@@ -486,7 +486,17 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 
 /* ------------------------------------------------------------ tables */
 .table-wrap { overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); }
-.desktop-table { overflow-x: auto; }
+.desktop-table { min-width: 0; }
+.table-scroll { max-width: 100%; overflow-x: auto; scrollbar-color: var(--muted-2) var(--surface-2); }
+.table-scroll:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.table-scroll th, .table-scroll td { min-width: 6.5rem; }
+.table-scroll th.wide, .table-scroll td.name-cell { min-width: 14rem; max-width: 24rem; }
+.table-scroll td.name-cell { overflow-wrap: anywhere; }
+.table-scroll th { padding-block: 10px; white-space: normal; line-height: 1.4; }
+.table-scroll th button { text-align: right; }
+.table-scroll th.wide button { text-align: left; }
+.table-scroll th button svg { flex-shrink: 0; }
+.table-scroll-hint { margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
 table { width: 100%; border-collapse: collapse; }
 th { height: 44px; padding: 0 14px; text-align: right; color: var(--muted); background: color-mix(in srgb, var(--bg) 40%, transparent); border-bottom: 1px solid var(--line); font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
 th.wide, th:first-child { text-align: left; }
@@ -949,10 +959,12 @@ tbody tr:hover { background: var(--surface-2); }
   /* Linha recolhível do detalhamento: o <button> externo precisa se comportar como linha. */
   .mobile-row > button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0; border: 0; background: transparent; text-align: left; color: inherit; }
   .mobile-row > button > span:first-child { display: flex; flex-direction: column; min-width: 0; }
-  .mobile-row > button > span:first-child strong { color: var(--text); font-size: 12px; }
+  .mobile-row > button > span:first-child strong { color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
   .mobile-row > button > span:first-child small { margin-top: 3px; color: var(--muted); font-size: 10px; }
   .mobile-row > button .mobile-primary { width: auto; flex: 0 0 auto; }
   .mobile-details { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .mobile-details > div { display: grid; gap: 3px; min-width: 0; }
+  .mobile-details > div > strong { color: var(--text); }
   .mobile-details b { color: var(--text); }
   .hero { min-height: 340px; }
   .hero-stats { grid-template-columns: 1fr; }
@@ -964,6 +976,9 @@ tbody tr:hover { background: var(--surface-2); }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 @media print {
+  .table-scroll { overflow: visible; }
+  .table-scroll th, .table-scroll td, .table-scroll th.wide, .table-scroll td.name-cell { min-width: 0; max-width: none; padding-inline: 8px; }
+  .table-scroll-hint { display: none; }
   :root { color-scheme: light; --bg: #fff; --bg-2: #fff; --surface: #fff; --surface-2: #f4f6f8; --surface-solid: #fff; --line: #dde3e8; --line-2: #c9d2d9; --text: #17222b; --text-2: #3a4a56; --muted: #536675; --muted-2: #5b6c78; --red-text: #b3301f; --gold-text: #91620e; --green-text: #14794f; --sky-text: #1b68ae; --pink-text: #b11e61; --chart-tick: #526472; --chart-grid: #e6ebef; }
   .ambient, .sidebar, .topbar, .icon-button, .scrim, .toast { display: none !important; }
   .content { margin: 0; padding: 0; }

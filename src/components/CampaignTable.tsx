@@ -1,3 +1,4 @@
+import { TableViewport } from "./ui/table-viewport";
 import { useMemo, useState } from "react";
 import { integer, money, percent } from "../lib/format";
 import { ExpandableTableFooter, useExpandableRows } from "./ui/expandable-table";
@@ -43,7 +44,7 @@ export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com da
 
   return (
     <div className="table-wrap">
-      <div className="desktop-table">
+      <TableViewport label="Tabela de campanhas">
         <table>
           <thead><tr>{th("name", "Campanha", true)}<th>Canal</th><th>Status</th>{th("spend", "Investimento")}{th("impressions", "Impressões")}{th("clicks", "Cliques")}{th("ctr", "CTR")}{th("leads", "Leads")}{th("cpl", "CPL")}</tr></thead>
           <tbody>
@@ -64,7 +65,7 @@ export function CampaignTable({ campaigns, emptyLabel = "Nenhuma campanha com da
             ))}
           </tbody>
         </table>
-      </div>
+      </TableViewport>
       <div className="mobile-rows">
         {rows.visibleRows.map((c) => (
           <div className="mobile-row" key={c.id}>

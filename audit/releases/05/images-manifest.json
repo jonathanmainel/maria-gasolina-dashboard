@@ -1,0 +1,42 @@
+{
+  "after-detail-360-light.png": {
+    "sha256": "8a8db03f1c75b9bce05c14d29b0b85d399624ce35d05acf9e8ad5ed93bdd408c",
+    "bytes": 54212
+  },
+  "after-landing-768-dark.png": {
+    "sha256": "3a60f28f9747377102c884c38260dda984048d95e1375addaa352bee39033e3b",
+    "bytes": 44931
+  },
+  "after-landing-768-light.png": {
+    "sha256": "665fc6b5ccfb0dd372acddf255f2f04c48fe88385c2c22b6c82a61c474ea5c9a",
+    "bytes": 44518
+  },
+  "after-mobile-fields-360-dark.png": {
+    "sha256": "d96b103dc5c42aafdb6e1fdeb643ff9e05f5cc5a4c495d5696fde23a985a64d3",
+    "bytes": 14684
+  },
+  "after-site-768-dark.png": {
+    "sha256": "40e9545119cdb30b5aa28b8d551e3f164840c12d60d90694eefade4fe9a580a3",
+    "bytes": 404292
+  },
+  "before-landing-768-light.png": {
+    "sha256": "9a26cdfcfa23e674f2f87bcd3ef4db23a03be8af73ca00ae21efd4aa082ac4d4",
+    "bytes": 46302
+  },
+  "before-mobile-fields-360-dark.png": {
+    "sha256": "ad99a6fd6841748c2893ae1fe877b7cf285fbabb21ffbaeddd89f949759f7638",
+    "bytes": 13881
+  },
+  "comparison-landing-768-light.png": {
+    "sha256": "ea2d39212192bc5671e8041fa0758ff9cfa0afbd431f46ef9df67004290f6603",
+    "bytes": 90635
+  },
+  "comparison-mobile-fields-360-dark.png": {
+    "sha256": "492f3c209c90896eeecb3df668d596cfa24bca16b5efda8bbbb67045ce1dfa8a",
+    "bytes": 24516
+  },
+  "print-794-light.png": {
+    "sha256": "c494a9a07899513d685db01e260a34204f7072b8c97b52008f0e48b6416e6621",
+    "bytes": 359790
+  }
+}

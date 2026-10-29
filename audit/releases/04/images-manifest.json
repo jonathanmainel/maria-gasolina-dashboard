@@ -31,9 +31,17 @@
     "sha256": "e3bda7c0632eb8f3fa4ebc1716b346a8b1f01f47fa00c30b96881f2ebe8fa894",
     "bytes": 43282
   },
+  "production-after-390-light.png": {
+    "sha256": "ff1d4e8e3885625064ed04c0ffd761c614486c0ab1fd0dd774998c59765a7848",
+    "bytes": 19552
+  },
   "production-before-390-light.png": {
     "sha256": "07dda42232862ee29be04a8be1eca6228a6385f392885569df9146bf00872f73",
     "bytes": 19390
+  },
+  "production-comparison-390-light.png": {
+    "sha256": "c29877555d61cc21bc3cff3d2a62530f1e925ea60999e938d4bb44afa1e88f72",
+    "bytes": 36416
   },
   "stress-1920-light.png": {
     "sha256": "5ff42a259045091fff795f5aa129d6da2d017942248f6af60719fa979ca2874d",
