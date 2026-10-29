@@ -1,5 +1,9 @@
 # Recuperação restrita dos arquivos aprovados — 29/10/2026
 
+> Atualização posterior: o pacote foi publicado no isolado como Meta v10 e os
+> dry runs passaram. O fluxo com escrita sintética e a restauração auditável
+> continuam pendentes; veja [homologação remota e reversão](homologacao-remota-e-reversao-2026-10-29.md).
+
 ## Estado da entrega
 
 Implementação local concluída; **homologação remota ainda pendente**. A revisão
