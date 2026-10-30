@@ -93,7 +93,7 @@ for (const [width, height] of [
         .click();
       await expect(page.locator(".creative")).toHaveCount(9);
       await page.getByRole("tab", {name:"Estáticos",exact:true}).click();
-      await inspectImage(page, `FIXTURE ${front} 3`, 1080, 1350, 4 / 5);
+      await inspectImage(page, `FIXTURE ${front} 3`, 1080, 1350, 9 / 16);
       await page.getByRole("tab", {name:"Vídeos",exact:true}).click();
       await page.getByRole("button", {name:"Ver mais criativos",exact:true}).click();
       const names = await page

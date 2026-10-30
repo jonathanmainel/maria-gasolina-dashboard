@@ -1,4 +1,4 @@
-# Criativos por tipo — revisão de 30/10/2026
+# Criativos por tipo — revisão de 30/10/2026 — containers uniformes 9:16
 
 Branch: `codex/creative-rankings-by-type`, criada a partir de `baae2747195ffd33bdb65a56ca42e801fa455a9c` (`main`, merge do PR #10).
 
@@ -6,7 +6,7 @@ Branch: `codex/creative-rankings-by-type`, criada a partir de `baae2747195ffd33b
 
 Uma única seção usa o `Segmented` existente com **Vídeos** e **Estáticos**. Frente → Meta Ads → representação → leads decrescentes → ID como desempate → Top 3/9. O tipo é filtrado antes de qualquer limite. Cada ranking começa em 1; alternar categoria reinicia a expansão. A seção é remontada pela chave frente/período, impedindo reutilização do estado anterior. A categoria inicial prioriza vídeos e, na ausência deles, estáticos. Categorias vazias continuam selecionáveis, com mensagem própria.
 
-Vídeos conservam 9:16, `contain`, qualidade, renovação de URL e modal. Estáticos têm área uniforme 4:5 e fundo neutro do tema; imagens quadradas, verticais e horizontais permanecem inteiras. O tamanho nativo limita a ampliação dos estáticos, incluindo arquivos pequenos. A apresentação tem páginas separadas por tipo, até nove de cada, com numeração e categoria preservadas no redimensionamento. Seu enquadramento 4:5 se adapta ao espaço disponível, assim como o enquadramento 9:16 existente.
+Vídeos conservam 9:16, `contain`, qualidade, renovação de URL e modal. Estáticos têm área uniforme 9:16 e fundo neutro do tema; imagens quadradas, verticais e horizontais permanecem inteiras. O tamanho nativo limita a ampliação dos estáticos, incluindo arquivos pequenos. A apresentação tem páginas separadas por tipo, até nove de cada, com numeração e categoria preservadas no redimensionamento. Seu enquadramento 9:16 se adapta ao espaço disponível, assim como o enquadramento 9:16 existente.
 
 ## Classificação e desempenho
 
@@ -23,7 +23,7 @@ Vídeos conservam 9:16, `contain`, qualidade, renovação de URL e modal. Estát
 
 ### A mesma imagem estática antes/depois
 
-O arquivo 1080×1350 era colocado em área 9:16 por ser vertical. Agora a área 4:5 acompanha esse formato, reduzindo espaço vazio; a mudança de posição de 4 para 1 corresponde ao ranking independente.
+Revisão de prioridade: os dois grupos agora usam o mesmo container 9:16. A mídia mantém a proporção nativa com `contain`; os estáticos têm faixas neutras e não são ampliados além do tamanho nativo. O espaço de aviso de resolução é reservado em todos os cards, mantendo altura e alinhamento. A mudança da posição 4 para 1 corresponde ao ranking independente.
 
 | Frente / tela | Antes (`main`) | Depois |
 | --- | --- | --- |
@@ -31,8 +31,6 @@ O arquivo 1080×1350 era colocado em área 9:16 por ser vertical. Agora a área 
 | Condomínios · desktop | ![Antes Condomínios](images/condominium-1440-before-static-card.png) | ![Depois Condomínios](images/condominium-1440-after-static-card.png) |
 | Franquias · mobile | ![Antes mobile Franquias](images/franchise-390-before-static-card.png) | ![Depois mobile Franquias](images/franchise-390-after-static-card.png) |
 | Condomínios · mobile | ![Antes mobile Condomínios](images/condominium-390-before-static-card.png) | ![Depois mobile Condomínios](images/condominium-390-after-static-card.png) |
-
-Na comparação medida, o card estático passou de **814 para 619 px** no desktop (largura 371 px) e de **791 para 603 px** no mobile (largura 358 px), cerca de 24% menos altura. O arquivo, seu conteúdo integral e a largura foram mantidos.
 
 ### Seção completa
 
@@ -54,7 +52,8 @@ Na comparação medida, o card estático passou de **814 para 619 px** no deskto
 
 | Verificação | Resultado |
 | --- | --- |
-| Vitest: 56 arquivos do frontend | **645 testes aprovados** |
+| Regressão anterior do PR: 56 arquivos do frontend | **645 testes aprovados** |
+| Revisão 9:16: quatro arquivos de cards, seção e apresentação | **32 testes aprovados** |
 | Playwright: categorias, ranking, frente/período, fullscreen e apresentação | **8 cenários aprovados** |
 | Playwright: regressão existente de previews, renovação e modal | **6 cenários aprovados** |
 | Comparativo com código da main | **4 cenários aprovados** |
@@ -63,6 +62,8 @@ Na comparação medida, o card estático passou de **814 para 619 px** no deskto
 | Build Vite + preparação do pacote | Aprovado |
 | `tests/sites-worker.test.mjs` | **4 testes aprovados** |
 | Diff/escopo e links das 20 imagens | Aprovados |
+
+A revisão 9:16 passou em tipos, build, 32 testes dirigidos, oito cenários de categorias/apresentação e seis de previews, mais quatro de empacotamento. A suíte ampla de 645 testes pertence ao primeiro commit do PR.
 
 Após timeouts locais na tentativa concorrente, a rodada final foi concluída sequencialmente. O Vitest usou dois workers e timeout de 15 segundos por teste nessa rodada, excluindo `artifacts/**` e `.npm-cache/**` para não executar cópias locais de código/dependências. Nenhum teste da aplicação foi removido. O build conserva o aviso de chunks grandes, também observado no baseline.
 
@@ -81,7 +82,7 @@ Isso comprova a regressão local do frontend; não representa uma publicação o
 - `src/lib/api.ts`: classificação antes de selecionar URLs.
 - `src/lib/creative-previews.ts`: leitura de metadados e seleção limitada para assinatura, mantendo autenticação/cache.
 - `src/views/Presentation.tsx`, `src/lib/presentation-layout.ts`, `src/presentation.css`: páginas por tipo e enquadramento responsivo.
-- `src/styles.css`: área 4:5, fundo neutro e cabeçalho responsivo.
+- `src/styles.css`: área 9:16, fundo neutro e cabeçalho responsivo.
 
 Testes: `src/views/CreativeSection.test.tsx`, `src/lib/creatives.test.ts`, `src/lib/creative-previews.test.ts`, `src/lib/presentation-layout.test.ts`, `tests/creative-categories.spec.ts`, `tests/meta-preview-quality.spec.ts` e ajuste de ID esperado em `e2e/uiux-legibility.spec.ts`. Suporte: `playwright.creative-categories.config.ts`, `tests/serve-creative-categories-test.mjs`, `tests/fixtures/meta-preview-app.ts`, `tests/fixtures/meta-previews/generate.py` e `square.png`. Este relatório e suas imagens completam a entrega.
 

@@ -38,6 +38,8 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
       await expect(section.getByRole("tab")).toHaveText(["Vídeos", "Estáticos"]);
       const kpis = await page.locator("[data-testid=front-individual] .kpi-value").allTextContents();
       await capture(page, `${front}-${width}-videos`);
+      const heights=await section.locator(".creative").evaluateAll(els=>els.map(el=>(el as HTMLElement).offsetHeight));
+      expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(1);
       await section.getByRole("button", { name: "Ver mais criativos", exact: true }).click();
       await expect(section.locator(".creative")).toHaveCount(9);
       await imagesLoaded(page);
@@ -59,7 +61,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
       await imagesLoaded(page);
       expect(await section.locator(".rank").allTextContents()).toEqual(["1","2","3","4","5","6","7","8","9"]);
       const art = await section.locator(".creative-art").evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {ratio:r.width/r.height,height:r.height};}));
-      for(const box of art) expect(box.ratio).toBeCloseTo(4/5,2);
+      for(const box of art) expect(box.ratio).toBeCloseTo(9/16,2);
       expect(Math.max(...art.map(a=>a.height))-Math.min(...art.map(a=>a.height))).toBeLessThan(1);
       expect(await section.locator(".creative img").evaluateAll(imgs=>imgs.every(img=>getComputedStyle(img).objectFit==="contain"))).toBe(true);
       for(const [index,dimensions] of [[12,"1080 × 1920"],[13,"1920 × 1080"]] as const) {
@@ -99,7 +101,7 @@ for (const [width,height] of [[3840,2160],[1440,900],[390,844]]) test(`apresenta
       expect((await slide.locator(".rank").allTextContents())[0]).toBe(String(offset+1));
       await expect(slide.locator(category==="video"?".creative-art-video":".creative-art-static")).toHaveCount(width<700?1:3);
       const mediaRatios=await slide.locator(".creative-zoom").evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return r.width/r.height;}));
-      for(const ratio of mediaRatios) expect(ratio).toBeCloseTo(category==="video"?9/16:4/5,2);
+      for(const ratio of mediaRatios) expect(ratio).toBeCloseTo(9/16,2);
       const issues=await page.locator(".responsive-present").evaluate(el=>{
         const issues=[]; if(el.scrollHeight>el.clientHeight+2||el.scrollWidth>el.clientWidth+2)issues.push("overflow");
         for(const c of el.querySelectorAll(".creative,.present-controls")){const r=c.getBoundingClientRect();if(r.left<0||r.right>innerWidth+1||r.top<0||r.bottom>innerHeight+1)issues.push("outside");}return issues;

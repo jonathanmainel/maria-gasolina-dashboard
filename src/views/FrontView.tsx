@@ -392,10 +392,12 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
         {!image && <h4>{c.headline}</h4>}
       </div>
       <div className="creative-body">
+        <div className="creative-status">
         {image && quality.limited && <p className="creative-resolution creative-resolution-limited">
           Miniatura de baixa resolução
         </p>}
         {!image && <p className="creative-resolution" role="status">Imagem indisponível no momento</p>}
+        </div>
         <div className="creative-copy">
           <strong title={c.name}>{c.name}</strong>
           <small title={c.headline}>{c.headline}</small>
