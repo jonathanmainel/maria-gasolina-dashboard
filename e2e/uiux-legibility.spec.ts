@@ -55,7 +55,7 @@ for(const theme of ['dark','light'])for(const [width,height] of sizes.slice(0,6)
 });
 for(const theme of ['dark','light'])for(const [width,height] of [[1440,900],[360,800]])test(`presentation compositions and auth colors ${width} ${theme}`,async({page,context},info)=>{
  await page.setViewportSize({width,height});const state=await install(context,{theme});await page.clock.setFixedTime(new Date('2026-10-28T15:00:00Z'));await ready(page,'executive',true);await page.getByRole('button',{name:'Pausar',exact:true}).click();
- const wanted=new Set(['executive','executive-goals','franchise','franchise-creatives-0','franchise-crm-0','condominium','organic','organic-posts']);const seen=new Set<string>();const total=Number((await page.locator('.presentation-counter').innerText()).match(/\/ (\d+)/)![1]);
+ const wanted=new Set(['executive','executive-goals','franchise','franchise-creatives-static-0','franchise-crm-0','condominium','organic','organic-posts']);const seen=new Set<string>();const total=Number((await page.locator('.presentation-counter').innerText()).match(/\/ (\d+)/)![1]);
  for(let i=0;i<total;i++){
   const slide=page.locator('.present-slide'),id=(await slide.getAttribute('data-slide'))!;
   if(wanted.has(id)){await kpisFit(page);await page.screenshot({path:info.outputPath(`present-${width}-${theme}-${id}.png`),animations:'disabled'});seen.add(id);}

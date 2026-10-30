@@ -40,7 +40,11 @@ function creativeType(value: string | null): MetaCreativeType {
 }
 
 /** Metadata and short-lived URLs only; no service key, public URL or persistent storage. */
-export async function getMetaCreativePreviews(adIds: string[], clientId: number, options: { forceRefresh?: boolean } = {}): Promise<Map<string, MetaCreativePreview>> {
+export async function getMetaCreativePreviews(adIds: string[], clientId: number, options: {
+  forceRefresh?: boolean;
+  /** Select URLs after classification, using the metadata from this same read. */
+  selectPreviewIds?: (metadata: ReadonlyMap<string, MetaCreativePreview>) => readonly string[];
+} = {}): Promise<Map<string, MetaCreativePreview>> {
   const previews = new Map<string, MetaCreativePreview>();
   const client = supabase;
   if (!client || !adIds.length) return previews;
@@ -59,7 +63,22 @@ export async function getMetaCreativePreviews(adIds: string[], clientId: number,
     rows.push(...(result.data ?? []) as PreviewRow[]);
   }
 
-  const paths = [...new Set(rows.filter((row) => row.preview_available && row.preview_storage_path)
+  for (const row of rows) {
+    const mediaType = row.creative_type === "video" ? "video"
+      : row.metadata?.preview_media_type === "image" ? "image"
+      : row.metadata?.preview_media_type === "video" || row.metadata?.object_type === "VIDEO" ||
+        (row.creative_type === "dynamic" && typeof row.metadata?.video_id === "string" && row.metadata.video_id.length > 0) ? "video"
+      : row.creative_type === "image" || row.creative_type === "carousel" ? "image" : undefined;
+    previews.set(row.ad_id, {
+      ad_id: row.ad_id, creative_type: creativeType(row.creative_type), preview_kind: row.preview_kind,
+      preview_url: null, preview_media_type: mediaType,
+      preview_width: Number(row.metadata?.preview_width) > 0 ? Number(row.metadata?.preview_width) : null,
+      preview_height: Number(row.metadata?.preview_height) > 0 ? Number(row.metadata?.preview_height) : null,
+      preview_source: typeof row.metadata?.preview_source === "string" ? row.metadata.preview_source : null,
+    });
+  }
+  const selected = options.selectPreviewIds ? new Set(options.selectPreviewIds(previews)) : new Set(ids);
+  const paths = [...new Set(rows.filter((row) => selected.has(row.ad_id) && row.preview_available && row.preview_storage_path)
     .map((row) => row.preview_storage_path as string))];
   const urls = new Map<string, string>();
   const missing: string[] = [];
@@ -84,17 +103,9 @@ export async function getMetaCreativePreviews(adIds: string[], clientId: number,
   }
 
   for (const row of rows) {
-    previews.set(row.ad_id, {
-      ad_id: row.ad_id,
-      creative_type: creativeType(row.creative_type),
-      preview_kind: row.preview_kind,
-      preview_url: row.preview_available && row.preview_storage_path ? urls.get(row.preview_storage_path) ?? null : null,
-      preview_width: Number(row.metadata?.preview_width) > 0 ? Number(row.metadata?.preview_width) : null,
-      preview_height: Number(row.metadata?.preview_height) > 0 ? Number(row.metadata?.preview_height) : null,
-      preview_media_type: row.metadata?.preview_media_type === "image" ? "image" : row.metadata?.preview_media_type === "video" || row.creative_type === "video" ||
-        (row.creative_type === "dynamic" && (row.metadata?.object_type === "VIDEO" || typeof row.metadata?.video_id === "string" && row.metadata.video_id.length > 0)) ? "video" : "image",
-      preview_source: typeof row.metadata?.preview_source === "string" ? row.metadata.preview_source : null,
-    });
+    if (selected.has(row.ad_id) && row.preview_available && row.preview_storage_path) {
+      previews.get(row.ad_id)!.preview_url = urls.get(row.preview_storage_path) ?? null;
+    }
   }
   return previews;
 }

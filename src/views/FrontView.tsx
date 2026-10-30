@@ -6,7 +6,7 @@ import { AnimatedNumber, BarList, ChartTip, Delta, Kpi, Pacing, Panel, Segmented
 import { compact, integer, money, percent } from "../lib/format";
 import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
-import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, rankCreatives } from "../lib/creatives";
+import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, creativeCategory, rankCreatives, type CreativeCategory } from "../lib/creatives";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, CommercialFront, Creative, DateRange, Front, PendingFront } from "../types";
 import { commercialFronts, isPendingFront, isPlaceFront } from "../lib/fronts";
@@ -109,8 +109,7 @@ function UnavailableFrontView({ front, range, channelFilter, onChannelChange, on
       <details className="unavailable-section">
         <summary><span>Criativos<small>Sem anúncios associados a esta frente</small></span><ChevronDown size={16} aria-hidden /></summary>
         <div className="unavailable-section-content">
-          <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Os criativos serão exibidos quando houver anúncios associados.</p></div></div>
-          <CreativeRanking creatives={[]} emptyLabel="Nenhum criativo vinculado a esta frente." />
+          <CreativeSection key={front} creatives={[]} />
         </div>
       </details>
     </div>
@@ -176,9 +175,6 @@ const weeks = useMemo(
     () => data.campaigns.filter((c) => c.front === front && (channelFilter === "all" || c.channel === channelFilter)),
     [data.campaigns, front, channelFilter],
   );
-  // Só peças de Meta Ads: o canal é filtrado antes da ordenação, então o
-  // ranking já nasce sem buracos deixados por anúncios do Google.
-  const creatives = useMemo(() => rankCreatives(data.creatives, front), [data.creatives, front]);
   const crm = data.crm[front];
   const accentHex = front === "franchise" ? colors.red : colors.gold;
   const chartData = useMemo(() => frontPerformanceSeries(filteredRows, range, chartMode), [filteredRows, range, chartMode]);
@@ -272,8 +268,7 @@ const weeks = useMemo(
 
       <DetailExplorer front={front} range={range} channelFilter={channelFilter} campaigns={campaigns} />
 
-      <div className="section-title"><div><h2>Criativos que mais geram leads</h2><p>Ranking das peças de Meta Ads por leads no período. Passe o mouse para o efeito de profundidade.</p></div></div>
-      <CreativeRanking creatives={creatives} />
+      <CreativeSection key={`${front}:${range.start}:${range.end}`} front={front} creatives={data.creatives} />
 
       <div className="grid grid-wide" style={{ marginTop: 28 }}>
         <CommercialFunnelPanel front={front} summary={crm} />
@@ -284,6 +279,24 @@ const weeks = useMemo(
       </div>
     </div>
   );
+}
+
+export function CreativeSection({ creatives, front }: { creatives: Creative[]; front?: Front }) {
+  const rankings = useMemo(() => ({
+    video: front ? rankCreatives(creatives, front, "video") : [],
+    static: front ? rankCreatives(creatives, front, "static") : [],
+  }), [creatives, front]);
+  // The parent keys this section by front + period, so context changes reset
+  // synchronously and cannot flash the previous front/category/expanded list.
+  const [selected, setSelected] = useState<CreativeCategory | null>(null);
+  const category = selected ?? (rankings.video.length ? "video" : rankings.static.length ? "static" : "video");
+  return <section className="creative-section" aria-label="Criativos que mais geram leads" data-category={category}>
+    <div className="section-title creative-section-head">
+      <div><h2>Criativos que mais geram leads</h2><p>Ranking das peças de Meta Ads por leads no período.</p></div>
+      <Segmented value={category} onChange={setSelected} options={[{ id: "video", label: "Vídeos" }, { id: "static", label: "Estáticos" }]} />
+    </div>
+    <CreativeRanking key={category} creatives={rankings[category]} emptyLabel={category === "video" ? "Nenhum vídeo de Meta Ads com dados nesta frente e período." : "Nenhum criativo estático de Meta Ads com dados nesta frente e período."} />
+  </section>;
 }
 
 export function CreativeRanking({ creatives, emptyLabel = "Nenhum criativo de Meta Ads com dados neste período." }: { creatives: Creative[]; emptyLabel?: string }) {
@@ -359,6 +372,7 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
     setImageFailed(true); setZoomed(false);
   };
   const format = c.channel === "meta_ads" ? c.creative_type : null;
+  const category = creativeCategory(c);
   const formatLabel = format === "dynamic" ? c.preview_media_type === "video" ? "Dinâmico · Vídeo" : "Dinâmico"
     : format === "video" ? "Vídeo"
     : format === "carousel" ? "Carrossel"
@@ -367,9 +381,9 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
   return (
     <>
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`creative tilt ${rank <= 3 ? "creative-top" : "creative-secondary"}${revealed ? " creative-reveal" : ""}`} style={{ "--c1": c.palette[0], "--c2": c.palette[1] } as React.CSSProperties}>
-      <div className={`creative-art${image ? " creative-art-preview" : ""}${image && dimensions.height > dimensions.width ? " creative-art-vertical" : ""}${quality.limited ? " creative-art-limited" : ""}${format === "video" || c.preview_media_type === "video" ? " creative-art-video" : ""}`}>
+      <div className={`creative-art${image ? " creative-art-preview" : ""}${category === "video" ? " creative-art-vertical creative-art-video" : " creative-art-static"}${quality.limited ? " creative-art-limited" : ""}`}>
         {image && <button type="button" className="creative-zoom" aria-label={`Ampliar imagem: ${c.name}`} onClick={() => setZoomed(true)}>
-          <img src={image} alt="" style={quality.limited ? { maxWidth: dimensions.width * 2, maxHeight: dimensions.height * 2 } : undefined}
+          <img src={image} alt="" style={category === "static" && dimensions.width > 0 ? { maxWidth: dimensions.width, maxHeight: dimensions.height } : quality.limited ? { maxWidth: dimensions.width * 2, maxHeight: dimensions.height * 2 } : undefined}
             onLoad={(event) => setDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
             onError={() => { void recoverImage(); }} />
         </button>}
@@ -378,10 +392,12 @@ export function CreativeCard({ c, rank, revealed = false }: { c: Creative; rank:
         {!image && <h4>{c.headline}</h4>}
       </div>
       <div className="creative-body">
+        <div className="creative-status">
         {image && quality.limited && <p className="creative-resolution creative-resolution-limited">
           Miniatura de baixa resolução
         </p>}
         {!image && <p className="creative-resolution" role="status">Imagem indisponível no momento</p>}
+        </div>
         <div className="creative-copy">
           <strong title={c.name}>{c.name}</strong>
           <small title={c.headline}>{c.headline}</small>
