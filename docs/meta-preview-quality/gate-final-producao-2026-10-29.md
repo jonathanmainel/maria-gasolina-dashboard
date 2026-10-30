@@ -1,5 +1,9 @@
 # Gate final de produção — previews aprovados — 29/10/2026
 
+> Fechamento em 30/10/2026: quatro previews publicados e validados; três de
+> engajamento excluídos por decisão de recorte, sem alterar a classificação.
+> Ver [conclusão desta fase](conclusao-pr10-2026-10-30.md). O texto abaixo é histórico.
+
 ## Resultado
 
 **Homologação da implementação concluída no Supabase isolado. Produção ainda

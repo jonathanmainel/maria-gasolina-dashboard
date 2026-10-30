@@ -1,5 +1,9 @@
 # Recuperação restrita dos arquivos aprovados — 29/10/2026
 
+> Fechamento em 30/10/2026: quatro previews publicados e validados; três de
+> engajamento excluídos por decisão de recorte, sem alterar a classificação.
+> Ver [conclusão desta fase](conclusao-pr10-2026-10-30.md). O texto abaixo é histórico.
+
 > Estado mais recente: recuperação e reversão explícita homologadas no isolado.
 > Veja o [gate final de produção](gate-final-producao-2026-10-29.md).
 

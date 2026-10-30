@@ -1,5 +1,9 @@
 # Publicação simplificada dos previews — 29/10/2026
 
+> Fechamento em 30/10/2026: quatro previews publicados e validados; três de
+> engajamento excluídos por decisão de recorte, sem alterar a classificação.
+> Ver [conclusão desta fase](conclusao-pr10-2026-10-30.md). O texto abaixo é histórico.
+
 > Atualização após autorização final: migrations e backend publicados em
 > produção. O dry run remoto do piloto não confirmou os candidatos aprovados;
 > nenhuma imagem foi alterada e os lotes foram interrompidos. Ver
