@@ -22,7 +22,7 @@ vi.mock("./supabase", () => ({
   },
 }));
 
-import { getMetaCreativePreviews } from "./creative-previews";
+import { clearCreativePreviewCache, getMetaCreativePreviews } from "./creative-previews";
 
 const row = (id: string, type: string, available = true) => ({
   ad_id: id, creative_type: type, preview_kind: "image", preview_storage_path: `client/${id}.jpg`, preview_available: available,
@@ -32,7 +32,7 @@ const signed = (paths: string[]) => ({
 });
 
 beforeEach(() => {
-  mocks.rows.mockReset(); mocks.sign.mockReset(); mocks.filters.length = 0;
+  clearCreativePreviewCache(); mocks.rows.mockReset(); mocks.sign.mockReset(); mocks.filters.length = 0;
   mocks.user.id = "member-1";
 });
 afterEach(() => vi.useRealTimers());
@@ -95,4 +95,47 @@ describe("Meta creative previews", () => {
     await getMetaCreativePreviews(["cached"], 42);
     expect(mocks.sign).toHaveBeenCalledTimes(2);
   });
+});
+
+
+it("lê classificação de todos, mas só assina os selecionados sem repetir a consulta", async () => {
+  const rows = Array.from({length:30},(_,i)=>({...row(`ad-${i}`,i<15 ? "video" : "dynamic"), metadata:{preview_media_type:i<15 ? "video" : "image"}}));
+  mocks.rows.mockResolvedValue({data:rows,error:null});
+  mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+  const previews = await getMetaCreativePreviews(rows.map(r=>r.ad_id),42,{
+    selectPreviewIds: metadata => {
+      expect(metadata.size).toBe(30);
+      expect(metadata.get("ad-20")?.preview_media_type).toBe("image");
+      return [...metadata.values()].filter(m=>m.preview_media_type==="video").slice(0,9).concat(
+        [...metadata.values()].filter(m=>m.preview_media_type==="image").slice(0,9)).map(m=>m.ad_id);
+    },
+  });
+  expect(mocks.rows).toHaveBeenCalledTimes(1);
+  expect(mocks.sign).toHaveBeenCalledTimes(1);
+  expect(mocks.sign.mock.calls[0][0]).toHaveLength(18);
+  expect([...previews.values()].filter(p=>p.preview_url)).toHaveLength(18);
+  expect(previews.get("ad-14")).toMatchObject({creative_type:"video",preview_url:null});
+});
+it("não presume imagem para dinâmico sem evidência e preserva vídeo com thumbnail JPEG", async () => {
+  mocks.rows.mockResolvedValue({data:[row("unknown-dynamic","dynamic",false),{...row("jpeg-video","video"),metadata:{preview_media_type:"image"}}],error:null});
+  mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+  const previews=await getMetaCreativePreviews(["unknown-dynamic","jpeg-video"],42);
+  expect(previews.get("unknown-dynamic")?.preview_media_type).toBeUndefined();
+  expect(previews.get("jpeg-video")?.preview_media_type).toBe("video");
+});
+
+it("mantém lotes de 100 metadados, sem assinar fora da seleção", async () => {
+  const ids=Array.from({length:205},(_,i)=>`batch-${i}`);
+  mocks.rows.mockImplementation(async(batch:string[])=>({data:batch.map(id=>row(id,"video")),error:null}));
+  mocks.sign.mockImplementation(async(paths:string[])=>signed(paths));
+  const previews=await getMetaCreativePreviews(ids,42,{selectPreviewIds:metadata=>[...metadata.keys()].slice(0,9)});
+  expect(mocks.rows.mock.calls.map(call=>call[0].length)).toEqual([100,100,5]);
+  expect(previews.size).toBe(205);
+  expect(mocks.sign.mock.calls[0][0]).toHaveLength(9);
+});
+it("não consulta metadados nem assina URLs sem membro autenticado", async () => {
+  mocks.user.id="";
+  expect((await getMetaCreativePreviews(["private"],42)).size).toBe(0);
+  expect(mocks.rows).not.toHaveBeenCalled();
+  expect(mocks.sign).not.toHaveBeenCalled();
 });

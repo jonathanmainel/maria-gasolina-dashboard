@@ -1,9 +1,9 @@
-import { rankCreatives, CREATIVE_RANKING_LIMIT } from "./creatives";
+import { rankCreatives, CREATIVE_RANKING_LIMIT, CREATIVE_CATEGORIES, type CreativeCategory } from "./creatives";
 import { commercialFronts } from "./fronts";
 import { crmStages } from "./crm-stages";
 import type { Creative, CommercialFront } from "../types";
 
-export type PresentationSlide = { id: string; kind: "executive" | "pacing" | "front" | "creatives" | "organic" | "organic-posts" | "crm"; front?: CommercialFront; offset?: number; count?: number };
+export type PresentationSlide = { id: string; kind: "executive" | "pacing" | "front" | "creatives" | "organic" | "organic-posts" | "crm"; front?: CommercialFront; category?: CreativeCategory; offset?: number; count?: number };
 export function presentationLayout(width: number, height: number) {
   return { creativeCount: width >= 1100 && height >= 650 ? 3 : width >= 700 ? 2 : 1,
     pacingCount: width < 700 ? (height >= 700 ? 3 : 2) : height >= 700 ? 5 : 4,
@@ -18,8 +18,10 @@ export function presentationSlides(creatives: Creative[], width: number, height:
   for (let offset = 0; offset < 5; offset += layout.pacingCount) slides.push({ id: offset === 0 ? "executive-goals" : `executive-goals-${offset}`, kind: "pacing", offset, count: layout.pacingCount });
   for (const front of ["franchise", "condominium"] as const) {
     slides.push({ id: front, kind: "front", front });
-    const count = Math.min(CREATIVE_RANKING_LIMIT, rankCreatives(creatives, front).length);
-    for (let offset = 0; offset < count; offset += layout.creativeCount) slides.push({ id: `${front}-creatives-${offset}`, kind: "creatives", front, offset, count: layout.creativeCount });
+    for (const category of CREATIVE_CATEGORIES) {
+      const count = Math.min(CREATIVE_RANKING_LIMIT, rankCreatives(creatives, front, category).length);
+      for (let offset = 0; offset < count; offset += layout.creativeCount) slides.push({ id: `${front}-creatives-${category}-${offset}`, kind: "creatives", front, category, offset, count: layout.creativeCount });
+    }
     const stages = crmStages(front).length;
     for (let offset = 0; offset < stages; offset += layout.funnelCount) slides.push({ id: `${front}-crm-${offset}`, kind: "crm", front, offset, count: layout.funnelCount });
   }
@@ -34,6 +36,6 @@ export function presentationSlides(creatives: Creative[], width: number, height:
 export function presentationSlideIndex(slides: PresentationSlide[], active: PresentationSlide) {
   const exact = slides.findIndex(slide => slide.id === active.id);
   if (exact >= 0) return exact;
-  const related = slides.findIndex(slide => slide.kind === active.kind && slide.front === active.front && (active.offset ?? 0) >= (slide.offset ?? 0) && (active.offset ?? 0) < (slide.offset ?? 0) + (slide.count ?? 1));
+  const related = slides.findIndex(slide => slide.kind === active.kind && slide.front === active.front && slide.category === active.category && (active.offset ?? 0) >= (slide.offset ?? 0) && (active.offset ?? 0) < (slide.offset ?? 0) + (slide.count ?? 1));
   return Math.max(0, related);
 }

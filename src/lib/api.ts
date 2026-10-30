@@ -433,14 +433,18 @@ export async function getFrontData(range: DateRange): Promise<FrontBundle> {
     ctr: creative.impressions > 0 ? (creative.clicks * 100) / creative.impressions : null,
   }));
 
-  // A arte é opcional: só os cards que a seção de criativos pode exibir são
-  // enriquecidos. O ranking e todas as métricas acima já estão finais aqui.
-  //
-  // O recorte usa a mesma função da tela (canal e frente primeiro, depois
-  // ordenação e corte), senão um criativo Meta ficaria sem preview só porque
-  // anúncios do Google ocupavam posições acima dele no ranking geral.
-  const cardIds = rankedCreativeIds(creatives, ["franchise", "condominium"]);
-  const previews = await getMetaCreativePreviews(cardIds, clientId).catch(() => new Map());
+  // Metadados existentes classificam os anúncios antes do ranking; só os Top 9
+  // de cada tipo/frente recebem URLs assinadas. A mesma leitura atende os dois
+  // grupos, sem downloads de imagem ou chamadas à Meta para descobrir o formato.
+  // Todas as métricas acima já estão finais; arte ausente não remove anúncios.
+  const metaIds = creatives.filter(c => c.channel === "meta_ads").map(c => c.id);
+  const previews = await getMetaCreativePreviews(metaIds, clientId, {
+    selectPreviewIds: metadata => rankedCreativeIds(creatives.map(c => ({
+      ...c,
+      creative_type: metadata.get(c.id)?.creative_type,
+      preview_media_type: metadata.get(c.id)?.preview_media_type,
+    })), ["franchise", "condominium"]),
+  }).catch(() => new Map());
   for (const creative of creatives) {
     if (creative.channel !== "meta_ads") continue;
     const preview = previews.get(creative.id);
