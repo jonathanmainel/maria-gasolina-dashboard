@@ -1,4 +1,5 @@
 // Pure control/diagnostic helpers: also exercised under Vitest without Deno.
+import {approvedAssets,previewIds,previewSelection,SHA256} from './preview-operation.ts';
 export const SYNC_SOURCES = ["google_ads", "meta_ads", "ga4"] as const;
 export type SyncSource = typeof SYNC_SOURCES[number];
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -6,14 +7,23 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 export function parseManualRequest(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
   const value = body as Record<string, unknown>;
-  const allowed = ["action", "client_slug", "sources", "request_key", "run_ids"];
+  const allowed = ["action", "client_slug", "sources", "request_key", "run_ids", "operation", "preview_ad_ids", "preview_assets"];
   if (Object.keys(value).some((key) => !allowed.includes(key))) return null;
   if (typeof value.client_slug !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.client_slug) || value.client_slug.length > 100) return null;
   if (value.action === "status") {
+    if(value.operation!==undefined||value.preview_ad_ids!==undefined||value.preview_assets!==undefined)return null;
     if (value.sources !== undefined || value.request_key !== undefined) return null;
     if (value.run_ids !== undefined && (!Array.isArray(value.run_ids) || value.run_ids.length < 1 || value.run_ids.length > 3 || value.run_ids.some(id => typeof id !== "string" || !UUID.test(id)))) return null;
     return { action: "status" as const, clientSlug: value.client_slug, runIds: value.run_ids as string[] | undefined };
   }
+  if(value.operation==='previews'){
+    if(value.action!=='request'||value.run_ids!==undefined||typeof value.request_key!=='string'||!UUID.test(value.request_key)
+      ||!Array.isArray(value.sources)||value.sources.length!==1||value.sources[0]!=='meta_ads'
+      ||!previewIds(value.preview_ad_ids)||!approvedAssets(value.preview_assets??[],value.preview_ad_ids))return null;
+    return {action:'request' as const,clientSlug:value.client_slug,requestKey:value.request_key,sources:['meta_ads' as const],
+      operation:'previews' as const,previewAdIds:[...value.preview_ad_ids].sort(),previewAssets:value.preview_assets??[]};
+  }
+  if((value.operation!==undefined&&value.operation!=='metrics')||value.preview_ad_ids!==undefined||value.preview_assets!==undefined)return null;
   if (value.run_ids !== undefined || value.action !== "request" || typeof value.request_key !== "string" || !UUID.test(value.request_key)
     || !Array.isArray(value.sources) || value.sources.length < 1 || value.sources.length > 3
     || value.sources.some((source) => !SYNC_SOURCES.includes(source as SyncSource))) return null;
@@ -40,13 +50,27 @@ export function safeSyncErrorCode(body: { error_code?: unknown; meta_error?: unk
 // No writes (including diagnostics) when a secret-authenticated dry run is used.
 export async function authorizeCollection(
   admin: { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> },
-  body: { dry_run?: boolean; automation_run_id?: unknown },
+  body: { dry_run?: boolean; automation_run_id?: unknown; operation?:unknown; preview_ad_ids?:unknown; refresh_video_previews_only?:unknown;preview_selection?:unknown;preview_account_id?:unknown;selection_fingerprint?:unknown },
   clientId: number, source: SyncSource, start: string, end: string,
 ): Promise<Response | null> {
   if (body.dry_run === true) return null;
   if (typeof body.automation_run_id !== "string" || !UUID.test(body.automation_run_id)) {
     return Response.json({ ok: false, error_code: "SYNC_RESERVATION_REQUIRED", database_write_performed: false }, { status: 409 });
   }
+  if(body.operation==='previews'){
+    const fields=['client_slug','start_date','end_date','dry_run','automation_run_id','operation','preview_ad_ids','preview_selection','preview_account_id','selection_fingerprint'];
+    if(Object.keys(body).some(k=>!fields.includes(k))||source!=='meta_ads'||!previewSelection(body.preview_selection)||!previewIds(body.preview_ad_ids)
+      ||JSON.stringify([...body.preview_ad_ids].sort())!==JSON.stringify([...body.preview_selection.ad_ids].sort())
+      ||typeof body.preview_account_id!=='string'||typeof body.selection_fingerprint!=='string'||!SHA256.test(body.selection_fingerprint))
+      return Response.json({ok:false,error_code:'SYNC_RESERVATION_CONFLICT',database_write_performed:false},{status:409});
+    const {data,error}=await admin.rpc('begin_dashboard_preview_collection',{
+      p_run_id:body.automation_run_id,p_client_id:clientId,p_account_id:body.preview_account_id,p_start:start,p_end:end,
+      p_selection:body.preview_selection,p_fingerprint:body.selection_fingerprint});
+    return !error&&data===true?null:Response.json({ok:false,error_code:'SYNC_RESERVATION_CONFLICT',database_write_performed:false},{status:409});
+  }
+  if((body.operation!==undefined&&body.operation!=='metrics')||body.preview_ad_ids!==undefined||body.refresh_video_previews_only===true
+    ||body.preview_selection!==undefined||body.selection_fingerprint!==undefined||body.preview_account_id!==undefined)
+    return Response.json({ok:false,error_code:'SYNC_RESERVATION_CONFLICT',database_write_performed:false},{status:409});
   const { data, error } = await admin.rpc("begin_dashboard_sync_collection", {
     p_run_id: body.automation_run_id, p_client_id: clientId, p_source: source, p_start: start, p_end: end,
   });

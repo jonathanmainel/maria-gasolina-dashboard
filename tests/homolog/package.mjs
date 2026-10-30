@@ -8,13 +8,13 @@ const modules={
  'request-dashboard-sync':['index.ts','handler.ts','deno.json'],
  'sync-dashboard-daily':['index.ts','runner.ts','scheduler.ts','deno.json'],
  'sync-google-ads':['index.ts','auth.ts','google-ads.ts','deno.json'],
- 'sync-meta-ads':['index.ts','meta-ads.ts','meta-creative.ts','deno.json'],
+ 'sync-meta-ads':['index.ts','meta-ads.ts','meta-creative.ts','preview-media.ts','preview-receipts.ts','deno.json'],
  'sync-ga4':['index.ts','ga4.ts','ga4-auth.ts','deno.json'],
 };
 export async function packageFor(name, destination=projectRef){
  if(destination!==projectRef||!names.includes(name))throw Error('ISOLATED_PACKAGE_GUARD');
  const collector=name.startsWith('sync-')&&name!=='sync-dashboard-daily';
- const paths=[...modules[name].map(f=>`supabase/functions/${name}/${f}`),...['dashboard.ts','ingestion.ts','sync-control.ts'].map(f=>`supabase/functions/_shared/${f}`),...(collector?[`tests/homolog/${name}.ts`,'tests/homolog/transport.ts']:[])];
+ const paths=[...modules[name].map(f=>`supabase/functions/${name}/${f}`),...['dashboard.ts','ingestion.ts','sync-control.ts','preview-operation.ts'].map(f=>`supabase/functions/_shared/${f}`),...(collector?[`tests/homolog/${name}.ts`,'tests/homolog/transport.ts','tests/homolog/preview-provider.ts']:[])];
  const files=await Promise.all(paths.map(async path=>{
   let content=(await fs.readFile(path,'utf8')).replace(/^\uFEFF/,'');
   content=content.replace('import "@supabase/functions-js/edge-runtime.d.ts";','// Runtime type declaration omitted in isolated deployment package; no executable behavior changed.');
@@ -24,6 +24,10 @@ export async function packageFor(name, destination=projectRef){
   if(collector&&path===`supabase/functions/${name}/index.ts`)content='import { homologEnv } from "../../../tests/homolog/transport.ts";\n'+content.replaceAll('Deno.env.get(','homologEnv(');
   return {name:path,content};
  }));
+ if(collector){
+  const fixtures={};for(const f of ['tiny.png','small.png','hd.png','large.png'])fixtures[f]=(await fs.readFile(`tests/fixtures/meta-previews/${f}`)).toString('base64');
+  files.push({name:'tests/homolog/preview-fixtures.ts',content:`export const fixtures:Record<string,string>=${JSON.stringify(fixtures)};`});
+ }
  return {project_id:destination,name,entrypoint_path:collector?`tests/homolog/${name}.ts`:`supabase/functions/${name}/index.ts`,import_map_path:`supabase/functions/${name}/deno.json`,verify_jwt:false,files};
 }
 export async function manifest(){

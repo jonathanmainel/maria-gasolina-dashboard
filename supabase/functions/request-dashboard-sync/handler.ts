@@ -30,7 +30,7 @@ export async function handleManualSync(req: Request, deps: ManualSyncDependencie
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 4096) { await reader.cancel(); return json({ error_code: "PAYLOAD_TOO_LARGE" }, 413); }
+      if (size > 32768) { await reader.cancel(); return json({ error_code: "PAYLOAD_TOO_LARGE" }, 413); }
       chunks.push(value);
     }
     const merged = new Uint8Array(size); let offset = 0;
@@ -40,11 +40,12 @@ export async function handleManualSync(req: Request, deps: ManualSyncDependencie
     const input = parseManualRequest(body);
     if (!input) return json({ error_code: "INVALID_REQUEST" }, 400);
     // Both RPCs re-check current membership and active client in the database.
-    const { data, error } = await deps.rpc(input.action === "status" ? "get_dashboard_sync_status" : "request_dashboard_sync", {
+    const preview=input.action==='request'&&'operation' in input&&input.operation==='previews';
+    const { data, error } = await deps.rpc(preview?'request_dashboard_preview_sync':input.action === "status" ? "get_dashboard_sync_status" : "request_dashboard_sync", {
       p_client_slug: input.clientSlug, p_user_id: user.id,
-      ...(input.action === "request" ? { p_sources: input.sources, p_request_key: input.requestKey } : input.runIds ? { p_run_ids: input.runIds } : {}),
+      ...(preview?{p_request_key:input.requestKey,p_ad_ids:input.previewAdIds,p_assets:input.previewAssets}:input.action === "request" ? { p_sources: input.sources, p_request_key: input.requestKey } : input.runIds ? { p_run_ids: input.runIds } : {}),
     });
-    if (error) return json({ error_code: error.code === "42501" ? "FORBIDDEN" : "SYNC_UNAVAILABLE" }, error.code === "42501" ? 403 : 503);
+    if (error) return json({ error_code: error.code === "42501" ? "FORBIDDEN" : error.code==='22023'?'INVALID_REQUEST':"SYNC_UNAVAILABLE" }, error.code === "42501" ? 403 : error.code==='22023'?400:503);
     return json(data, input.action === "request" ? 202 : 200);
   } catch {
     return json({ error_code: "SYNC_UNAVAILABLE" }, 503);

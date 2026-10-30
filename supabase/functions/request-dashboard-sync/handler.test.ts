@@ -41,7 +41,7 @@ describe("manual sync boundary", () => {
     for (const value of [{ ...input, sources: ["crm"] }, { ...input, mode: "backfill" }, null, { ...input, request_key: "no" }]) {
       expect((await handleManualSync(request(value), deps)).status).toBe(400);
     }
-    expect((await handleManualSync(request({ ...input, extra: "x".repeat(5000) }), deps)).status).toBe(413);
+    expect((await handleManualSync(request({ ...input, extra: "x".repeat(33000) }), deps)).status).toBe(413);
     expect(deps.rpc).not.toHaveBeenCalled();
   });
 });
