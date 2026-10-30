@@ -15,3 +15,12 @@ it('only describes an update after a persisted row has been read',async()=>{
  const q:any={select:()=>q,eq:()=>q,in:async()=>({data:[],error:null})};
  await expect(previewReceipts({from:()=>q},1,'111',selection,{failures:[]} as any)).rejects.toThrow('PREVIEW_RECEIPT_READ_FAILED');
 });
+it('uses an explicit restored receipt only with persisted origin evidence',async()=>{
+ const origin='12345678-1234-4234-8234-123456789abc';
+ const meta:any={preview_width:64,preview_height:64,preview_restoration:{origin_run_id:origin}};
+ const q:any={select:()=>q,eq:()=>q,in:async()=>({data:[{entity_id:'123',preview_storage_path:'old.png',preview_sha256:'a'.repeat(64),preview_mime_type:'image/png',metadata:meta}],error:null})};
+ const stats:any={decisions:[{ad_id:'123',result:'restored_previous'}],failures:[]};
+ expect((await previewReceipts({from:()=>q},1,'111',selection,stats))[0]).toMatchObject({outcome:'restored_previous',origin_run_id:origin,width:64,height:64});
+ delete meta.preview_restoration;
+ await expect(previewReceipts({from:()=>q},1,'111',selection,stats)).rejects.toThrow('PREVIEW_RESTORE_RECEIPT_ORIGIN_MISSING');
+});

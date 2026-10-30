@@ -1,5 +1,8 @@
 # Recuperação restrita dos arquivos aprovados — 29/10/2026
 
+> Estado mais recente: recuperação e reversão explícita homologadas no isolado.
+> Veja o [gate final de produção](gate-final-producao-2026-10-29.md).
+
 > Atualização posterior: o pacote foi publicado no isolado como Meta v10 e os
 > dry runs passaram. O fluxo com escrita sintética e a restauração auditável
 > continuam pendentes; veja [homologação remota e reversão](homologacao-remota-e-reversao-2026-10-29.md).

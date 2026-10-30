@@ -1,5 +1,10 @@
 # Homologação remota da referência aprovada e bloqueio de reversão — 29/10/2026
 
+> Atualização: a extensão autorizada foi implementada e homologada, inclusive
+> ida/reversão sintéticas pelo fluxo completo. O estado final e os pacotes estão
+> no [gate final de produção](gate-final-producao-2026-10-29.md). Este relatório
+> preserva o diagnóstico anterior à autorização da extensão.
+
 ## Resultado objetivo
 
 O pacote autorizado `0bf1e7d9e58ad1c21cfcd4f7a188bba3c0722a43579efc2eaa71db331f8e8f30`

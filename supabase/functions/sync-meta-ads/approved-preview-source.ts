@@ -11,6 +11,7 @@ export type ApprovedSource = {
     path:string;updated_at:string;mime:string;metadata:Record<string,unknown>};
 };
 export const defaultManifestPin: ManifestPin = APPROVED_PREVIEW_MANIFEST;
+export type BoundApprovedSource = ApprovedSource & {intent:'upgrade'|'restore_previous'};
 const sha = /^[a-f0-9]{64}$/;
 const id = /^\d{1,30}$/;
 const object = (x:any) => x && typeof x === "object" && !Array.isArray(x);
@@ -50,15 +51,31 @@ export async function loadApprovedSources(pin:ManifestPin):Promise<ApprovedSourc
 
 /** A digest-valid source is still unusable without the exact immutable reservation. */
 export function bindApprovedSource(entries:ApprovedSource[], clientId:number,accountId:string,
-  approved:ApprovedAsset,snapshot:PreviewSnapshot,creative:{creativeId:string|null;videoId:string|null;assetKey?:string|null;representationCertain?:boolean}) {
+  approved:ApprovedAsset,snapshot:PreviewSnapshot,creative:{creativeId:string|null;videoId:string|null;assetKey?:string|null;representationCertain?:boolean},upgradePath?:string):BoundApprovedSource {
   const e=entries.find(x=>x.ad_id===approved.ad_id);
   if(!e||e.client_id!==clientId||e.account_id!==accountId||e.creative_id!==approved.creative_id||
-    e.video_id!==approved.video_id||e.sha256!==approved.sha256||snapshot.ad_id!==e.ad_id||
-    snapshot.creative_id!==e.previous.creative_id||snapshot.video_id!==e.previous.video_id||
-    snapshot.asset_key!==e.previous.asset_key||snapshot.previous_sha256!==e.previous.sha256||
-    snapshot.previous_path!==e.previous.path||Date.parse(snapshot.previous_updated_at)!==Date.parse(e.previous.updated_at))
+    e.video_id!==approved.video_id||snapshot.ad_id!==e.ad_id||snapshot.creative_id!==e.creative_id||snapshot.video_id!==e.video_id)
       fail("preview_manifest_reservation_mismatch");
   if(creative.representationCertain!==true||creative.creativeId!==e.creative_id||creative.videoId!==e.video_id||creative.assetKey!==e.asset_key)
     fail("preview_approved_identity_mismatch");
-  return e;
+  const restore=approved.sha256===e.previous.sha256&&e.previous.sha256!==e.sha256;
+  if(restore){
+    if(!upgradePath||snapshot.previous_path!==upgradePath||snapshot.previous_sha256!==e.sha256||snapshot.asset_key!==e.asset_key||
+      !(Date.parse(snapshot.previous_updated_at)>Date.parse(e.previous.updated_at))) fail('preview_manifest_reservation_mismatch');
+  } else if(e.sha256!==approved.sha256||snapshot.asset_key!==e.previous.asset_key||snapshot.previous_sha256!==e.previous.sha256||
+      snapshot.previous_path!==e.previous.path||Date.parse(snapshot.previous_updated_at)!==Date.parse(e.previous.updated_at)) fail('preview_manifest_reservation_mismatch');
+  return {...e,intent:restore?'restore_previous':'upgrade'};
+}
+
+/** Restore only an earlier version whose replacement was terminally confirmed. */
+export async function confirmedUpgradeForRestore(admin:any,source:ApprovedSource,snapshot:PreviewSnapshot):Promise<string> {
+  const {data,error}=await admin.from('dashboard_automation_runs')
+    .select('id,status,preview_selection,preview_results').eq('client_id',source.client_id).eq('source','meta_ads')
+    .eq('account_id',source.account_id).eq('operation','previews').in('status',['success','failed'])
+    .contains('preview_results',{results:[{ad_id:source.ad_id,outcome:'updated',path:snapshot.previous_path,sha256:snapshot.previous_sha256}]})
+    .contains('preview_selection',{ads:[{ad_id:source.ad_id,creative_id:source.creative_id,video_id:source.video_id,previous_path:source.previous.path,previous_sha256:source.previous.sha256,previous_updated_at:source.previous.updated_at}]})
+    .order('completed_at',{ascending:false}).limit(1);
+  const row=data?.[0];
+  if(error||!row||!['success','failed'].includes(row.status)||row.preview_results?.status!==row.status||typeof row.id!=='string'||!/^[a-f0-9-]{36}$/i.test(row.id)) fail('preview_restore_origin_unconfirmed');
+  return row.id;
 }

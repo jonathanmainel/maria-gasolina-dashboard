@@ -79,6 +79,7 @@ function harness(
   } = {},
 ) {
   const rows = clone(settings.rows ?? [row()]);
+  const upgradeAudits:any[]=[];
   const objects = new Map<string, Uint8Array>();
   for (const stored of rows)
     if (stored.preview_storage_path)
@@ -95,6 +96,13 @@ function harness(
   let concurrentApplied = false;
   const supabase: any = {
     from: (table: string) => {
+      if(table==='dashboard_automation_runs'){
+        const constraints:Array<[string,any]>=[];
+        const contains=(value:any,part:any):boolean=>Array.isArray(part)?part.every(x=>value?.some((v:any)=>contains(v,x))):part&&typeof part==='object'?Object.entries(part).every(([k,v])=>contains(value?.[k],v)):value===part;
+        const enums:Array<[string,any[]]>=[];
+        const q:any={select:()=>q,eq:(k:string,v:any)=>{constraints.push([k,v]);return q;},in:(k:string,v:any[])=>{enums.push([k,v]);return q;},contains:(k:string,v:any)=>{constraints.push([k,v]);return q;},order:()=>q,limit:async()=>({data:upgradeAudits.filter(a=>constraints.every(([k,v])=>contains(a[k],v))&&enums.every(([k,v])=>v.includes(a[k]))),error:null})};
+        return q;
+      }
       let action = "select",
         payload: any,
         selected = false;
@@ -266,6 +274,7 @@ function harness(
   };
   return {
     rows,
+    upgradeAudits,
     objects,
     uploads,
     removes,
@@ -356,6 +365,37 @@ describe("pinned approved official references", () => {
   it('requires a backend pin and exact approval; browser reference fields have no effect',async()=>{
     const h=setup();delete h.options.reservationSelection;h.options.approved_reference=h.entry;h.options.dryRun=true;
     const r=await h.run();expect(r.decisions?.[0].result).toBe('pending_collection_incomplete');expect(h.downloads).not.toContain(h.pin.path);expect(h.uploads).toEqual([]);
+  });
+  const prepareRestore=async()=>{
+    const h=setup();const prior=clone(h.snapshot);expect((await h.run()).failed).toBe(0);
+    const current=h.rows[0],origin='12345678-1234-4234-8234-123456789abc';
+    h.upgradeAudits.push({id:origin,client_id:1,source:'meta_ads',account_id:'4',operation:'previews',status:'success',
+      preview_selection:{ads:[prior]},preview_results:{status:'success',results:[{ad_id:'1',outcome:'updated',path:current.preview_storage_path,sha256:current.preview_sha256}]}});
+    h.options.reservationSelection={ad_ids:['1'],approved_assets:[{...h.approved,sha256:h.entry.previous.sha256}],ads:[{...prior,asset_key:current.metadata.preview_asset_key,previous_sha256:current.preview_sha256,previous_path:current.preview_storage_path,previous_updated_at:current.updated_at}]};
+    h.options.now=new Date('2026-10-28T12:00:01Z');
+    return {...h,origin};
+  };
+  it('restores the proven previous low-resolution object without an upload or commercial metadata rewind',async()=>{
+    const h=await prepareRestore();h.rows[0].metadata.body='NEW COMMERCIAL TEXT';const count=h.uploads.length;
+    const r=await h.run();expect(r.failures).toEqual([]);expect(r.decisions?.[0]).toMatchObject({result:'restored_previous',approval:{source_mode:'restore_previous',code:'preview_approved_restore_valid'}});
+    expect(h.rows[0].preview_storage_path).toBe(h.entry.previous.path);expect(h.rows[0].preview_sha256).toBe(h.entry.previous.sha256);
+    expect(h.rows[0].metadata).toMatchObject({body:'NEW COMMERCIAL TEXT',preview_width:160,preview_height:284,preview_asset_key:null,preview_restoration:{origin_run_id:h.origin}});
+    expect(h.uploads.length).toBe(count);expect(h.removes).toEqual([]);expect(h.objects.size).toBe(2);
+    expect((await h.run()).failures[0].code).toBe('preview_reservation_snapshot_conflict');
+  });
+  it.each(['missing-origin','foreign-origin','wrong-previous','corrupt-object','stale-snapshot'])('rejects unproven restore %s',async kind=>{
+    const h=await prepareRestore();h.options.dryRun=true;
+    if(kind==='missing-origin')h.upgradeAudits.length=0;
+    if(kind==='foreign-origin')h.upgradeAudits[0].client_id=2;
+    if(kind==='wrong-previous')h.upgradeAudits[0].preview_selection.ads[0].previous_path='other.png';
+    if(kind==='corrupt-object')h.objects.set(h.entry.previous.path,raster('large.png'));
+    if(kind==='stale-snapshot')h.options.reservationSelection.ads[0].previous_updated_at='2025-01-01T00:00:00Z';
+    const r=await h.run();expect(r.failed).toBe(1);expect(h.uploads).toHaveLength(1);
+  });
+  it('can restore a confirmed updated ad from a terminal partial-failure batch',async()=>{
+    const h=await prepareRestore();h.upgradeAudits[0].status='failed';h.upgradeAudits[0].preview_results.status='failed';
+    h.upgradeAudits[0].preview_results.results.push({ad_id:'99',outcome:'failed_download'});
+    expect((await h.run()).failures).toEqual([]);
   });
 });
 

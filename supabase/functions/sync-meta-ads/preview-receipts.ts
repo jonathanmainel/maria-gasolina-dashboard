@@ -19,13 +19,17 @@ export async function previewReceipts(admin:any,clientId:number,accountId:string
   else if(failure){outcome=failure.code==='preview_concurrent_update'||failure.code==='preview_reservation_snapshot_conflict'?'cas_conflict'
     :failure.code==='storage_upload'?'failed_storage':failure.code==='database_upsert'?'failed_database':'failed_download';}
   else if(decision){
-   if(['improved','created'].includes(String(decision.result)))outcome='updated';
+   if(decision.result==='restored_previous')outcome='restored_previous';
+   else if(['improved','created'].includes(String(decision.result)))outcome='updated';
    else if(decision.result==='existing_preview_unverified')outcome='failed_storage';
    else if(['reused','unchanged_hash','preserved_not_better','preserved_adequate'].includes(String(decision.result)))
     outcome=videoPreviewQuality({width:width??0,height:height??0})!=='insufficient'?'preserved_adequate':'preserved_inadequate';
    else if(decision.result==='pending_no_hd_source'&&Array.isArray(decision.candidates)
     &&decision.candidates.length>0&&decision.candidates.every((c:any)=>c.result==='below_hd_or_ratio_mismatch'))outcome='preserved_inadequate';
   }
-  return {ad_id:adId,outcome,path:row.preview_storage_path,sha256:row.preview_sha256,mime:row.preview_mime_type,width,height};
+  const origin=row.metadata?.preview_restoration?.origin_run_id;
+  if(outcome==='restored_previous'&&(typeof origin!=='string'||!/^[a-f0-9-]{36}$/i.test(origin)))throw new Error('PREVIEW_RESTORE_RECEIPT_ORIGIN_MISSING');
+  return {ad_id:adId,outcome,path:row.preview_storage_path,sha256:row.preview_sha256,mime:row.preview_mime_type,width,height,
+    ...(outcome==='restored_previous'?{origin_run_id:origin}:{})};
  });
 }

@@ -16,7 +16,10 @@ if args.isolated_base:
  assert 'uwafdxsdsgqysjjxfywo' in saved['entrypoint_path']
  files=saved['files']
  for f in files:
-  if f['name']==base+'meta-creative.ts':f['content']=(ROOT/f['name']).read_text(encoding='utf-8')
+  if f['name']==base+'index.ts':
+   f['content']='import { homologEnv } from "../../../tests/homolog/transport.ts";\n'+(ROOT/f['name']).read_text(encoding='utf-8').replace('Deno.env.get(','homologEnv(')
+  if f['name'] in [base+'meta-creative.ts',base+'preview-receipts.ts','supabase/functions/_shared/preview-operation.ts']:
+   f['content']=(ROOT/f['name']).read_text(encoding='utf-8')
   if f['name']=='tests/homolog/preview-provider.ts':
    needle='if(video[2]){';assert f['content'].count(needle)==1
    f['content']=f['content'].replace(needle,needle+"return Response.json({error:{code:10}},{status:400});")

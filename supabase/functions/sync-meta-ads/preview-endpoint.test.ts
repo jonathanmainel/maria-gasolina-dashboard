@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ enrich: vi.fn() }));
-vi.mock('./preview-receipts.ts',()=>({previewReceipts:async()=>[{ad_id:'123',outcome:'preserved_adequate'}]}));
+const mocks = vi.hoisted(() => ({ enrich: vi.fn(),receipts:vi.fn() }));
+vi.mock('./preview-receipts.ts',()=>({previewReceipts:mocks.receipts}));
 vi.mock("../_shared/dashboard.ts", () => ({
   resolveDashboardClient: async () => ({ data: { id: 1 }, error: null }),
   listSourceAccounts: async () => ({
@@ -15,6 +15,7 @@ vi.mock("./meta-creative.ts", async (original) => ({
 import endpoint from "./index.ts";
 beforeEach(() => {
   mocks.enrich.mockReset();
+  mocks.receipts.mockResolvedValue([{ad_id:'123',outcome:'preserved_adequate'}]);
   vi.stubGlobal("Deno", {
     env: {
       get: (key: string) =>
@@ -118,5 +119,11 @@ describe("selective endpoint retains the integrated collector guards", () => {
     );
     expect(fetch).not.toHaveBeenCalled();
     expect(mocks.enrich).toHaveBeenCalledTimes(1);
+  });
+  it('recognizes a persisted restored_previous receipt as successful HTTP completion',async()=>{
+    mocks.receipts.mockResolvedValue([{ad_id:'123',outcome:'restored_previous',width:64,height:64,origin_run_id:'12345678-1234-4234-8234-123456789abc'}]);
+    const selection={ad_ids:['123'],approved_assets:[],ads:[{ad_id:'123',creative_id:'789',video_id:'999',asset_key:'video:999',previous_sha256:null,previous_path:null,previous_updated_at:'2026-10-28T00:00:00Z'}]};
+    const {response,json}=await call({...body,preview_ad_ids:['123'],dry_run:false,automation_run_id:'10000000-0000-4000-8000-000000000001',operation:'previews',preview_account_id:'123',preview_selection:selection,selection_fingerprint:'a'.repeat(64)});
+    expect(response.status).toBe(200);expect(json.ok).toBe(true);expect(json.preview_results[0].outcome).toBe('restored_previous');
   });
 });

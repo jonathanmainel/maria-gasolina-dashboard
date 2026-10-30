@@ -841,7 +841,7 @@ export default {
           catch {return Response.json({ok:false,error_code:'PREVIEW_RESULT_UNCONFIRMED',database_write_performed:false},{status:503});}
         }
         const responseOk = previewOperation&&!dry_run
-          ? !!preview_results?.every(r=>['updated','preserved_adequate','preserved_inadequate'].includes(r.outcome))
+          ? !!preview_results?.every(r=>['updated','restored_previous','preserved_adequate','preserved_inadequate'].includes(r.outcome))
           : !refresh_previews_only ||
           (creativeEnrichment.status === "success" &&
             creativeEnrichment.failed === 0);

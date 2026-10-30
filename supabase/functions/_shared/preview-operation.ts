@@ -23,5 +23,5 @@ export function previewSelection(value:unknown):value is PreviewSelection {
   && (v.asset_key===null||typeof v.asset_key==='string')&&(v.previous_sha256===null||typeof v.previous_sha256==='string'&&SHA256.test(v.previous_sha256))
   && (v.previous_path===null||typeof v.previous_path==='string')&&typeof v.previous_updated_at==='string');
 }
-export type PreviewOutcome = 'updated'|'preserved_adequate'|'preserved_inadequate'|'failed_download'|'failed_storage'|'failed_database'|'cas_conflict';
-export type PreviewReceipt = {ad_id:string;outcome:PreviewOutcome;path:string|null;sha256:string|null;mime:string|null;width:number|null;height:number|null};
+export type PreviewOutcome = 'updated'|'restored_previous'|'preserved_adequate'|'preserved_inadequate'|'failed_download'|'failed_storage'|'failed_database'|'cas_conflict';
+export type PreviewReceipt = {ad_id:string;outcome:PreviewOutcome;path:string|null;sha256:string|null;mime:string|null;width:number|null;height:number|null;origin_run_id?:string};
