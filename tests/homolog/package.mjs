@@ -8,7 +8,7 @@ const modules={
  'request-dashboard-sync':['index.ts','handler.ts','deno.json'],
  'sync-dashboard-daily':['index.ts','runner.ts','scheduler.ts','deno.json'],
  'sync-google-ads':['index.ts','auth.ts','google-ads.ts','deno.json'],
- 'sync-meta-ads':['index.ts','meta-ads.ts','meta-creative.ts','preview-media.ts','preview-receipts.ts','deno.json'],
+ 'sync-meta-ads':['index.ts','meta-ads.ts','meta-creative.ts','preview-media.ts','preview-receipts.ts','approved-preview-source.ts','approved-preview-manifest.ts','receipt-preview-source.ts','official-creative-thumbnail.ts','deno.json'],
  'sync-ga4':['index.ts','ga4.ts','ga4-auth.ts','deno.json'],
 };
 export async function packageFor(name, destination=projectRef){
