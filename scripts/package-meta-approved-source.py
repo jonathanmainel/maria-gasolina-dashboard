@@ -27,15 +27,23 @@ if args.isolated_base:
 else:
  config=(ROOT/base/'approved-preview-manifest.ts').read_text(encoding='utf-8')
  pin=json.loads(re.search(r'export const APPROVED_PREVIEW_MANIFEST = (\{.*\});',config,re.S).group(1))
- names=[base+n for n in ['index.ts','meta-ads.ts','meta-creative.ts','preview-media.ts','preview-receipts.ts','deno.json']]+['supabase/functions/_shared/'+n for n in ['dashboard.ts','ingestion.ts','sync-control.ts','preview-operation.ts']]
+ names=[base+n for n in ['index.ts','meta-ads.ts','meta-creative.ts','preview-media.ts','preview-receipts.ts','receipt-preview-source.ts','official-creative-thumbnail.ts','deno.json']]+['supabase/functions/_shared/'+n for n in ['dashboard.ts','ingestion.ts','sync-control.ts','preview-operation.ts']]
  package={'project_id':'hlqrpreqvvxtkruwsolg','name':'sync-meta-ads','entrypoint_path':base+'index.ts','import_map_path':base+'deno.json','verify_jwt':False,'files':[{'name':n,'content':(ROOT/n).read_text(encoding='utf-8')} for n in names]}
+for name in ['receipt-preview-source.ts','official-creative-thumbnail.ts']:
+ key=base+name
+ item=next((f for f in package['files'] if f['name']==key),None)
+ if item: item['content']=(ROOT/key).read_text(encoding='utf-8')
+ else: package['files'].append({'name':key,'content':(ROOT/key).read_text(encoding='utf-8')})
 for f in package['files']:
  # Same packaging convention as published v18: no executable d.ts side-effect import.
  f['content']=f['content'].replace('import "@supabase/functions-js/edge-runtime.d.ts";', '// Type-only runtime declaration omitted from deployment package; executable source unchanged.')
 assert pin['sha256']==digest and set(pin['ad_ids'])=={e['ad_id'] for e in manifest['entries']}
 pin['data']=raw.decode('utf-8')
-package['files'] += [{'name':base+'approved-preview-source.ts','content':(ROOT/base/'approved-preview-source.ts').read_text(encoding='utf-8')},
- {'name':base+'approved-preview-manifest.ts','content':'// Package-private configuration. Do not publish its signed references.\nexport const APPROVED_PREVIEW_MANIFEST = '+json.dumps(pin,ensure_ascii=False)+';\n'}]
+for item in [{'name':base+'approved-preview-source.ts','content':(ROOT/base/'approved-preview-source.ts').read_text(encoding='utf-8')},
+ {'name':base+'approved-preview-manifest.ts','content':'// Package-private configuration. Do not publish its signed references.\nexport const APPROVED_PREVIEW_MANIFEST = '+json.dumps(pin,ensure_ascii=False)+';\n'}]:
+ existing=next((f for f in package['files'] if f['name']==item['name']),None)
+ if existing: existing['content']=item['content']
+ else: package['files'].append(item)
 assert len({f['name'] for f in package['files']})==len(package['files'])
 args.out.parent.mkdir(parents=True,exist_ok=True)
 data=json.dumps(package,ensure_ascii=False,separators=(',',':')).encode();args.out.write_bytes(data)

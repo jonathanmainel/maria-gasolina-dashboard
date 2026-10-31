@@ -982,3 +982,88 @@ describe("enrichment integration with real raster bytes and controlled transport
     expect(h.downloads).toEqual([]);
   });
 });
+
+
+describe("general official recovery outside the historical manifest",()=>{
+  function selectedCase(adId="901") {
+    const prior=row("tiny.png",{account_id:"4",entity_id:adId,ad_id:adId,creative_id:"902",preview_storage_path:`1/meta_ads/4/ad/${adId}/old.png`,metadata:{video_id:"903",preview_width:64,preview_height:64,preview_source:"creative.thumbnail_url"}});
+    const h=harness({rows:[prior],ads:[{id:adId,creative:{id:"902",object_type:"VIDEO",video_id:"903",thumbnail_url:media("tiny.png")}}],format:[{filter:"native",width:1080,height:1920}]});
+    Object.assign(h.options,{accountIds:["4"],adRows:[{account_id:"4",ad_id:adId}],previewAdIds:[adId]});
+    const snapshot={ad_id:adId,creative_id:"902",video_id:"903",asset_key:null,previous_sha256:prior.preview_sha256,previous_path:prior.preview_storage_path,previous_updated_at:prior.updated_at};
+    const approved={ad_id:adId,creative_id:"902",video_id:"903",sha256:hash(raster("large.png"))};
+    h.options.reservationSelection={ad_ids:[adId],ads:[snapshot],approved_assets:[approved]};
+    return {...h,snapshot,approved,prior};
+  }
+  it.each(["901","911"])("recovers approved official bytes for a new ad %s despite #10 on thumbnails",async(adId)=>{
+    const h=selectedCase(adId),f=h.options.fetchImpl;
+    h.options.fetchImpl=async(raw:string)=>{
+      const u=new URL(raw);
+      if(u.pathname.endsWith("/thumbnails"))return new Response(JSON.stringify({error:{code:10}}),{status:400});
+      if(u.hostname==="graph.facebook.com"&&u.pathname.endsWith("/902"))return new Response(JSON.stringify({id:"902",account_id:"4",object_type:"VIDEO",video_id:"903",thumbnail_url:media("large.png")}));
+      return f(raw);
+    };
+    const r=await h.run();expect(r.failures).toEqual([]);
+    expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920,preview_source:"creative.requested_thumbnail",preview_quality_status:"full_hd"});
+    expect(r.decisions?.[0]).toMatchObject({approval:{source_mode:"official_creative",collection_complete:false}});
+    expect(h.rows[0].metadata.preview_last_attempt.lookup_errors).toContain("meta_10");
+    expect(h.objects.has(h.prior.preview_storage_path)).toBe(true);
+    expect(h.removes).toEqual([]);
+  });
+  async function preparedUnpinnedRestore() {
+    const h=selectedCase();expect((await h.run()).failures).toEqual([]);
+    const current=h.rows[0],origin="12345678-1234-4234-8234-123456789abc";
+    h.upgradeAudits.push({id:origin,client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:current.preview_storage_path,sha256:current.preview_sha256}]}});
+    h.options.reservationSelection={ad_ids:["901"],approved_assets:[{...h.approved,sha256:h.prior.preview_sha256}],ads:[{...h.snapshot,asset_key:current.metadata.preview_asset_key,previous_path:current.preview_storage_path,previous_sha256:current.preview_sha256,previous_updated_at:current.updated_at}]};
+    h.options.now=new Date("2026-10-28T12:00:01Z");
+    return h;
+  }
+  it("also tries the official creative when a complete thumbnail list only contains small files",async()=>{
+    const h=selectedCase(),f=h.options.fetchImpl;
+    h.options.fetchImpl=async(raw:string)=>{
+      const u=new URL(raw);
+      if(u.pathname.endsWith("/thumbnails"))return Response.json({data:[{id:"904",uri:media("tiny.png"),width:1080,height:1920,is_preferred:true}]});
+      if(u.hostname==="graph.facebook.com"&&u.pathname.endsWith("/902"))return Response.json({id:"902",account_id:"4",video_id:"903",thumbnail_url:media("large.png")});
+      return f(raw);
+    };
+    expect((await h.run()).failures).toEqual([]);
+    expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920,preview_source:"creative.requested_thumbnail"});
+    expect(h.requests.filter(url=>url===media("tiny.png"))).toHaveLength(1);
+  });
+  it.each(["no-receipt","foreign-origin","different-ad","corrupt-old","stale-snapshot","unapproved-video"])("rejects an unproven unpinned restore: %s",async(kind)=>{
+    const h=await preparedUnpinnedRestore(),before=clone(h.rows[0]);
+    if(kind==="no-receipt")h.upgradeAudits.length=0;
+    if(kind==="foreign-origin")h.upgradeAudits[0].client_id=2;
+    if(kind==="different-ad")h.upgradeAudits[0].preview_selection.ads[0].ad_id="999";
+    if(kind==="corrupt-old")h.objects.set(h.prior.preview_storage_path,raster("large.png"));
+    if(kind==="stale-snapshot")h.options.reservationSelection.ads[0].previous_updated_at="2000-01-01T00:00:00Z";
+    if(kind==="unapproved-video")h.options.reservationSelection.approved_assets[0].video_id="999";
+    const r=await h.run();expect(r.failed).toBe(1);expect(h.rows[0]).toMatchObject({creative_id:before.creative_id,preview_sha256:before.preview_sha256,preview_storage_path:before.preview_storage_path,preview_mime_type:before.preview_mime_type});expect(h.rows[0].metadata.preview_previous).toEqual(before.metadata.preview_previous);expect(h.uploads).toHaveLength(1);expect(h.removes).toEqual([]);
+  });
+  it("restores an unpinned ad from its exact terminal receipt and immutable previous object",async()=>{
+    const h=selectedCase();expect((await h.run()).failures).toEqual([]);
+    const upgraded=clone(h.rows[0]),origin="12345678-1234-4234-8234-123456789abc";
+    h.upgradeAudits.push({id:origin,client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:upgraded.preview_storage_path,sha256:upgraded.preview_sha256}]}});
+    h.rows[0].metadata.body="KEEP NEW COMMERCIAL TEXT";
+    h.options.reservationSelection={ad_ids:["901"],approved_assets:[{...h.approved,sha256:h.prior.preview_sha256}],ads:[{...h.snapshot,asset_key:upgraded.metadata.preview_asset_key,previous_path:upgraded.preview_storage_path,previous_sha256:upgraded.preview_sha256,previous_updated_at:upgraded.updated_at}]};
+    h.options.now=new Date("2026-10-28T12:00:01Z");
+    const r=await h.run();expect(r.failures).toEqual([]);
+    expect(h.rows[0].preview_sha256).toBe(h.prior.preview_sha256);
+    expect(h.rows[0].preview_storage_path).toBe(h.prior.preview_storage_path);
+    expect(h.rows[0].metadata).toMatchObject({body:"KEEP NEW COMMERCIAL TEXT",preview_width:64,preview_height:64,preview_restoration:{origin_run_id:origin}});
+    expect(h.rows[0].metadata.preview_approved_manifest_sha256).toBeUndefined();
+    expect(h.uploads).toHaveLength(1);expect(h.removes).toEqual([]);expect(h.objects.size).toBe(2);
+  });
+  it.each(["wrong-account","no-native-proof","wrong-hash","tiny-source","cas"])("preserves old media when new source is rejected: %s",async(kind)=>{
+    const h=selectedCase(),f=h.options.fetchImpl;
+    if(kind==="wrong-hash")h.options.reservationSelection.approved_assets[0].sha256="a".repeat(64);
+    h.options.fetchImpl=async(raw:string)=>{
+      const u=new URL(raw);
+      if(u.pathname.endsWith("/thumbnails"))return new Response(JSON.stringify({error:{code:10}}),{status:400});
+      if(kind==="no-native-proof"&&u.pathname.endsWith("/903"))return new Response(JSON.stringify({error:{code:10}}),{status:400});
+      if(u.hostname==="graph.facebook.com"&&u.pathname.endsWith("/902"))return new Response(JSON.stringify({id:"902",account_id:kind==="wrong-account"?"other":"4",video_id:"903",thumbnail_url:media(kind==="tiny-source"?"tiny.png":"large.png")}));
+      return f(raw);
+    };
+    if(kind==="cas")h.options.reservationSelection.ads[0].previous_updated_at="2020-01-01T00:00:00Z";
+    const r=await h.run();expect(r.failed).toBe(1);expect(h.rows[0].preview_sha256).toBe(h.prior.preview_sha256);expect(h.uploads).toEqual([]);
+  });
+});

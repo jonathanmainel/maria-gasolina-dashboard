@@ -1,0 +1,33 @@
+{
+  "date_local": "2026-10-30",
+  "backend": {
+    "files": 17,
+    "passed": 283,
+    "failed": 0,
+    "skipped": 0,
+    "live_private_package_byte_check_enabled": true
+  },
+  "python_audit": {
+    "passed": 15
+  },
+  "python_plan": {
+    "passed": 4
+  },
+  "typescript_changed_modules": "passed",
+  "isolated_sql": {
+    "project": "uwafdxsdsgqysjjxfywo",
+    "assertions": 30,
+    "transaction_rolled_back": true
+  },
+  "private_package_manifest_pin": "94ff6ed405876d5b77fec4ed71427772c6921f476847f7d7977700d93f28b6a1",
+  "private_review_package_sha256": "a3dd4516c8c922a6751133e4cdbbdd09f8307618d28ed6d53d4ade129f1f6f0e",
+  "private_isolated_package_sha256": "827637397265f502e73bc40701db572439e4a8b89e1d47b956e7ced0d7a3246b",
+  "hosted_new_collector_cycle": "pending_existing_synthetic_admin_auth_config",
+  "live_new_ad_official_hd_files": 1,
+  "live_creative_parameterized_fallback": "pending",
+  "production_low_resolution_rows_still_present": 12,
+  "production_write": false,
+  "production_deploy": false,
+  "migrations": false,
+  "merge": false
+}

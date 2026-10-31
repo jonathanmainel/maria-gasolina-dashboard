@@ -11,7 +11,7 @@ export type ApprovedSource = {
     path:string;updated_at:string;mime:string;metadata:Record<string,unknown>};
 };
 export const defaultManifestPin: ManifestPin = APPROVED_PREVIEW_MANIFEST;
-export type BoundApprovedSource = ApprovedSource & {intent:'upgrade'|'restore_previous'};
+export type BoundApprovedSource = ApprovedSource & {intent:'upgrade'|'restore_previous';provenance?:'receipt'};
 const sha = /^[a-f0-9]{64}$/;
 const id = /^\d{1,30}$/;
 const object = (x:any) => x && typeof x === "object" && !Array.isArray(x);
