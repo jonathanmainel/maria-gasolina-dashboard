@@ -4,7 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AppView, DateRange } from "../types";
 import { Shell } from "./Shell";
 
-vi.mock("../auth", () => ({ useAuth: () => ({ user: { email: "gt@gtmais.com.br" }, signOut: () => {} }) }));
+vi.mock("../auth", () => ({ useAuth: () => ({ session: { user: { email: "gt@gtmais.com.br" } }, signOut: () => {} }) }));
 vi.mock("../theme", () => ({ useTheme: () => ({ theme: "dark", toggle: () => {} }) }));
 vi.mock("./three/AmbientField", () => ({ AmbientField: () => null }));
 // Shell navigation unit tests do not mount the application QueryClient.
@@ -36,6 +36,13 @@ const frentes = () => {
 };
 
 describe("sidebar: FRENTES", () => {
+  it("identifica a conta autenticada no menu sem rotulá-la como demonstração", () => {
+    renderShell();
+    fireEvent.click(screen.getByRole("button", { name: "Menu do usuário" }));
+    expect(screen.getByText("gt@gtmais.com.br")).not.toBeNull();
+    expect(screen.queryByText("Demonstração local")).toBeNull();
+  });
+
   it("agrupa Place e Expansão e preserva Orgânico e Site", () => {
     renderShell();
     expect(frentes()).toEqual(["Places", "Expansão", "Orgânico", "Site"]);
