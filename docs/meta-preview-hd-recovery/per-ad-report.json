@@ -1,0 +1,389 @@
+{
+  "date_local": "2026-11-01",
+  "mode": "pre_production_gate",
+  "inventory_videos": 27,
+  "priority_ads": 12,
+  "official_candidates_measured": 134,
+  "eligible": 11,
+  "blocked": 1,
+  "production_write": false,
+  "production_deploy": false,
+  "merge": false,
+  "ads": [
+    {
+      "ad_id": "120233201881890114",
+      "ad_name": "AD01 -",
+      "account_id": "1063721474298569",
+      "creative_id": "2153789125098930",
+      "video_id": "1056861319992000",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 13,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "c45df7a918c3bf400960c7a9615ade1c522a91f19a05cce46191a734a4482a77",
+        "mime": "image/jpeg",
+        "bytes": 230087,
+        "thumbnail_id": "1056861326658666",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": null,
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454201950114",
+      "ad_name": "AD1 - ENTRE UMA REUNIÃƒO",
+      "account_id": "1063721474298569",
+      "creative_id": "2657925721378422",
+      "video_id": "2363040967835865",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "12ba8f788c640b5f00970de2efe3f719acbaf2ece1c2b3b1449ff8a31cc480e8",
+        "mime": "image/jpeg",
+        "bytes": 287167,
+        "thumbnail_id": "976155495510751",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454414370114",
+      "ad_name": "AD2 - FINAL DE SEMANA",
+      "account_id": "1063721474298569",
+      "creative_id": "1030492736695272",
+      "video_id": "1055125747390694",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "e4fc557af4512deb6e6e2023437352dc79132c2cdc725be39901963fe319ec51",
+        "mime": "image/jpeg",
+        "bytes": 588184,
+        "thumbnail_id": "1970564733638506",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120251464707830114",
+      "ad_name": "AD3 - JÃ¡ Pensou",
+      "account_id": "1063721474298569",
+      "creative_id": "1590173029168125",
+      "video_id": "3527806400713534",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "c59eb4e0ba39338e12c126212c0e8ec241eec881e1481853d0e5bf92b2252d2d",
+        "mime": "image/jpeg",
+        "bytes": 266022,
+        "thumbnail_id": "3527806417380199",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454450800114",
+      "ad_name": "AD3 - PROXIMO PIT STOP",
+      "account_id": "1063721474298569",
+      "creative_id": "1657739492350480",
+      "video_id": "2260101164888643",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "0c2a1f5d42c5029eff007a880004f2aa4f566f5401d918b8a592a7bcbbb0a1ff",
+        "mime": "image/jpeg",
+        "bytes": 316627,
+        "thumbnail_id": "1078082811885998",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120251464728120114",
+      "ad_name": "AD4 - Essa Historia",
+      "account_id": "1063721474298569",
+      "creative_id": "1686955422587466",
+      "video_id": "2010361932935561",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "c075b267bf4fa1e0b127593e04b03e50e4c6ad596cb47ad9d7ea77eb0330525e",
+        "mime": "image/jpeg",
+        "bytes": 348706,
+        "thumbnail_id": "2010361949602226",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454489610114",
+      "ad_name": "AD4 - IMAGINA",
+      "account_id": "1063721474298569",
+      "creative_id": "2948007755548838",
+      "video_id": "2115243459097778",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "f0851b4fe5972b1f87a7ba2e387b573dce95817b3338bb353122fcc002035354",
+        "mime": "image/jpeg",
+        "bytes": 232311,
+        "thumbnail_id": "1605932137851308",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120251464738740114",
+      "ad_name": "AD5 - DEPOIMENTO FRANQUEADO",
+      "account_id": "1063721474298569",
+      "creative_id": "1346747380918180",
+      "video_id": "2092319958309317",
+      "native": {
+        "width": 720,
+        "height": 1280
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 720,
+        "height": 1280,
+        "sha256": "240f55201ad55c8e1d028725b51f2af36719018e6c614840d7ef31df0ccd21e6",
+        "mime": "image/jpeg",
+        "bytes": 118985,
+        "thumbnail_id": "4216627808470738",
+        "quality": "HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454512730114",
+      "ad_name": "AD5 - PERRENGUE",
+      "account_id": "1063721474298569",
+      "creative_id": "1432099395495855",
+      "video_id": "1599811341590577",
+      "native": {
+        "width": 720,
+        "height": 1280
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 720,
+        "height": 1280,
+        "sha256": "b0a6b58aeb900ae1eb6d06ee10f5c6ac8e29799dc7edf5c30b53d66be888574a",
+        "mime": "image/jpeg",
+        "bytes": 164990,
+        "thumbnail_id": "850564518081189",
+        "quality": "HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120252454525840114",
+      "ad_name": "AD6 - MELHOR MINI MERCADO",
+      "account_id": "1063721474298569",
+      "creative_id": "1631569098381794",
+      "video_id": "933335529397804",
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "02c6e28c563781a5d8ceb07583409b806b0280d1f1badae408141f7f0fe6f85f",
+        "mime": "image/jpeg",
+        "bytes": 357992,
+        "thumbnail_id": "933335552731135",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
+    },
+    {
+      "ad_id": "120241847281150114",
+      "ad_name": "Novo anÃºncio de Engajamento",
+      "account_id": "1063721474298569",
+      "creative_id": "1894846637904718",
+      "video_id": "1534826568138613",
+      "native": {
+        "width": 4320,
+        "height": 7680
+      },
+      "collection_count": 14,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "98dddd6294d0276597f0a897234a0ee6b6cc641e1bcf554f761572bbda9422ad",
+        "mime": "image/jpeg",
+        "bytes": 325252,
+        "thumbnail_id": "2334478740358035",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": null,
+      "production_updated": false
+    },
+    {
+      "ad_id": "120242286711110114",
+      "ad_name": "Novo anÃºncio de Engajamento â€” CÃ³pia",
+      "account_id": "1063721474298569",
+      "creative_id": "2096610387765625",
+      "video_id": "888940787119406",
+      "native": {
+        "width": 480,
+        "height": 864
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1072,
+        "height": 1928,
+        "sha256": "d3e64580da360aaf73f47f74ca9f588ffb98dc6623f5f8ac1d8def1a0524260a",
+        "mime": "image/jpeg",
+        "bytes": 249245,
+        "thumbnail_id": "896383856355313",
+        "quality": "HD"
+      },
+      "eligible_for_proposed_batch": false,
+      "limitation": "candidate_exceeds_native_or_below_hd",
+      "server_lookup_errors": null,
+      "production_updated": false
+    }
+  ]
+}

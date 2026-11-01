@@ -1,0 +1,50 @@
+{
+  "date_local": "2026-11-01",
+  "backend_targeted": {
+    "passed": 119,
+    "optional_live_check_in_separate_run": 1
+  },
+  "python_new_batch": {
+    "passed": 5
+  },
+  "typescript_changed_modules": "passed",
+  "hosted_collector": {
+    "project": "uwafdxsdsgqysjjxfywo",
+    "version": 15,
+    "files_checked": 18,
+    "mismatches": 0,
+    "upgrade_ad_receipts": 2,
+    "cas_conflicts_expected": 1,
+    "restore_ad_receipts": 2,
+    "idempotence": "passed",
+    "metrics_preserved": true,
+    "old_and_new_objects_preserved": true
+  },
+  "isolated_sql_receipt_checks": {
+    "wrong_fingerprint": "rejected",
+    "unknown_proof_kind": "rejected",
+    "exact_origin": "accepted",
+    "rolled_back": true
+  },
+  "commercial_real_auth_rls": {
+    "fronts": 2,
+    "editor_create_update": "passed",
+    "viewer_read": "passed",
+    "viewer_and_foreign_write": "denied",
+    "temporary_rows_remaining": 0,
+    "initial_freeze_restored": true
+  },
+  "production_objects_readback": {
+    "verified": 16,
+    "prior_hd_preserved": 4
+  },
+  "production_package_sha256": "4f297c0a33517de296107ec474649ab8ba8ab054978dfc519396f895c9a34a79",
+  "production_write": false,
+  "production_deploy": false,
+  "merge": false,
+  "frontend_required_suite": {
+    "files": 57,
+    "passed": 647,
+    "failed": 0
+  }
+}
