@@ -1738,6 +1738,7 @@ export async function enrichMetaCreativePreviews(
         ["meta_thumbnail_page_limit", "meta_thumbnail_page_cycle", "meta_thumbnail_collection_incomplete"].includes(code));
       let directSource: BoundApprovedSource | undefined;
       let restoreOrigin: string | undefined;
+      let restoreOriginFingerprint: string | undefined;
       if (approved && manifestPin.ad_ids.includes(ref.ad_id)) {
         if (!snapshot || !sameIdentity) throw new PreviewError('preview_approved_identity_mismatch');
         manifest ??= loadApprovedSources(manifestPin);
@@ -1751,6 +1752,7 @@ export async function enrichMetaCreativePreviews(
         current?.metadata?.preview_previous && (current.metadata.preview_previous as any).sha256 === approved.sha256) {
         const restored=await receiptRestoreSource(options.supabase,options.clientId,ref.account_id,approved,snapshot,current,creative);
         directSource=restored.source; restoreOrigin=restored.origin;
+        restoreOriginFingerprint=restored.originSelectionFingerprint;
       }
       const directManifestSha = directSource && directSource.provenance !== 'receipt' ? manifestPin.sha256 : null;
       const standardResolution = !directSource && !reuse && !(oldPreview && !sameIdentity) && !collectionIncomplete
@@ -1958,7 +1960,9 @@ export async function enrichMetaCreativePreviews(
             preview_width:file.width,preview_height:file.height,preview_bytes:file.bytes.length,
             ...(directManifestSha ? {preview_approved_manifest_sha256:directManifestSha} : {}),
             preview_restoration:{origin_run_id:restoreOrigin,from_path:oldPreview!.path,from_sha256:oldPreview!.sha256,
-              target_path:path,target_sha256:file.sha256,restored_at:nowIso,...(directManifestSha ? {manifest_sha256:directManifestSha} : {})}});
+              target_path:path,target_sha256:file.sha256,restored_at:nowIso,
+              ...(directSource!.provenance==='receipt' ? {proof_kind:'terminal_receipt',origin_selection_fingerprint:restoreOriginFingerprint}
+                : {proof_kind:'manifest',manifest_sha256:directManifestSha})}});
         }
         delete metadata.preview_stale_for_creative_id;
         if (!options.dryRun && !restoring) {

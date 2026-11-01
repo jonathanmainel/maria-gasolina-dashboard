@@ -43,7 +43,8 @@ export function createPreviewProvider(native:typeof fetch,control:PreviewControl
    const bytes=Uint8Array.from(atob(fixtures[file]),c=>c.charCodeAt(0));
    return new Response(bytes,{headers:{'content-type':'image/png','content-length':String(bytes.length)}});
   }
-  if(u.origin===ORIGIN&&failure){
+  // Generation four isolates the concurrent-writer case without provider failures.
+  if(u.origin===ORIGIN&&(failure||control.generation===4)){
    if(request.method==='POST'&&u.pathname.includes('/storage/v1/object/dashboard-creatives/')&&u.pathname.includes('/ad/800307/'))return Response.json({message:'TEST_STORAGE_FAILURE'},{status:500});
    if(request.method==='PATCH'&&u.pathname.endsWith('/rest/v1/dashboard_creative_previews')){
     if(u.searchParams.get('entity_id')==='eq.800308')return Response.json({message:'TEST_DATABASE_FAILURE',code:'XX000'},{status:500});

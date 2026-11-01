@@ -1,14 +1,14 @@
 {
-  "date_local": "2026-10-30",
-  "generated_at": "2026-10-31T00:03:45.935123+00:00",
-  "mode": "read_only_production_diagnosis",
-  "production_version": 19,
+  "date_local": "2026-11-01",
+  "mode": "pre_production_gate",
   "inventory_videos": 27,
-  "low_resolution_count": 12,
-  "production_writes": false,
-  "production_deploys": false,
-  "live_new_ads_outside_old_manifest_with_verified_hd_file": 1,
-  "hosted_new_collector_persistence_and_restore": "pending",
+  "priority_ads": 12,
+  "official_candidates_measured": 134,
+  "eligible": 11,
+  "blocked": 1,
+  "production_write": false,
+  "production_deploy": false,
+  "merge": false,
   "ads": [
     {
       "ad_id": "120233201881890114",
@@ -16,73 +16,60 @@
       "account_id": "1063721474298569",
       "creative_id": "2153789125098930",
       "video_id": "1056861319992000",
-      "asset_identity": "video:1056861319992000",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "839a155a9a4ffb0a942fa9e51c4a7eab9c184b530722a4eb90a97bbc6ec17e87",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 13,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
       "candidate": {
-        "ad_id": "120233201881890114",
-        "creative_id": "2153789125098930",
-        "video_id": "1056861319992000",
         "width": 1080,
         "height": 1920,
         "sha256": "c45df7a918c3bf400960c7a9615ade1c522a91f19a05cce46191a734a4482a77",
         "mime": "image/jpeg",
         "bytes": 230087,
-        "source": "video.thumbnails",
-        "provenance": "historical_graph_2026-10-28_local_bytes_revalidated_2026-10-30_and_live_package_hash_test",
-        "historical_native": {
-          "width": 1080,
-          "height": 1920
-        }
+        "thumbnail_id": "1056861326658666",
+        "quality": "Full HD"
       },
-      "result": "official_file_revalidated_fresh_native_recheck_and_selective_homologation_pending",
-      "substituted": false
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": null,
+      "production_updated": false
     },
     {
       "ad_id": "120252454201950114",
-      "ad_name": "AD1 - ENTRE UMA REUNIÃO",
+      "ad_name": "AD1 - ENTRE UMA REUNIÃƒO",
       "account_id": "1063721474298569",
       "creative_id": "2657925721378422",
       "video_id": "2363040967835865",
-      "asset_identity": "video:2363040967835865",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "182fdb2333d34e2b4808b2f68657c58beaea455aef76b969db4462ba43099b0c",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": {
-        "ad_id": "120252454201950114",
-        "creative_id": "2657925721378422",
-        "video_id": "2363040967835865",
-        "source": "video.thumbnails",
-        "thumbnail_id": "2363040987835863",
-        "declared_width": 1080,
-        "declared_height": 1920,
-        "endpoint": "GET /v23.0/2363040967835865/thumbnails",
-        "collection_complete": true,
-        "candidates": 11,
-        "http_status": 200,
-        "mime": "image/jpeg",
-        "width": 720,
-        "height": 1280,
-        "format": "JPEG",
-        "sha256": "cfa3d1e201b4ddc8d13cc4c5d18bd44c80407ab04ecc744176a66731ae6ad867",
-        "bytes": 154211,
-        "verified": true,
-        "provenance": "fresh_graph_explorer_2026-10-30",
-        "historical_native": null
+      "native": {
+        "width": 1080,
+        "height": 1920
       },
-      "result": "hd_file_verified_native_format_and_remaining_candidates_pending",
-      "substituted": false
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "12ba8f788c640b5f00970de2efe3f719acbaf2ece1c2b3b1449ff8a31cc480e8",
+        "mime": "image/jpeg",
+        "bytes": 287167,
+        "thumbnail_id": "976155495510751",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120252454414370114",
@@ -90,37 +77,63 @@
       "account_id": "1063721474298569",
       "creative_id": "1030492736695272",
       "video_id": "1055125747390694",
-      "asset_identity": "video:1055125747390694",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "4a6816e11a60e0e068d36d45b29b1022bed93a2f8439e45e8d8794b824eb9e5b",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "e4fc557af4512deb6e6e2023437352dc79132c2cdc725be39901963fe319ec51",
+        "mime": "image/jpeg",
+        "bytes": 588184,
+        "thumbnail_id": "1970564733638506",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120251464707830114",
-      "ad_name": "AD3 - Já Pensou",
+      "ad_name": "AD3 - JÃ¡ Pensou",
       "account_id": "1063721474298569",
       "creative_id": "1590173029168125",
       "video_id": "3527806400713534",
-      "asset_identity": "video:3527806400713534",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "37d123728cdc87ab0306ffc1ffc161705e550c0868176899853c041f04305b75",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "c59eb4e0ba39338e12c126212c0e8ec241eec881e1481853d0e5bf92b2252d2d",
+        "mime": "image/jpeg",
+        "bytes": 266022,
+        "thumbnail_id": "3527806417380199",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120252454450800114",
@@ -128,18 +141,31 @@
       "account_id": "1063721474298569",
       "creative_id": "1657739492350480",
       "video_id": "2260101164888643",
-      "asset_identity": "video:2260101164888643",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "b8996fb009f0f06641c7d6141122161a76c51c83ea941807cc12e8c6745a7eba",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "0c2a1f5d42c5029eff007a880004f2aa4f566f5401d918b8a592a7bcbbb0a1ff",
+        "mime": "image/jpeg",
+        "bytes": 316627,
+        "thumbnail_id": "1078082811885998",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120251464728120114",
@@ -147,18 +173,31 @@
       "account_id": "1063721474298569",
       "creative_id": "1686955422587466",
       "video_id": "2010361932935561",
-      "asset_identity": "video:2010361932935561",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "ebff1921ae03eb17fd976f1ce432d2fbfbbaf13dba902fb51d4b59580ab982e1",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "c075b267bf4fa1e0b127593e04b03e50e4c6ad596cb47ad9d7ea77eb0330525e",
+        "mime": "image/jpeg",
+        "bytes": 348706,
+        "thumbnail_id": "2010361949602226",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120252454489610114",
@@ -166,18 +205,31 @@
       "account_id": "1063721474298569",
       "creative_id": "2948007755548838",
       "video_id": "2115243459097778",
-      "asset_identity": "video:2115243459097778",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "2edd41fdd1c245804bdff8c3c0a3794ce3ca38afe3571240fb97032903dd2cca",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "f0851b4fe5972b1f87a7ba2e387b573dce95817b3338bb353122fcc002035354",
+        "mime": "image/jpeg",
+        "bytes": 232311,
+        "thumbnail_id": "1605932137851308",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120251464738740114",
@@ -185,18 +237,31 @@
       "account_id": "1063721474298569",
       "creative_id": "1346747380918180",
       "video_id": "2092319958309317",
-      "asset_identity": "video:2092319958309317",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "91a61334d9de563366f8e66c556175a6632fd1604fd6db20380a75fec6d862f1",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 720,
+        "height": 1280
+      },
+      "collection_count": 10,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 720,
+        "height": 1280,
+        "sha256": "240f55201ad55c8e1d028725b51f2af36719018e6c614840d7ef31df0ccd21e6",
+        "mime": "image/jpeg",
+        "bytes": 118985,
+        "thumbnail_id": "4216627808470738",
+        "quality": "HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120252454512730114",
@@ -204,18 +269,31 @@
       "account_id": "1063721474298569",
       "creative_id": "1432099395495855",
       "video_id": "1599811341590577",
-      "asset_identity": "video:1599811341590577",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "656985c81a49aed784e5bef42a3ca88fe7df5ddfd9407138f8a5a1db02207722",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 720,
+        "height": 1280
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 720,
+        "height": 1280,
+        "sha256": "b0a6b58aeb900ae1eb6d06ee10f5c6ac8e29799dc7edf5c30b53d66be888574a",
+        "mime": "image/jpeg",
+        "bytes": 164990,
+        "thumbnail_id": "850564518081189",
+        "quality": "HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120252454525840114",
@@ -223,86 +301,89 @@
       "account_id": "1063721474298569",
       "creative_id": "1631569098381794",
       "video_id": "933335529397804",
-      "asset_identity": "video:933335529397804",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "a75e6f2d11452a36cf213e0ffd8a2d6c12c7acc274dd03fccaa58974d33a4a2b",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
-      "candidate": null,
-      "result": "pending_official_discovery_after_explorer_authentication",
-      "substituted": false
+      "native": {
+        "width": 1080,
+        "height": 1920
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
+      "candidate": {
+        "width": 1080,
+        "height": 1920,
+        "sha256": "02c6e28c563781a5d8ceb07583409b806b0280d1f1badae408141f7f0fe6f85f",
+        "mime": "image/jpeg",
+        "bytes": 357992,
+        "thumbnail_id": "933335552731135",
+        "quality": "Full HD"
+      },
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": [
+        "meta_10",
+        "meta_thumbnail_collection_incomplete"
+      ],
+      "production_updated": false
     },
     {
       "ad_id": "120241847281150114",
-      "ad_name": "Novo anúncio de Engajamento",
+      "ad_name": "Novo anÃºncio de Engajamento",
       "account_id": "1063721474298569",
       "creative_id": "1894846637904718",
       "video_id": "1534826568138613",
-      "asset_identity": "video:1534826568138613",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "36190aae90813df05241d5ca3abc74ecd38a45753eb5a8e8b11fad1b1db6baab",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
+      "native": {
+        "width": 4320,
+        "height": 7680
+      },
+      "collection_count": 14,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
       "candidate": {
-        "ad_id": "120241847281150114",
-        "creative_id": "1894846637904718",
-        "video_id": "1534826568138613",
         "width": 1080,
         "height": 1920,
-        "sha256": "593012d386e4649cbc5d2d20f9465dc4571c3e3841e67fa020b6ce587f77d32e",
+        "sha256": "98dddd6294d0276597f0a897234a0ee6b6cc641e1bcf554f761572bbda9422ad",
         "mime": "image/jpeg",
-        "bytes": 301999,
-        "source": "video.thumbnails",
-        "provenance": "historical_graph_2026-10-28_local_bytes_revalidated_2026-10-30_and_live_package_hash_test",
-        "historical_native": {
-          "width": 4320,
-          "height": 7680
-        }
+        "bytes": 325252,
+        "thumbnail_id": "2334478740358035",
+        "quality": "Full HD"
       },
-      "result": "official_file_revalidated_fresh_native_recheck_and_selective_homologation_pending",
-      "substituted": false
+      "eligible_for_proposed_batch": true,
+      "limitation": null,
+      "server_lookup_errors": null,
+      "production_updated": false
     },
     {
       "ad_id": "120242286711110114",
-      "ad_name": "Novo anúncio de Engajamento — Cópia",
+      "ad_name": "Novo anÃºncio de Engajamento â€” CÃ³pia",
       "account_id": "1063721474298569",
       "creative_id": "2096610387765625",
       "video_id": "888940787119406",
-      "asset_identity": "video:888940787119406",
-      "previous_width": 64,
-      "previous_height": 64,
-      "previous_sha256": "c2a8f34d1b051dc9a7dc9aeef5ba12d60074f8a6a21c00072a809658fc228a99",
-      "previous_source": "creative.thumbnail_url",
-      "submitted_to_previous_selective_runs": false,
-      "preview_last_attempt_present": false,
-      "connector_video_status": "unresolved_video_ids",
-      "current_meta_10_observed": null,
+      "native": {
+        "width": 480,
+        "height": 864
+      },
+      "collection_count": 11,
+      "pagination_complete": true,
+      "identity_matches": true,
+      "current_width": 64,
+      "current_height": 64,
       "candidate": {
-        "ad_id": "120242286711110114",
-        "creative_id": "2096610387765625",
-        "video_id": "888940787119406",
         "width": 1072,
         "height": 1928,
         "sha256": "d3e64580da360aaf73f47f74ca9f588ffb98dc6623f5f8ac1d8def1a0524260a",
         "mime": "image/jpeg",
         "bytes": 249245,
-        "source": "video.thumbnails",
-        "provenance": "historical_graph_2026-10-28_local_bytes_revalidated_2026-10-30_and_live_package_hash_test",
-        "historical_native": {
-          "width": 480,
-          "height": 864
-        }
+        "thumbnail_id": "896383856355313",
+        "quality": "HD"
       },
-      "result": "blocked_native_resolution_discrepancy_requires_proven_hd_representation",
-      "substituted": false
+      "eligible_for_proposed_batch": false,
+      "limitation": "candidate_exceeds_native_or_below_hd",
+      "server_lookup_errors": null,
+      "production_updated": false
     }
   ]
 }

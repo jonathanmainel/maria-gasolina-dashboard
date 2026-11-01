@@ -1,3 +1,5 @@
+> Estado atual: [homologação e gate de 01/11/2026](finalizacao-2026-11-01.md). O conteúdo abaixo preserva o diagnóstico histórico de 30/10; as antigas pendências de consulta/ciclo foram concluídas ou corrigidas no relatório atual. Produção segue aguardando autorização.
+
 # Recuperação seletiva de previews Meta — 30/10/2026
 
 **Entrega parcial, sem publicação.** A correção visual está no [PR #20](https://github.com/jonathanmainel/maria-gasolina-dashboard/pull/20). Este trabalho propõe o coletor em branch separada `codex/meta-preview-hd-recovery`, a partir da `main` `baae2747195ffd33bdb65a56ca42e801fa455a9c`, preservando o PR #10. A homologação hospedada do novo coletor e a descoberta oficial de todos os 12 casos ainda estão pendentes. Não houve escrita, deploy, migration ou merge em produção.

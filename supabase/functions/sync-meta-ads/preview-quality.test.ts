@@ -294,7 +294,8 @@ describe("pinned approved official references", () => {
     const config=packageFile.files.find((f:any)=>f.name.endsWith('/approved-preview-manifest.ts')).content;
     const pin=JSON.parse(config.match(/APPROVED_PREVIEW_MANIFEST = (\{.*\});/s)[1]);
     const entries=await loadApprovedSources(pin);
-    expect(entries.length).toBe(7);
+    expect(entries.length).toBeGreaterThanOrEqual(7);
+    expect(entries.length).toBeLessThanOrEqual(50);
     for(const e of entries){
       // No provider URL or exception is retained in a test failure.
       let file;try{file=await downloadPreview(e.url,fetch);}catch{throw Error('APPROVED_REFERENCE_READ_FAILED_'+e.ad_id);}
@@ -319,6 +320,16 @@ describe("pinned approved official references", () => {
     h.options.fetchImpl=async(raw:string)=>new URL(raw).pathname.endsWith('/thumbnails')?Response.json({error:{code:10}},{status:400}):fetcher(raw);
     return {...h,entry,pin,publish,snapshot,approved};
   };
+  it('accepts evidence batches beyond ten ads and rejects more than the reservation limit',async()=>{
+    const h=setup();
+    const make=async(count:number)=>{
+      const entries=Array.from({length:count},(_,i)=>({...h.entry,ad_id:String(i+1),previous:{...h.entry.previous,path:`1/meta_ads/4/ad/${i+1}/old.png`}}));
+      const data=JSON.stringify({version:1,entries});const digest=hash(new TextEncoder().encode(data));
+      return loadApprovedSources({data,sha256:digest,path:`1/meta_ads/approved-sources/${digest}.json`,ad_ids:entries.map(e=>e.ad_id)});
+    };
+    expect(await make(16)).toHaveLength(16);
+    await expect(make(51)).rejects.toThrow('preview_manifest_pin_invalid');
+  });
   it('accepts only the approved reference with an incomplete collection, without writes in dry run',async()=>{
     const h=setup();h.options.dryRun=true;const result=await h.run();
     expect(result.failures).toEqual([]);expect(result.decisions?.[0]).toMatchObject({result:'improved',approval:{code:'preview_approved_reference_valid',source_mode:'approved_reference',collection_complete:false,measured_count:1}});
@@ -1012,7 +1023,7 @@ describe("general official recovery outside the historical manifest",()=>{
   async function preparedUnpinnedRestore() {
     const h=selectedCase();expect((await h.run()).failures).toEqual([]);
     const current=h.rows[0],origin="12345678-1234-4234-8234-123456789abc";
-    h.upgradeAudits.push({id:origin,client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:current.preview_storage_path,sha256:current.preview_sha256}]}});
+    h.upgradeAudits.push({id:origin,selection_fingerprint:"a".repeat(64),client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:current.preview_storage_path,sha256:current.preview_sha256}]}});
     h.options.reservationSelection={ad_ids:["901"],approved_assets:[{...h.approved,sha256:h.prior.preview_sha256}],ads:[{...h.snapshot,asset_key:current.metadata.preview_asset_key,previous_path:current.preview_storage_path,previous_sha256:current.preview_sha256,previous_updated_at:current.updated_at}]};
     h.options.now=new Date("2026-10-28T12:00:01Z");
     return h;
@@ -1029,7 +1040,7 @@ describe("general official recovery outside the historical manifest",()=>{
     expect(h.rows[0].metadata).toMatchObject({preview_width:1080,preview_height:1920,preview_source:"creative.requested_thumbnail"});
     expect(h.requests.filter(url=>url===media("tiny.png"))).toHaveLength(1);
   });
-  it.each(["no-receipt","foreign-origin","different-ad","corrupt-old","stale-snapshot","unapproved-video"])("rejects an unproven unpinned restore: %s",async(kind)=>{
+  it.each(["no-receipt","foreign-origin","different-ad","corrupt-old","stale-snapshot","unapproved-video","missing-fingerprint"])("rejects an unproven unpinned restore: %s",async(kind)=>{
     const h=await preparedUnpinnedRestore(),before=clone(h.rows[0]);
     if(kind==="no-receipt")h.upgradeAudits.length=0;
     if(kind==="foreign-origin")h.upgradeAudits[0].client_id=2;
@@ -1037,19 +1048,20 @@ describe("general official recovery outside the historical manifest",()=>{
     if(kind==="corrupt-old")h.objects.set(h.prior.preview_storage_path,raster("large.png"));
     if(kind==="stale-snapshot")h.options.reservationSelection.ads[0].previous_updated_at="2000-01-01T00:00:00Z";
     if(kind==="unapproved-video")h.options.reservationSelection.approved_assets[0].video_id="999";
+    if(kind==="missing-fingerprint")delete h.upgradeAudits[0].selection_fingerprint;
     const r=await h.run();expect(r.failed).toBe(1);expect(h.rows[0]).toMatchObject({creative_id:before.creative_id,preview_sha256:before.preview_sha256,preview_storage_path:before.preview_storage_path,preview_mime_type:before.preview_mime_type});expect(h.rows[0].metadata.preview_previous).toEqual(before.metadata.preview_previous);expect(h.uploads).toHaveLength(1);expect(h.removes).toEqual([]);
   });
   it("restores an unpinned ad from its exact terminal receipt and immutable previous object",async()=>{
     const h=selectedCase();expect((await h.run()).failures).toEqual([]);
     const upgraded=clone(h.rows[0]),origin="12345678-1234-4234-8234-123456789abc";
-    h.upgradeAudits.push({id:origin,client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:upgraded.preview_storage_path,sha256:upgraded.preview_sha256}]}});
+    h.upgradeAudits.push({id:origin,selection_fingerprint:"a".repeat(64),client_id:1,source:"meta_ads",account_id:"4",operation:"previews",status:"success",preview_selection:{ads:[h.snapshot]},preview_results:{status:"success",results:[{ad_id:"901",outcome:"updated",path:upgraded.preview_storage_path,sha256:upgraded.preview_sha256}]}});
     h.rows[0].metadata.body="KEEP NEW COMMERCIAL TEXT";
     h.options.reservationSelection={ad_ids:["901"],approved_assets:[{...h.approved,sha256:h.prior.preview_sha256}],ads:[{...h.snapshot,asset_key:upgraded.metadata.preview_asset_key,previous_path:upgraded.preview_storage_path,previous_sha256:upgraded.preview_sha256,previous_updated_at:upgraded.updated_at}]};
     h.options.now=new Date("2026-10-28T12:00:01Z");
     const r=await h.run();expect(r.failures).toEqual([]);
     expect(h.rows[0].preview_sha256).toBe(h.prior.preview_sha256);
     expect(h.rows[0].preview_storage_path).toBe(h.prior.preview_storage_path);
-    expect(h.rows[0].metadata).toMatchObject({body:"KEEP NEW COMMERCIAL TEXT",preview_width:64,preview_height:64,preview_restoration:{origin_run_id:origin}});
+    expect(h.rows[0].metadata).toMatchObject({body:"KEEP NEW COMMERCIAL TEXT",preview_width:64,preview_height:64,preview_restoration:{origin_run_id:origin,proof_kind:'terminal_receipt',origin_selection_fingerprint:'a'.repeat(64)}});
     expect(h.rows[0].metadata.preview_approved_manifest_sha256).toBeUndefined();
     expect(h.uploads).toHaveLength(1);expect(h.removes).toEqual([]);expect(h.objects.size).toBe(2);
   });

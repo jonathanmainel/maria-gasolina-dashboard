@@ -7,7 +7,7 @@ import type { ApprovedAsset, PreviewSnapshot } from "../_shared/preview-operatio
 export async function receiptRestoreSource(admin: any, clientId: number, accountId: string,
   approved: ApprovedAsset, snapshot: PreviewSnapshot, current: any,
   creative: { creativeId: string | null; videoId: string | null; assetKey?: string | null; representationCertain?: boolean },
-): Promise<{ source: BoundApprovedSource; origin: string }> {
+): Promise<{ source: BoundApprovedSource; origin: string; originSelectionFingerprint: string }> {
   const previous = current?.metadata?.preview_previous;
   const fail = (): never => { throw new PreviewError("preview_restore_origin_unconfirmed"); };
   if (!previous || creative.representationCertain !== true || !creative.videoId ||
@@ -22,7 +22,7 @@ export async function receiptRestoreSource(admin: any, clientId: number, account
     snapshot.previous_sha256 !== current.preview_sha256 || snapshot.previous_updated_at !== current.updated_at ||
     previous.sha256 === current.preview_sha256) fail();
   const { data, error } = await admin.from("dashboard_automation_runs")
-    .select("id,status,preview_selection,preview_results").eq("client_id", clientId).eq("source", "meta_ads")
+    .select("id,status,selection_fingerprint,preview_selection,preview_results").eq("client_id", clientId).eq("source", "meta_ads")
     .eq("account_id", accountId).eq("operation", "previews").in("status", ["success", "failed"])
     .contains("preview_results", { results: [{ ad_id: approved.ad_id, outcome: "updated", path: current.preview_storage_path, sha256: current.preview_sha256 }] })
     .contains("preview_selection", { ads: [{ ad_id: approved.ad_id, creative_id: creative.creativeId, video_id: creative.videoId, previous_path: previous.path, previous_sha256: previous.sha256 }] })
@@ -30,8 +30,9 @@ export async function receiptRestoreSource(admin: any, clientId: number, account
   const audit = data?.[0];
   const old = audit?.preview_selection?.ads?.find((a: any) => a.ad_id === approved.ad_id);
   if (error || !audit || !["success", "failed"].includes(audit.status) || audit.preview_results?.status !== audit.status ||
-    !/^[a-f0-9-]{36}$/i.test(audit.id ?? "") || !old || !Number.isFinite(Date.parse(old.previous_updated_at))) fail();
-  return { origin: audit.id, source: {
+    !/^[a-f0-9-]{36}$/i.test(audit.id ?? "") || !/^[a-f0-9]{64}$/.test(audit.selection_fingerprint ?? "") ||
+    !old || !Number.isFinite(Date.parse(old.previous_updated_at))) fail();
+  return { origin: audit.id, originSelectionFingerprint: audit.selection_fingerprint, source: {
     provenance: "receipt", intent: "restore_previous", client_id: clientId, source: "meta_ads", account_id: accountId,
     ad_id: approved.ad_id, creative_id: creative.creativeId!, video_id: creative.videoId!, asset_key: creative.assetKey!,
     sha256: current.preview_sha256, width: Number(current.metadata.preview_width), height: Number(current.metadata.preview_height),

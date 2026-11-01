@@ -21,7 +21,7 @@ function fail(code:string):never {throw new PreviewError(code);}
 export async function loadApprovedSources(pin:ManifestPin):Promise<ApprovedSource[]> {
   if (!sha.test(pin.sha256) || !pin.path.endsWith(`/${pin.sha256}.json`) ||
       !/^\d+\/meta_ads\/approved-sources\/[a-f0-9]{64}\.json$/.test(pin.path) ||
-      !pin.ad_ids.length || pin.ad_ids.length>10 || new Set(pin.ad_ids).size!==pin.ad_ids.length)
+      !pin.ad_ids.length || pin.ad_ids.length>50 || new Set(pin.ad_ids).size!==pin.ad_ids.length)
     fail("preview_manifest_pin_invalid");
   if(typeof pin.data!=="string"||pin.data.length>131072) fail("preview_manifest_unavailable");
   const bytes=new TextEncoder().encode(pin.data);
