@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, rankCreatives, rankedCreativeIds } from "./creatives";
+import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, rankCreatives, rankedCreativeIds, creativeCategory } from "./creatives";
 import type { Creative, Front } from "../types";
 
 const creative = (over: Partial<Creative> & { id: string }): Creative => ({
@@ -110,5 +110,38 @@ describe("ids enriquecidos com preview", () => {
   it("o teto de previews é o mesmo teto de cards da seção", () => {
     expect(CREATIVE_RANKING_LIMIT).toBe(9);
     expect(CREATIVE_RANKING_PREVIEW).toBe(3);
+  });
+});
+
+
+describe("rankings independentes por representação", () => {
+  it.each([
+    [{creative_type:"video", preview_media_type:"image"}, "video"],
+    [{creative_type:"dynamic", preview_media_type:"video"}, "video"],
+    [{creative_type:"dynamic", preview_media_type:"image", format:"video"}, "static"],
+    [{creative_type:"carousel", preview_media_type:"image"}, "static"],
+    [{creative_type:"carousel", preview_media_type:"video"}, "video"],
+    [{creative_type:"unknown", format:"video"}, "video"],
+    [{creative_type:"dynamic", format:"video"}, "video"],
+    [{creative_type:"image", format:"video"}, "static"],
+  ] as const)("classifica %j como %s sem usar extensão do preview", (fields, expected) => {
+    expect(creativeCategory(creative({id:"a", ...fields, preview_url:"https://example.test/poster.jpg"}))).toBe(expected);
+  });
+  it("filtra antes do Top 9 e cobre nove vídeos e nove estáticos de cada frente", () => {
+    const ads = (["franchise", "condominium"] as const).flatMap(front =>
+      (["video", "image"] as const).flatMap(type => Array.from({length:12}, (_, i) =>
+        creative({id:`${front}-${type}-${i}`, front, creative_type:type, leads:(type === "video" ? 1000 : 100)-i}))));
+    const before = [...ads];
+    const ids = rankedCreativeIds(ads, ["franchise", "condominium"]);
+    expect(ids).toHaveLength(36);
+    for(const front of ["franchise", "condominium"] as const) {
+      for(const category of ["video", "static"] as const) {
+        const ranked = rankCreatives(ads,front,category).slice(0,9);
+        expect(ranked).toHaveLength(9);
+        expect(ranked.every(c=>ids.includes(c.id))).toBe(true);
+      }
+    }
+    expect(ads).toEqual(before);
+    expect(new Set(ids).size).toBe(36);
   });
 });

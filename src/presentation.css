@@ -49,9 +49,12 @@
 .present.responsive-present .creative-art { aspect-ratio: auto; min-height: 0; border-radius: 14px 14px 0 0; }
 .present.responsive-present .creative-art-vertical { container-type: size; }
 .present.responsive-present .creative-art-vertical .creative-zoom { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100cqw, calc(100cqh * 9 / 16)); height: min(100cqh, calc(100cqw * 16 / 9)); aspect-ratio: 9 / 16; }
+.present.responsive-present .creative-art-static { container-type: size; }
+.present.responsive-present .creative-art-static .creative-zoom { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100cqw, calc(100cqh * 9 / 16)); height: min(100cqh, calc(100cqw * 16 / 9)); aspect-ratio: 9 / 16; }
 .present.responsive-present .creative-body { padding: clamp(12px, 1.2vw, 28px); }
 .present.responsive-present .creative-copy strong { min-height: 0; font-size: clamp(12px, 1.15vw, 27px); }
 .present.responsive-present .creative-copy small { font-size: clamp(10px, .9vw, 20px); }
+.present.responsive-present .creative-status { min-height: calc(clamp(10px, .85vw, 19px) * 1.5 + 8px); }
 .present.responsive-present .creative-resolution { font-size: clamp(10px, .85vw, 19px); }
 .present.responsive-present .creative-stats b { white-space: nowrap; font-size: clamp(14px, 1.45vw, 32px); }
 .present.responsive-present .creative-stats span { font-size: clamp(9px, .75vw, 17px); }

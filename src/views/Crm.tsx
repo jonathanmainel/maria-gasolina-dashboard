@@ -87,8 +87,8 @@ export function CrmView({ data, readOnly, range, preview, onPreviewChange, selec
       </div>
 
       <div className="grid grid-6">
-        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={crm.results_available ? contractsGoal == null ? `informado · ${periodLabel}` : `informado · meta do mês: ${integer(contractsGoal)}` : "Aguardando integração com CRM Elo."} />
-        <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.results_available ? crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : `informada · ${periodLabel}` : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent={meta.accent} icon={<FileSignature size={16} />} hideDelta foot={crm.results_available ? contractsGoal == null ? `informado · ${periodLabel}` : `informado · meta do mês: ${integer(contractsGoal)}` : "Aguardando preenchimento manual."} />
+        <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={crm.results_available ? crm.avg_ticket_realized ? `ticket realizado ${money(crm.avg_ticket)}` : `informada · ${periodLabel}` : "Aguardando preenchimento manual."} />
         <Kpi label="Oportunidades abertas" value={crm.open_opportunities} format={integer} accent="sky" icon={<Layers size={16} />} hideDelta foot="cards nas etapas comerciais hoje" />
         <Kpi label="Ciclo médio de venda" value={crm.avg_cycle_days} format={(n) => `${Math.round(n)} dias`} accent="navy" icon={<Clock3 size={16} />} hideDelta foot="tempo informado nas etapas até o contrato" />
         {/* Pipeline em contagem de oportunidades: multiplicar estoque por ticket e
@@ -129,12 +129,12 @@ export function CrmView({ data, readOnly, range, preview, onPreviewChange, selec
             </div>
           )}
           {!example && crm.snapshot_updated_at && <p className="manual-foot">Entrada manual · atualizado em {dateTime(crm.snapshot_updated_at)}</p>}
-          {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando integração com CRM Elo.</p>}
+          {!crm.snapshot_available && <p className="manual-foot" role="status">Aguardando preenchimento manual.</p>}
           <Funnel stages={crm.stages} color={meta.color} format={integer} />
         </Panel>
         {/* Coluna lateral: ciclo e resultado mantêm a altura do conteúdo. */}
         <div className="panel-stack">
-          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days != null ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando integração com CRM Elo."}>
+          <Panel title="Tempo médio por etapa" description={crm.avg_cycle_days != null ? `Ciclo até o contrato: ~${crm.avg_cycle_days} dias` : crm.snapshot_available ? "Preencha o tempo de cada etapa para ver o ciclo" : "Aguardando preenchimento manual."}>
             {(crm.avg_cycle_days != null && crm.avg_cycle_days > 0) ? (
               <>
                 <CycleBar stages={commercialStages} color={meta.color} totalDays={crm.avg_cycle_days!} />
@@ -144,7 +144,7 @@ export function CrmView({ data, readOnly, range, preview, onPreviewChange, selec
                 </div>
               </>
             ) : (
-              <div className="empty-state">{crm.avg_cycle_days === 0 ? "Tempos comerciais informados: 0 dias." : crm.snapshot_available ? "Complete os tempos comerciais conhecidos para exibir o ciclo." : "Aguardando integração com CRM Elo."}</div>
+              <div className="empty-state">{crm.avg_cycle_days === 0 ? "Tempos comerciais informados: 0 dias." : crm.snapshot_available ? "Complete os tempos comerciais conhecidos para exibir o ciclo." : "Aguardando preenchimento manual."}</div>
             )}
           </Panel>
           <Panel title="Resultado do período" description={`Fechamento e faturamento · ${periodLabel}`}>
@@ -156,7 +156,7 @@ export function CrmView({ data, readOnly, range, preview, onPreviewChange, selec
               </div>
             ) : (
               <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
-                <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crm.results_available ? "Nenhum resultado informado para o período" : "Aguardando integração com CRM Elo."}</strong>
+                <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crm.results_available ? "Nenhum resultado informado para o período" : "Aguardando preenchimento manual."}</strong>
                 <span>{crm.results_available ? "Contratos fechados e receita não saem da foto do kanban." : "Os indicadores serão exibidos quando houver registros comerciais reais."}</span>
               </div>
             )}

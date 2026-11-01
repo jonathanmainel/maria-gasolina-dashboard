@@ -45,3 +45,18 @@ describe('viewport presentation pagination',()=>{
     expect(presentationSlides(creatives,800,600).filter(s=>s.kind==='creatives')).toHaveLength(5);
   });
 });
+
+
+it("pagina cada tipo até nove e mantém a categoria ao redimensionar",()=>{
+  const ads=(["video","image"] as const).flatMap(type=>Array.from({length:11},(_,i)=>({id:`${type}-${i}`,front:"franchise",channel:"meta_ads",format:type,leads:100-i}) as Creative));
+  const mobile=presentationSlides(ads,390,844),desktop=presentationSlides(ads,3840,2160);
+  for(const category of ["video","static"] as const) {
+    const pages=desktop.filter(s=>s.kind==="creatives"&&s.category===category);
+    expect(pages.map(p=>p.offset)).toEqual([0,3,6]);
+    const active=mobile.find(s=>s.kind==="creatives"&&s.category===category&&s.offset===7)!;
+    const target=desktop[presentationSlideIndex(desktop,active)];
+    expect(target.category).toBe(category);
+    expect(target.offset).toBe(6);
+  }
+  expect(presentationSlides([],3840,2160).some(s=>s.kind==="creatives")).toBe(false);
+});

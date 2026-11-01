@@ -74,7 +74,8 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const closePeriod = useCallback(() => setPeriodOpen(false), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-  const { user, signOut } = useAuth();
+  const { session, signOut } = useAuth();
+  const user = session?.user;
   const { theme, toggle } = useTheme();
   const initials = (user?.email ?? "gt")[0]?.toUpperCase() ?? "G";
   const go = (v: AppView) => { onViewChange(v); if (mobile) closeNavigation(); else setNavOpen(false); };

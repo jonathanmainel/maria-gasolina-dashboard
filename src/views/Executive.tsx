@@ -77,6 +77,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       </div>
 
       {isDemoMode && <div className="demo-note" role="status"><AlertTriangle size={16} /><span><b>Modo demonstração.</b> Os indicadores de mídia, orgânico e CRM são ilustrativos.</span></div>}
+      {!isDemoMode && data.manualSettingsSaved === false && <p className="manual-foot" role="status">Metas de referência inicial, ainda não confirmadas pela operação em Metas e ajustes.</p>}
 
       {data.unclassified.campaigns.length > 0 && (
         <div className="demo-note">
@@ -141,20 +142,20 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
 
       <div className="section-title" style={{ marginTop: 22 }}>
         <div><h2>Vendas</h2><p>Franquias e Condomínios · resultado informado do período e snapshot atual, sem misturar suas naturezas. As demais frentes estão em Vendas.</p></div>
-        <span className="badge sky">{isDemoMode ? "Dados comerciais de exemplo" : crmFranchise.snapshot_available || crmCondominium.snapshot_available || crmFranchise.results_available || crmCondominium.results_available ? "Dados inseridos manualmente" : "Aguardando integração com CRM Elo."}</span>
+        <span className="badge sky">{isDemoMode ? "Dados comerciais de exemplo" : crmFranchise.snapshot_available || crmCondominium.snapshot_available || crmFranchise.results_available || crmCondominium.results_available ? "Dados inseridos manualmente" : "Aguardando preenchimento manual."}</span>
       </div>
       <div className="grid grid-4">
-        <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={salesContracts == null ? "Aguardando integração com CRM Elo." : `${integer(crmFranchise.contracts)} franquias · ${integer(crmCondominium.contracts)} condomínios`} />
-        <Kpi label="Receita no período" value={(salesRevenue != null && salesRevenue > 0) ? salesRevenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={(salesRevenue != null && salesRevenue > 0) ? "informada nas duas frentes" : "Aguardando integração com CRM Elo."} />
+        <Kpi label="Contratos no período" value={salesContracts} format={integer} hideDelta accent="sky" icon={<FileSignature size={16} />} foot={salesContracts == null ? "Aguardando preenchimento manual." : `${integer(crmFranchise.contracts)} franquias · ${integer(crmCondominium.contracts)} condomínios`} />
+        <Kpi label="Receita no período" value={(salesRevenue != null && salesRevenue > 0) ? salesRevenue : null} format={money} accent="green" icon={<BadgeDollarSign size={16} />} hideDelta foot={(salesRevenue != null && salesRevenue > 0) ? "informada nas duas frentes" : "Aguardando preenchimento manual."} />
         <Kpi label="Oportunidades abertas" value={salesOpen} format={integer} accent="gold" icon={<PiggyBank size={16} />} hideDelta foot={`${integer(crmFranchise.open_opportunities)} franquias · ${integer(crmCondominium.open_opportunities)} condomínios`} />
-        <Kpi label="Ticket médio · franquias" value={(crmFranchise.avg_ticket != null && crmFranchise.avg_ticket > 0) ? crmFranchise.avg_ticket : null} format={money} accent="red" icon={<Target size={16} />} hideDelta foot={crmFranchise.avg_ticket_realized ? "realizado: receita ÷ contratos" : crmFranchise.avg_ticket == null ? "Aguardando integração com CRM Elo." : "referência informada"} />
+        <Kpi label="Ticket médio · franquias" value={(crmFranchise.avg_ticket != null && crmFranchise.avg_ticket > 0) ? crmFranchise.avg_ticket : null} format={money} accent="red" icon={<Target size={16} />} hideDelta foot={crmFranchise.avg_ticket_realized ? "realizado: receita ÷ contratos" : crmFranchise.avg_ticket == null ? "Aguardando preenchimento manual." : "referência informada"} />
       </div>
       <div className="grid grid-wide" style={{ marginTop: 14 }}>
         <Panel title="Pipeline aberto por etapa · Franquias" description="Oportunidades paradas em cada coluna do kanban hoje. É estoque: a diferença entre duas colunas não é perda de uma para a outra.">
           {openByStage.length ? (
             <BarList items={openByStage.map((stage) => ({ name: stage.name, value: stage.count!, color: colors.red }))} format={integer} />
           ) : (
-            <div className="empty-state">{crmFranchise.snapshot_available ? "Nenhuma oportunidade aberta informada." : "Aguardando integração com CRM Elo."}</div>
+            <div className="empty-state">{crmFranchise.snapshot_available ? "Nenhuma oportunidade aberta informada." : "Aguardando preenchimento manual."}</div>
           )}
         </Panel>
         <Panel className="fill-body" title="Resultado do período" description="Contratos fechados e receita informados para o período de referência">
@@ -166,7 +167,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
             </div>
           ) : (
             <div className="empty-state" style={{ flexDirection: "column", gap: 6, textAlign: "center" }}>
-              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crmFranchise.results_available && crmCondominium.results_available ? "Nenhum resultado informado" : "Aguardando integração com CRM Elo."}</strong>
+              <strong style={{ color: "var(--text-2)", fontSize: 12 }}>{crmFranchise.results_available && crmCondominium.results_available ? "Nenhum resultado informado" : "Aguardando preenchimento manual."}</strong>
               <span>Os resultados comerciais serão exibidos quando houver registros associados. Não são inferidos dos leads de mídia.</span>
             </div>
           )}

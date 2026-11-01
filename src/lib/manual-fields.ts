@@ -23,11 +23,11 @@ export const goalFields: NumberFieldSpec[] = [
 // Apresentação), por isso os nomes das chaves não mudam — só o rótulo, aqui,
 // reflete o tipo de conteúdo.
 export const publicationFields: NumberFieldSpec[] = [
-  { key: "posts_published", label: "Feed", hint: "Publicações no feed do Instagram no mês" },
-  { key: "stories_published", label: "Stories", hint: "Stories publicados no mês" },
-  { key: "reels_published", label: "Reels", hint: "Reels publicados no mês" },
-  { key: "carousel_published", label: "Carrossel", hint: "Carrosséis publicados no mês" },
-  { key: "instant_published", label: "Instant", hint: "Publicações Instant no mês" },
+  { key: "posts_published", label: "Feed", hint: "Publicações no feed do Instagram no mês; vazio se desconhecido", optional: true },
+  { key: "stories_published", label: "Stories", hint: "Stories publicados no mês; vazio se desconhecido", optional: true },
+  { key: "reels_published", label: "Reels", hint: "Reels publicados no mês; vazio se desconhecido", optional: true },
+  { key: "carousel_published", label: "Carrossel", hint: "Carrosséis publicados no mês; vazio se desconhecido", optional: true },
+  { key: "instant_published", label: "Instant", hint: "Publicações Instant no mês; vazio se desconhecido", optional: true },
 ];
 
 // Campos do funil: um por etapa (quantos cards estão nela AGORA), um por etapa
@@ -111,5 +111,5 @@ export function valuesToFunnel(front: CommercialFront, values: Record<string, nu
 // casts pelas telas.
 export const goalsToValues = (goals: Goals) => ({ ...goals }) as unknown as Record<string, number>;
 export const valuesToGoals = (values: Record<string, number>) => ({ ...values }) as unknown as Goals;
-export const deliveryToValues = (delivery: DeliveryStatus) => ({ ...delivery }) as unknown as Record<string, number>;
+export const deliveryToValues = (delivery: DeliveryStatus): Record<string, number> => Object.fromEntries(Object.entries(delivery).filter((entry): entry is [string, number] => entry[1] != null));
 export const valuesToDelivery = (values: Record<string, number>) => ({ ...values }) as unknown as DeliveryStatus;

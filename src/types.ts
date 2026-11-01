@@ -388,11 +388,11 @@ export interface Goals {
  * "Ritmo do mês" (Visão executiva e Apresentação), por isso mantêm o nome.
  */
 export interface DeliveryStatus {
-  posts_published: number;
-  stories_published: number;
-  reels_published: number;
-  carousel_published: number;
-  instant_published: number;
+  posts_published: number | null;
+  stories_published: number | null;
+  reels_published: number | null;
+  carousel_published: number | null;
+  instant_published: number | null;
 }
 
 // ---------------------------------------------------------------------------

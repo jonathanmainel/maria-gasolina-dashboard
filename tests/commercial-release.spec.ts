@@ -22,7 +22,10 @@ async function operationalFixture(page: Page, role: "admin" | "viewer", session 
     const reply = (body: unknown, status = 200) => route.fulfill({ status, headers, contentType: "application/json", body: JSON.stringify(body) });
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     if (url.pathname.includes("/auth/")) return state.userValid ? reply(user) : reply({ message: "Sessão sintética inválida", code: "bad_jwt" }, 401);
-    if (url.pathname.includes("/functions/")) { state.imports++; return reply({ message: "Importação não deve ser chamada" }, 403); }
+    if (url.pathname.includes("/functions/")) {
+      if (url.pathname.endsWith('/import-network-units')) state.imports++;
+      return reply({ message: "Serviço indisponível no transporte sintético" }, 403);
+    }
     const table = url.pathname.split("/").pop();
     if (table === "dashboard_clients") return reply({ id: 1, slug: "maria-gasolina" });
     if (table === "dashboard_client_users") { state.roleReads++; return reply({ client_id: 1, role: state.role }); }
@@ -89,6 +92,8 @@ for (const width of [1280, 390]) {
       await page.getByLabel("Contratos fechados no período").fill(String(count));
       await page.getByLabel("Receita do período", { exact: true }).fill(String(count * 15000));
       await page.getByRole("button", { name: "Salvar resultado", exact: true }).click();
+      await expect.poll(() => fixture.state.writes.length).toBe(count === 3 ? 1 : 2);
+      await expect(panel.getByRole("button", { name: "Editar dados", exact: true })).toBeVisible();
       await expect(panel.getByText("Valores salvos. As telas já refletem os novos números.")).toBeVisible();
     }
     expect(fixture.state.writes).toEqual(["create", "update"]);

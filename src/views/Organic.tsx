@@ -98,11 +98,11 @@ export function OrganicView({ data, scope, onScopeChange }: { data: DashboardDat
         </Panel>
         <Panel title="Conteúdos postados no mês" description="Quantidade de conteúdos publicados no período selecionado">
           <div className="content-type-list">
-            <ContentTypeRow icon={<Images size={16} />} label="Feed" value={data.delivery?.posts_published ?? 0} color={colors.violet} />
-            <ContentTypeRow icon={<Clapperboard size={16} />} label="Stories" value={data.delivery?.stories_published ?? 0} color={colors.gold} />
-            <ContentTypeRow icon={<Film size={16} />} label="Reels" value={data.delivery?.reels_published ?? 0} color={colors.instagram} />
-            <ContentTypeRow icon={<GalleryHorizontalEnd size={16} />} label="Carrossel" value={data.delivery?.carousel_published ?? 0} color={colors.sky} />
-            <ContentTypeRow icon={<Zap size={16} />} label="Instant" value={data.delivery?.instant_published ?? 0} color={colors.green} />
+            <ContentTypeRow icon={<Images size={16} />} label="Feed" value={data.delivery?.posts_published ?? null} color={colors.violet} />
+            <ContentTypeRow icon={<Clapperboard size={16} />} label="Stories" value={data.delivery?.stories_published ?? null} color={colors.gold} />
+            <ContentTypeRow icon={<Film size={16} />} label="Reels" value={data.delivery?.reels_published ?? null} color={colors.instagram} />
+            <ContentTypeRow icon={<GalleryHorizontalEnd size={16} />} label="Carrossel" value={data.delivery?.carousel_published ?? null} color={colors.sky} />
+            <ContentTypeRow icon={<Zap size={16} />} label="Instant" value={data.delivery?.instant_published ?? null} color={colors.green} />
           </div>
           <p style={{ margin: "14px 0 0", color: "var(--muted)", fontSize: 11.5, lineHeight: 1.5 }}>Visitas ao perfil no período: <b style={{ color: "var(--text)" }}>{integer(cur.profile_visits)}</b>. Cada visita é alguém que saiu do conteúdo e foi olhar a marca.</p>
         </Panel>
@@ -125,12 +125,12 @@ export function OrganicView({ data, scope, onScopeChange }: { data: DashboardDat
   );
 }
 
-export function ContentTypeRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+export function ContentTypeRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number | null; color: string }) {
   return (
     <div className="content-type-row">
       <span className="ic" style={{ color, background: `color-mix(in srgb, ${color} 16%, transparent)` }}>{icon}</span>
       <strong>{label}</strong>
-      <span className="n"><AnimatedNumber value={value} format={integer} /></span>
+      <span className="n">{value == null ? "—" : <AnimatedNumber value={value} format={integer} />}</span>
     </div>
   );
 }

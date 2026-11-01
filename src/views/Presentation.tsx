@@ -73,7 +73,7 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
     if (salesFront && salesFront !== "franchise") setIndex(slides.findIndex(item => item.id === `${salesFront}-crm-0`));
   }, [salesFront]);
   const period = `${shortDate(range.start)} a ${shortDate(range.end)}`;
-  const title = slide.kind === 'executive' ? 'O crescimento da rede' : slide.kind === 'pacing' ? 'Ritmo do mês' : slide.kind.startsWith('organic') ? (slide.kind === 'organic' ? 'Presença orgânica' : 'Destaques orgânicos') : `${commercialFronts[slide.front!].short} · ${slide.kind === 'creatives' ? 'Criativos por leads' : slide.kind === 'crm' ? 'Pipeline comercial' : 'Resultados de mídia'}`;
+  const title = slide.kind === 'executive' ? 'O crescimento da rede' : slide.kind === 'pacing' ? 'Ritmo do mês' : slide.kind.startsWith('organic') ? (slide.kind === 'organic' ? 'Presença orgânica' : 'Destaques orgânicos') : `${commercialFronts[slide.front!].short} · ${slide.kind === 'creatives' ? `${slide.category === 'video' ? 'Vídeos' : 'Estáticos'} por leads` : slide.kind === 'crm' ? 'Pipeline comercial' : 'Resultados de mídia'}`;
   return <div className="present responsive-present" style={{ '--presentation-scale': layout.scale } as CSSProperties}>
     <div className="ambient" />
     <header className="present-top">
@@ -83,7 +83,7 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
     <div className="present-slide" data-slide={slide.id} data-kind={slide.kind} key={slide.id}>
       {slide.kind === 'executive' && <ExecutiveSlide data={data} range={range} />}{slide.kind === 'pacing' && <ExecutivePacingSlide data={data} range={range} offset={slide.offset ?? 0} count={slide.count ?? 5} />}
       {slide.kind === 'front' && <FrontSlide data={data} range={range} front={slide.front! as Front} goals={goals} />}
-      {slide.kind === 'creatives' && <section className="presentation-creatives" aria-label="Criativos por leads"><div className="creative-grid" style={{gridTemplateColumns: `repeat(${slide.count}, minmax(0, 1fr))`}}>{rankCreatives(data.creatives, slide.front! as Front).slice(slide.offset, (slide.offset ?? 0) + slide.count!).map((c, i) => <CreativeCard key={c.id} c={c} rank={(slide.offset ?? 0) + i + 1} />)}</div></section>}
+      {slide.kind === 'creatives' && <section className="presentation-creatives" aria-label={`${slide.category === "video" ? "Vídeos" : "Estáticos"} por leads`} data-category={slide.category}><div className="creative-grid" style={{gridTemplateColumns: `repeat(${slide.count}, minmax(0, 1fr))`}}>{rankCreatives(data.creatives, slide.front! as Front, slide.category).slice(slide.offset, (slide.offset ?? 0) + slide.count!).map((c, i) => <CreativeCard key={c.id} c={c} rank={(slide.offset ?? 0) + i + 1} />)}</div></section>}
       {slide.kind === 'crm' && <CommercialSlide data={data} range={range} front={slide.front!} illustrative={illustrative} offset={slide.offset!} count={slide.count!} onFrontChange={front => { onSalesFrontChange?.(front); setIndex(slides.findIndex(item => item.id === `${front}-crm-0`)); }} />}
       {slide.kind.startsWith('organic') && <OrganicSlide data={data} postsOnly={slide.kind === 'organic-posts'} />}
     </div>
@@ -103,7 +103,7 @@ function CommercialSlide({ data, range, front, illustrative, offset, count, onFr
   const operational = data.crm[front] ?? buildCrmSummary(front, null, null, { rows: [] });
   const crm = illustrative ? exampleCrmSummary(front, range) : operational;
   return <div className="presentation-commercial">
-    <div className="presentation-commercial-head"><CommercialFrontSelector id="presentation-sales-front" front={front} onChange={onFrontChange} /><p className="presentation-source" role="status">{illustrative || isDemoMode ? COMMERCIAL_DEMO_LABEL + ' · sem gravação operacional.' : crm.snapshot_available || crm.results_available ? 'Registros comerciais disponíveis' : 'Aguardando integração com CRM Elo.'}</p></div>
+    <div className="presentation-commercial-head"><CommercialFrontSelector id="presentation-sales-front" front={front} onChange={onFrontChange} /><p className="presentation-source" role="status">{illustrative || isDemoMode ? COMMERCIAL_DEMO_LABEL + ' · sem gravação operacional.' : crm.snapshot_available || crm.results_available ? 'Registros comerciais disponíveis' : 'Aguardando preenchimento manual.'}</p></div>
     <div className="grid grid-3">
       <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent="gold" hideDelta />
       <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" hideDelta />
@@ -143,7 +143,7 @@ function ExecutivePacingSlide({ data, range, offset, count }: { data: DashboardD
  const goals = useGoals(); const month = monthProgress(range);
  const monthRows = data.current.filter(r => r.date.slice(0, 7) === range.end.slice(0, 7));
  const spend = monthRows.reduce((sum, row) => sum + row.spend, 0);
- return (      <section className="panel presentation-pacing"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>Contra as metas definidas com a GT+</p></div></div>
+ return (      <section className="panel presentation-pacing"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>{!isDemoMode && data.manualSettingsSaved === false ? "Metas de referência inicial · aguardando confirmação da operação" : "Contra as metas definidas com a GT+"}</p></div></div>
         <div className="pacing-list" style={{ '--pacing-rows': Math.ceil(Math.min(count, 5 - offset) / 2) } as CSSProperties}>
           {[
           <Pacing key="budget" label="Verba de mídia" actual={spend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />,
