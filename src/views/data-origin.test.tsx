@@ -156,7 +156,7 @@ describe("ausencia comercial nas superficies consolidadas", () => {
   it("Executiva: nenhum resultado comercial vira zero ou recebe exemplo", () => {
     executive(empty());
     for (const label of ["Contratos no período", "Receita no período", "Oportunidades abertas", "Ticket médio · franquias"]) expect(value(label)).toBe("—");
-    expect(screen.getAllByText("Aguardando integração com CRM Elo.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Aguardando preenchimento manual.").length).toBeGreaterThan(0);
     expect(value("Investimento em mídia")).toBe(money(900));
     expect(value("Leads gerados (todas as frentes)")).toBe("30");
     expect(document.querySelector(".proj-total")).toBeNull();

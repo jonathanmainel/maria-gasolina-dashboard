@@ -103,7 +103,7 @@ function CommercialSlide({ data, range, front, illustrative, offset, count, onFr
   const operational = data.crm[front] ?? buildCrmSummary(front, null, null, { rows: [] });
   const crm = illustrative ? exampleCrmSummary(front, range) : operational;
   return <div className="presentation-commercial">
-    <div className="presentation-commercial-head"><CommercialFrontSelector id="presentation-sales-front" front={front} onChange={onFrontChange} /><p className="presentation-source" role="status">{illustrative || isDemoMode ? COMMERCIAL_DEMO_LABEL + ' · sem gravação operacional.' : crm.snapshot_available || crm.results_available ? 'Registros comerciais disponíveis' : 'Aguardando integração com CRM Elo.'}</p></div>
+    <div className="presentation-commercial-head"><CommercialFrontSelector id="presentation-sales-front" front={front} onChange={onFrontChange} /><p className="presentation-source" role="status">{illustrative || isDemoMode ? COMMERCIAL_DEMO_LABEL + ' · sem gravação operacional.' : crm.snapshot_available || crm.results_available ? 'Registros comerciais disponíveis' : 'Aguardando preenchimento manual.'}</p></div>
     <div className="grid grid-3">
       <Kpi label="Contratos no período" value={crm.contracts} format={integer} accent="gold" hideDelta />
       <Kpi label="Receita no período" value={crm.revenue} format={money} accent="green" hideDelta />
@@ -143,7 +143,7 @@ function ExecutivePacingSlide({ data, range, offset, count }: { data: DashboardD
  const goals = useGoals(); const month = monthProgress(range);
  const monthRows = data.current.filter(r => r.date.slice(0, 7) === range.end.slice(0, 7));
  const spend = monthRows.reduce((sum, row) => sum + row.spend, 0);
- return (      <section className="panel presentation-pacing"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>Contra as metas definidas com a GT+</p></div></div>
+ return (      <section className="panel presentation-pacing"><div className="panel-head"><div><h3>Ritmo do mês</h3><p>{!isDemoMode && data.manualSettingsSaved === false ? "Metas de referência inicial · aguardando confirmação da operação" : "Contra as metas definidas com a GT+"}</p></div></div>
         <div className="pacing-list" style={{ '--pacing-rows': Math.ceil(Math.min(count, 5 - offset) / 2) } as CSSProperties}>
           {[
           <Pacing key="budget" label="Verba de mídia" actual={spend} goal={goals.media_budget} ratio={month.ratio} color="var(--red)" format={money} lowerIsBetter />,

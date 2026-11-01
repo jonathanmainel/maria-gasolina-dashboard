@@ -29,17 +29,18 @@ export const defaultManualData: ManualBusinessData = {
   goals: demoGoals,
   funnel: { franchise: null, condominium: null },
   results: { franchise: null, condominium: null },
-  delivery: demoDelivery,
+  delivery: { posts_published: null, stories_published: null, reels_published: null, carousel_published: null, instant_published: null },
 };
 
 // Os exemplos comerciais existem somente no modo demonstrativo explicito.
 export const demoManualData: ManualBusinessData = {
-  ...defaultManualData, funnel: defaultFunnel, results: defaultResults,
+  ...defaultManualData, delivery: demoDelivery, funnel: defaultFunnel, results: defaultResults,
 };
 
 export interface ManualDataResult {
   data: ManualBusinessData;
   storage: ManualStorage;
+  hasSavedRecord?: boolean;
   /** Motivo de ter caído no armazenamento local, quando houver. */
   fallbackReason?: string;
 }
@@ -72,7 +73,7 @@ export function normalize(raw: unknown, demo = isDemoMode): ManualBusinessData {
     results: { franchise: results("franchise"), condominium: results("condominium") },
     // Só as chaves do padrão sobrevivem: campos de módulos removidos (entregas
     // do contrato, régua de WhatsApp) em payloads antigos são descartados aqui.
-    delivery: numbers(defaultManualData.delivery, source.delivery),
+    delivery: numbers(demo ? demoDelivery : defaultManualData.delivery, source.delivery),
   };
 }
 
@@ -123,7 +124,7 @@ export async function loadManualData(): Promise<ManualDataResult> {
     }
     throw error;
   }
-  return { data: normalize(data?.payload), storage: "supabase" };
+  return { data: normalize(data?.payload), storage: "supabase", hasSavedRecord: data?.payload != null };
 }
 
 export async function saveManualData(next: ManualBusinessData): Promise<ManualDataResult> {
@@ -149,7 +150,7 @@ export async function saveManualData(next: ManualBusinessData): Promise<ManualDa
   if (error) throw error;
   assertManualWriteConfirmed(data, expected);
   writeLocal(payload);
-  return { data: payload, storage: "supabase" };
+  return { data: payload, storage: "supabase", hasSavedRecord: true };
 }
 
 export const manualDataKey = ["manual-business-data", CLIENT_SLUG, "commercial-empty-v2"] as const;
@@ -159,6 +160,7 @@ export function useManualData() {
   return {
     data: query.data?.data ?? (isDemoMode ? demoManualData : defaultManualData),
     storage: query.data?.storage ?? "local",
+    hasSavedRecord: query.data?.hasSavedRecord ?? false,
     fallbackReason: query.data?.fallbackReason,
     isLoading: query.isLoading,
     isError: query.isError,

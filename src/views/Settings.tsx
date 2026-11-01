@@ -13,12 +13,12 @@ import type { CommercialAccess } from "../lib/commercial-access";
 import type { ManualBusinessData } from "../types";
 
 /** Aviso de onde os dados manuais estão sendo gravados de fato. */
-export function ManualStorageNote({ storage, reason }: { storage: "supabase" | "local"; reason?: string }) {
+export function ManualStorageNote({ storage, reason, hasSavedRecord = true }: { storage: "supabase" | "local"; reason?: string; hasSavedRecord?: boolean }) {
   if (storage === "supabase") {
     return (
       <div className="storage-note ok">
         <Database size={16} />
-        <span>Os dados manuais estão salvos no Supabase (<code>dashboard_manual_inputs</code>) e valem para todo o time.</span>
+        <span>{hasSavedRecord ? <>Os dados manuais estão salvos no Supabase (<code>dashboard_manual_inputs</code>) e valem para todo o time.</> : "Nenhuma configuração manual salva. As metas exibidas são referências iniciais; confirme os valores antes de salvar. Publicações não informadas permanecem indisponíveis."}</span>
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function ManualStorageNote({ storage, reason }: { storage: "supabase" | "
 }
 
 export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string; onPresent: () => void; access?: CommercialAccess }) {
-  const { data, storage, fallbackReason } = useManualData();
+  const { data, storage, fallbackReason, hasSavedRecord } = useManualData();
   const saveManual = useSaveManualData();
   const [copied, setCopied] = useState(false);
   const { theme, setTheme } = useTheme();
@@ -62,7 +62,7 @@ export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string
         </div>
       </div>
 
-      <ManualStorageNote storage={storage} reason={fallbackReason} />
+      <ManualStorageNote storage={storage} reason={fallbackReason} hasSavedRecord={hasSavedRecord} />
       {!editable && <p className="commercial-access-note" role="status">{access?.policyReady
         ? "Seu perfil permite somente leitura de metas e configurações."
         : "Edição de metas e configurações bloqueada até a liberação das permissões operacionais."}</p>}
@@ -83,7 +83,7 @@ export function SettingsView({ shareUrl, onPresent, access }: { shareUrl: string
           <div className="section-title">
             <div>
               <h2>Dados de negócio sem origem automática</h2>
-              <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. O CRM comercial aguarda integração com Elo.</p>
+              <p>As publicações do Instagram ainda não vêm de nenhuma API. Preencha aqui e as telas usam estes números. Os dados de Vendas são preenchidos manualmente pela operação do cliente.</p>
             </div>
           </div>
           <ManualNumbersPanel

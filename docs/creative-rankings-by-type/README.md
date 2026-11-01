@@ -1,5 +1,17 @@
 # Criativos por tipo — revisão de 30/10/2026 — containers uniformes 9:16
 
+## Finalização de 01/11/2026
+
+O seletor, Top 3/9, classificação e molduras foram preservados. Oito cenários de categorias/apresentação passaram em desktop/mobile/4K; 52 testes dirigidos de criativos, 37 de origem manual/comercial e oito cenários comerciais passaram. Typecheck, build e quatro testes de empacotamento passaram. Os cenários de categorias precedem os ajustes finais abaixo; os testes dirigidos e build refletem esses ajustes.
+
+A suíte completa exigida pelo workflow final também passou após os ajustes: **647 testes em 57 arquivos**. A execução excluiu somente artefatos e o cache local de uma instalação parcial de dependências; nenhum teste de `src/` foi omitido.
+
+A revisão autenticada constatou contagens demonstrativas de publicações na ausência de registro manual. O padrão operacional agora é indisponível (`null`), sem percentual/projeção para uma observação ausente; zero informado continua zero. O modo demo mantém seus exemplos. Metas iniciais são identificadas como referências ainda não confirmadas. Os estados vazios comerciais orientam preenchimento manual em vez de aguardar o CRM Elo. Sem mudança nas fórmulas de mídia, funis, papéis ou classificação comercial.
+
+O servidor de testes ignora artefatos e reconhece o diretório real das dependências compartilhadas. O cenário comercial aguarda a segunda gravação efetiva e distingue consultas de status de uma tentativa de importação. Não foram removidas verificações de autorização.
+
+[Orientação operacional do cliente](../operacao-cliente.md). A exibição real dos novos previews será conferida após a autorização/publicação do backend; os testes sintéticos não são prova de arquivos atualizados em produção.
+
 Branch: `codex/creative-rankings-by-type`, criada a partir de `baae2747195ffd33bdb65a56ca42e801fa455a9c` (`main`, merge do PR #10).
 
 ## Resultado

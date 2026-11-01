@@ -204,7 +204,7 @@ describe("CRM operacional sem registros comerciais", () => {
     expect([...document.querySelectorAll(".kpi-value strong")].map((node) => node.textContent)).toEqual(Array(6).fill("—"));
     expect([...document.querySelectorAll(".funnel3d-row-bottom b")].every((node) => node.textContent === "—")).toBe(true);
     expect(document.querySelector(".funnel3d-shape")).toBeNull();
-    expect(screen.getAllByText("Aguardando integração com CRM Elo.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Aguardando preenchimento manual.").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /Editar dados/ })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Places" }));
     expect(funnelNames()).toEqual(crmStageNames("condominium"));

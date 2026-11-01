@@ -47,7 +47,10 @@ describe("normalize() — payload manual de conteúdos (delivery)", () => {
     expect(result.delivery.carousel_published).toBe(defaultManualData.delivery.carousel_published); // ausente → padrão
   });
 
-  it("payload totalmente ausente devolve os padrões de demonstração", () => {
+  it("ausência operacional não usa publicações demonstrativas e preserva zero informado", () => {
+    expect(normalize(undefined, false).delivery.posts_published).toBeNull();
+    expect(normalize({ delivery: { posts_published: 0 } }, false).delivery.posts_published).toBe(0);
+    expect(normalize(undefined, true).delivery.posts_published).toBe(14);
     expect(normalize(undefined).delivery).toEqual(defaultManualData.delivery);
     expect(normalize({}).delivery).toEqual(defaultManualData.delivery);
   });

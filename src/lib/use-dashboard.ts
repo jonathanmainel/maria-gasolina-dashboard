@@ -57,8 +57,9 @@ export function useDashboard(range: DateRange) {
       delivery: manual.data.delivery,
       goals: manual.data.goals,
       manualStorage: manual.storage,
+      manualSettingsSaved: manual.hasSavedRecord,
     };
-  }, [fronts.data, organic.data, manual.data, manual.storage, commercial.entries, commercial.access, commercial.isLoading, commercial.isError, range, prev]);
+  }, [fronts.data, organic.data, manual.data, manual.storage, manual.hasSavedRecord, commercial.entries, commercial.access, commercial.isLoading, commercial.isError, range, prev]);
 
   return {
     ...computed,
