@@ -41,5 +41,10 @@
   "production_package_sha256": "4f297c0a33517de296107ec474649ab8ba8ab054978dfc519396f895c9a34a79",
   "production_write": false,
   "production_deploy": false,
-  "merge": false
+  "merge": false,
+  "frontend_required_suite": {
+    "files": 57,
+    "passed": 647,
+    "failed": 0
+  }
 }

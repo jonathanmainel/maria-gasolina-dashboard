@@ -44,6 +44,7 @@ O primeiro ensaio foi reconciliado exclusivamente no isolado com evidência term
 - Auth/REST/RLS reais: editor criou/atualizou resultados de duas frentes; viewer leu os dados; viewer e usuário de outro cliente não gravaram. Dois registros temporários removidos. O sandbox foi reaberto pelo procedimento existente e congelado novamente ao final; nenhuma mudança de acesso em produção.
 - Produção: 16 objetos lidos e medidos; quatro HD/Full HD existentes preservam hashes, MIME e dimensões. Cópias anteriores mantidas localmente no pacote privado de reversão.
 - Frontend PR #20: 52 testes de criativos e 37 testes de dados ausentes/comercial; oito cenários de categorias/apresentação e oito comerciais, typecheck/build e quatro verificações de empacotamento aprovados. Os cenários de categorias precedem os ajustes finais de texto/origem manual; os testes dirigidos e build refletem o estado final.
+- Suíte completa exigida no workflow de publicação: **647 testes aprovados em 57 arquivos**, após os ajustes finais; somente artefatos e cache local de dependências foram excluídos da descoberta.
 
 ## Pacote e publicação proposta
 
@@ -51,7 +52,7 @@ O primeiro ensaio foi reconciliado exclusivamente no isolado com evidência term
 
 Após autorização: revalidar heads/snapshots/configuração; aplicar somente a migration de proveniência; publicar somente o coletor aprovado; conferir arquivos/versão; atualizar primeiro “Entre uma reunião”; verificar bytes/hash/dimensões/identidade/Storage/banco/recibo e imagem autenticada; prosseguir em lotes de até três, priorizando nove comerciais e depois os dois de engajamento. Qualquer divergência interrompe o lote, preservando os demais casos válidos. A Cópia fica preservada.
 
-Concluídos os previews, integrar #21 e #20 nessa ordem e conferir Actions/Pages e navegação real. A interface usa os mesmos campos, paths privados e assinatura; não há conflito entre os conjuntos de arquivos. A simulação `git merge-tree` não integrou branches.
+Concluídos os previews, integrar #21 e #20 nessa ordem. Como o workflow publica a cada push em main, os dois commits de merge usarão `[skip ci]` para evitar deploys intermediários; depois será disparado uma única vez `deploy-pages.yml` por `workflow_dispatch` na main combinada, mantendo typecheck, suíte de testes, build e publicação. O marcador afeta somente push/pull_request, conforme a [documentação oficial do GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs). Revalidar regras/checks antes; não contornar verificações obrigatórias que venham a existir. Conferir Actions/Pages e navegação real. A interface usa os mesmos campos, paths privados e assinatura; não há conflito entre os conjuntos de arquivos. A simulação `git merge-tree` não integrou branches.
 
 Reversão: nova seleção dos hashes anteriores e nova reserva, mantendo recibo de origem. Restaurar arquivos antes de voltar ao coletor v19 ou ao verificador anterior. Reverter frontend pelo último commit Pages conhecido. Backups exatos do coletor/verificador de produção e dos 16 objetos estão preservados. Não apagar objetos novos/antigos durante a reversão.
 
