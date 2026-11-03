@@ -25,7 +25,7 @@ Para repetir o teste de interface, iniciar Vite local na porta 5190 com VITE_SUP
 
 ## Publicação e reversão
 
-Aplicar supabase/migrations/20261103105603_allow_editor_manual_sync.sql e publicar o frontend. Os coletores e Edge Functions permanecem como estão.
+Aplicar supabase/migrations/20261103110504_allow_editor_manual_sync.sql e publicar o frontend. O identificador corresponde à versão registrada no Supabase de produção. Os coletores e Edge Functions permanecem como estão.
 
 rollback.sql restaura as seis definições exatas anteriores; a reversão do frontend restaura o bloqueio visual a Admin. A reversão não desfaz os perfis dos usuários. Não executar como manutenção rotineira: isso retiraria a nova capacidade dos editores.
 
