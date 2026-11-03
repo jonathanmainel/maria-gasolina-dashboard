@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ status: vi.fn(), request: vi.fn(), reload: vi.fn(), session: { user: { id: "admin" } } as any, demo: false }));
 vi.mock("../auth", () => ({ useAuth: () => ({ session: mocks.session }) }));
@@ -12,7 +12,7 @@ const ids = ["10000000-0000-4000-8000-000000000001", "10000000-0000-4000-8000-00
 let state: any;
 let client: QueryClient;
 const sourceNames = ["meta_ads", "google_ads", "ga4"];
-function show() { client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); const today = vi.fn(); return { today, ...render(<QueryClientProvider client={client}><DataRefreshPanel range={{ start: "2026-10-01", end: "2026-10-26" }} onShowToday={today} /></QueryClientProvider>) }; }
+function show(readOnly = false) { client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); const today = vi.fn(); return { today, ...render(<QueryClientProvider client={client}><DataRefreshPanel range={{ start: "2026-10-01", end: "2026-10-26" }} onShowToday={today} readOnly={readOnly} /></QueryClientProvider>) }; }
 beforeEach(() => {
   mocks.demo = false; mocks.session = { user: { id: "admin" } }; vi.clearAllMocks();
   state = { role: "admin", can_request: true, today: "2026-10-27", server_time: new Date().toISOString(), requested_runs: [], sources: sourceNames.map(source => ({ source, enabled: true, latest_run: null, last_success_at: null, available_through: "2026-10-26", missing_accounts: 0, next_manual_at: null })) };
@@ -41,13 +41,32 @@ describe("real synchronization control", () => {
     expect(screen.getByText(/termina em 26\/10\/2026/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Ver Hoje · parcial" })); expect(today).toHaveBeenCalledWith("2026-10-27"); expect(mocks.request).not.toHaveBeenCalled();
   });
-  it("keeps viewer read access and does not trust an editor flag", async () => {
-    for (const role of ["viewer", "editor"]) {
-      state.role = role; state.can_request = role === "editor";
-      show(); await waitFor(() => expect(mocks.status).toHaveBeenCalled());
-      expect(screen.queryByRole("button", { name: "Atualizar agora" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Ver atualização das fontes" })); await screen.findByText(/Somente administradores/); cleanup(); client.clear();
-    }
+  it.each(["admin", "editor"])("allows %s to request the existing collectors", async role => {
+    state.role = role;
+    show(); fireEvent.click(await screen.findByRole("button", { name: "Atualizar agora" }));
+    await screen.findByRole("button", { name: "Sincronizando..." });
+    expect(mocks.request).toHaveBeenCalledOnce();
+    expect(mocks.request.mock.calls[0][0].sort()).toEqual(sourceNames.sort());
+  });
+  it.each(["viewer", "manager"])("keeps %s read-only even if the capability flag is true", async role => {
+    state.role = role; state.can_request = true;
+    show(); fireEvent.click(screen.getByRole("button", { name: "Ver atualização das fontes" }));
+    await screen.findByText(/Administradores e editores/);
+    expect(screen.queryByRole("button", { name: "Atualizar agora" })).toBeNull();
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it.each(["admin", "editor"])("keeps %s blocked when the backend denies the capability", async role => {
+    state.role = role; state.can_request = false;
+    show(); fireEvent.click(screen.getByRole("button", { name: "Ver atualização das fontes" }));
+    await screen.findByText(/Administradores e editores/);
+    expect(screen.queryByRole("button", { name: "Atualizar agora" })).toBeNull();
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it.each(["admin", "editor"])("keeps %s blocked in read-only presentation/share mode", async role => {
+    state.role = role;
+    show(true); fireEvent.click(screen.getByRole("button", { name: "Ver atualização das fontes" }));
+    await screen.findByText(/Administradores e editores/);
+    expect(screen.queryByRole("button", { name: "Atualizar agora" })).toBeNull();
     expect(mocks.request).not.toHaveBeenCalled();
   });
   it("does not expose a trigger without login or in demo", () => {

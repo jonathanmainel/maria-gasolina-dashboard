@@ -85,7 +85,7 @@ function ConnectedRefresh({ range, onShowToday, readOnly = false, userId }: Prop
   const failed = currentRuns.filter(run => run.status === "failed").length + blockedCount;
   const succeeded = currentRuns.filter(run => run.status === "success").length;
   const label = mutation.isPending ? "Iniciando..." : uncertain ? "Verificação necessária" : active || Object.keys(watched).length > 0 ? "Sincronizando..." : failed && succeeded ? "Parcialmente concluído" : failed ? "Falhou" : mutation.isSuccess && succeeded ? "Concluído" : "Atualizar agora";
-  const canRequest = data?.can_request === true && data.role === "admin" && !readOnly;
+  const canRequest = data?.can_request === true && (data.role === "admin" || data.role === "editor") && !readOnly;
   const start = () => {
     if (locked.current || active || !canRequest || !eligible) return;
     locked.current = true; setNotice(""); setOpen(true); mutation.mutate();
@@ -104,7 +104,7 @@ function ConnectedRefresh({ range, onShowToday, readOnly = false, userId }: Prop
         {status.isPending && <p role="status">Verificando seu acesso e as últimas execuções...</p>}
         {status.isError && <p role="alert">Não foi possível consultar as execuções. <button type="button" onClick={() => void status.refetch()}>Consultar novamente</button></p>}
         {data && <>
-          {!canRequest && <p>Consulta disponível. Somente administradores podem iniciar coletas.</p>}
+          {!canRequest && <p>Consulta disponível. Administradores e editores podem iniciar coletas fora do modo somente leitura.</p>}
           <p className="data-sync-partial">Dados de hoje são parciais e podem sofrer atrasos e ajustes nas plataformas.</p>
           {range.end < data.today && <p className="data-sync-period">O período dos gráficos termina em {day(range.end)}. A coleta inclui hoje.</p>}
           {onShowToday && <button type="button" className="secondary-button" onClick={() => { onShowToday(data.today); close(); }}>Ver Hoje · parcial</button>}
