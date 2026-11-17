@@ -485,6 +485,32 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .legend i { width: 9px; height: 9px; border-radius: 3px; }
 
 /* ------------------------------------------------------------ tables */
+.retaguarda-view .inline-error { flex-wrap: wrap; }
+.retaguarda-view #acompanhamento-diario { scroll-margin-top: calc(var(--topbar) + 16px); }
+.retaguarda-finance-note, .retaguarda-accounts, .retaguarda-versions { color: var(--muted); font-size: 12px; }
+.retaguarda-finance-note { margin: 12px 0; }
+.retaguarda-finance-form { margin-top: 14px; scroll-margin-top: calc(var(--topbar) + 16px); }
+.retaguarda-finance-form .manual-actions, .retaguarda-finance-filters { margin: 14px 0; }
+.retaguarda-accounts { margin: 12px 0 0; padding: 0; list-style: none; }
+.retaguarda-accounts > li, .retaguarda-versions > li { display: grid; gap: 3px; padding: 8px 0; overflow-wrap: anywhere; }
+.retaguarda-accounts > li + li, .retaguarda-versions > li + li { border-top: 1px solid var(--line); }
+.retaguarda-finance .field > span { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+.retaguarda-finance .field select { min-width: 0; height: 44px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text); }
+.retaguarda-finance-table td:is(:nth-child(2), :nth-child(5), :last-child) { text-align: left; white-space: normal; min-width: 11rem; }
+.retaguarda-finance-table th:is(:nth-child(2), :nth-child(5), :last-child) { text-align: left; }
+.retaguarda-finance-table summary { cursor: pointer; }
+.retaguarda-finance-table td > button { margin-top: 4px; }
+.retaguarda-versions { margin: 6px 0 0; padding: 0; list-style: none; }
+.retaguarda-history .desktop-table { display: block; }
+.retaguarda-history th[scope="colgroup"] { text-align: center; }
+.retaguarda-history th[rowspan], .retaguarda-history th[scope="row"] {
+  position: sticky;
+  left: 0;
+  text-align: left;
+  background: var(--surface-2);
+}
+.retaguarda-history th[scope="row"] { white-space: nowrap; }
+.retaguarda-history tfoot :is(th, td) { border-top: 1px solid var(--line); font-weight: 700; }
 .table-wrap { overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); }
 .desktop-table { min-width: 0; }
 .table-scroll { max-width: 100%; overflow-x: auto; scrollbar-color: var(--muted-2) var(--surface-2); }

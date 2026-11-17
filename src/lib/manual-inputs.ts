@@ -155,8 +155,8 @@ export async function saveManualData(next: ManualBusinessData): Promise<ManualDa
 
 export const manualDataKey = ["manual-business-data", CLIENT_SLUG, "commercial-empty-v2"] as const;
 
-export function useManualData() {
-  const query = useQuery({ queryKey: manualDataKey, queryFn: loadManualData, staleTime: 60_000, retry: 1 });
+export function useManualData(enabled = true) {
+  const query = useQuery({ queryKey: manualDataKey, queryFn: loadManualData, enabled, staleTime: 60_000, retry: 1 });
   return {
     data: query.data?.data ?? (isDemoMode ? demoManualData : defaultManualData),
     storage: query.data?.storage ?? "local",

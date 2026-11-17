@@ -59,11 +59,11 @@ export async function deleteCommercialRecord(command: CommercialDeleteCommand): 
   if (error) throw error;
   if (data?.length !== 1 || data[0].scope !== scope) throw new Error("Nenhum registro excluído. O acesso pode ter mudado ou o registro já não existe.");
 }
-export function useCommercialData(range: DateRange) {
+export function useCommercialData(range: DateRange, enabled = true) {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
-  const records = useQuery({ queryKey: [...commercialQueryKey, userId, range.start, range.end], queryFn: () => loadCommercialRows(range), staleTime: 30_000, refetchInterval: 60_000 });
-  const access = useQuery({ queryKey: ["commercial-access", CLIENT_SLUG, isDemoMode ? "demo" : userId], queryFn: loadCommercialAccess, staleTime: 0, refetchInterval: 30_000 });
+  const records = useQuery({ queryKey: [...commercialQueryKey, userId, range.start, range.end], queryFn: () => loadCommercialRows(range), enabled, staleTime: 30_000, refetchInterval: 60_000 });
+  const access = useQuery({ queryKey: ["commercial-access", CLIENT_SLUG, isDemoMode ? "demo" : userId], queryFn: loadCommercialAccess, enabled, staleTime: 0, refetchInterval: 30_000 });
   return { entries: records.data ? decodeCommercialRows(records.data, range) : emptyCommercialEntries(), access: access.data, isLoading: records.isLoading, isError: records.isError, error: records.error, refetch: records.refetch };
 }
 export function useSaveCommercialRecord() {

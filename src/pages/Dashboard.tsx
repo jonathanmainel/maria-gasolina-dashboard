@@ -1,7 +1,7 @@
 import { AlertCircle, Eye } from "lucide-react";
 import { initialReportingRange, reportingToday } from "../lib/reporting-period";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Skeleton } from "../components/ui/primitives";
@@ -17,7 +17,8 @@ import { Presentation } from "../views/Presentation";
 import { SettingsView } from "../views/Settings";
 import { SiteView } from "../views/SiteView";
 
-const validViews: AppView[] = ["executive", ...Object.values(commercialFronts).map((front) => front.view), "organic", "site", "crm", "settings"];
+const validViews: AppView[] = ["executive", ...Object.values(commercialFronts).map((front) => front.view), "organic", "site", "retaguarda", "crm", "settings"];
+const RetaguardaView = lazy(() => import("../views/Retaguarda").then(({ RetaguardaView }) => ({ default: RetaguardaView })));
 
 export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,7 +32,7 @@ export function DashboardPage() {
   const [commercialPreview, setCommercialPreview] = useState(false);
   useEffect(() => { if (view !== "crm") setCommercialPreview(false); }, [view]);
   const [organicScope, setOrganicScope] = useState<OrganicScope>("overview");
-  const data = useDashboard(range);
+  const data = useDashboard(range, presenting || view !== "retaguarda");
 
   const setParam = useCallback((key: string, value: string | null) => {
     setSearchParams((prev) => { const next = new URLSearchParams(prev); if (value == null) next.delete(key); else next.set(key, value); return next; }, { replace: true });
@@ -61,6 +62,10 @@ export function DashboardPage() {
             FrontView apresenta os mesmos estados de carregamento/erro. */}
         {view === "site" ? (
           <SiteView range={range} />
+        ) : view === "retaguarda" ? (
+          <Suspense fallback={<div role="status" aria-label="Carregando Retaguarda"><Skeleton height={200} /></div>}>
+            <RetaguardaView range={range} readOnly={readOnly} />
+          </Suspense>
         ) : view === "crm" ? (
           <CrmView data={data} range={range} readOnly={readOnly} preview={commercialPreview} onPreviewChange={setCommercialPreview} selectedFront={salesFront} onFrontChange={setSalesFront} />
         ) : isPlaceFront(view) ? (

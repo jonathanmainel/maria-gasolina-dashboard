@@ -12,5 +12,15 @@ describe("read-only marketing reload",()=>{
  it("demo não consulta produção nem inventa datas de sincronização",async()=>{state.demo=true;expect((await getSourceFreshness()).every(x=>x.completedAt===null&&x.latestDate===null)).toBe(true);expect(state.calls).toEqual([]);});
  it("falha de leitura não vira sucesso ou data atual",async()=>{state.error=true;await expect(getSourceFreshness()).rejects.toThrow("denied");});
  it("refaz consultas reais do cache e preserva contextos comerciais",async()=>{const client=new QueryClient({defaultOptions:{queries:{retry:false}}});let n=1;const fetch=vi.fn(async()=>n);await client.fetchQuery({queryKey:["fronts","periodo"],queryFn:fetch});await client.fetchQuery({queryKey:["site-overview"],queryFn:fetch});client.setQueryData(["manual-business-data"],{keep:true});n=2;await reloadDashboardData(client);expect(client.getQueryData(["fronts","periodo"])).toBe(2);expect(client.getQueryData(["site-overview"])).toBe(2);expect(client.getQueryData(["manual-business-data"])).toEqual({keep:true});expect(clearCreativePreviewCache).toHaveBeenCalledOnce();client.clear();});
+ it("recarrega as três leituras da Retaguarda após a sincronização", async () => {
+  const client = new QueryClient();
+  const reads = vi.fn(async () => 1);
+  for (const source of ["google_ads", "meta_ads", "ga4"]) {
+   await client.fetchQuery({ queryKey: ["retaguarda", "maria-gasolina", "user", "2026-11-01", "2026-11-16", source], queryFn: reads });
+  }
+  await reloadDashboardData(client);
+  expect(reads).toHaveBeenCalledTimes(6);
+  client.clear();
+ });
  it("falha de refetch é propagada",async()=>{const client=new QueryClient();vi.spyOn(client,"invalidateQueries").mockRejectedValue(new Error("network"));await expect(reloadDashboardData(client)).rejects.toThrow("network");client.clear();});
 });
