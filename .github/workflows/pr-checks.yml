@@ -1,0 +1,45 @@
+name: Validar pull request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: TypeScript, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obter código
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar TypeScript
+        run: npm run typecheck
+
+      - name: Executar testes unitários
+        run: npm test -- --maxWorkers=2 --testTimeout=120000
+
+      - name: Testar dry-run da Retaguarda
+        run: node --test tests/retaguarda-import.test.mjs
+
+      - name: Compilar para GitHub Pages
+        run: npm run build:pages

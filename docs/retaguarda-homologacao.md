@@ -1,5 +1,7 @@
 # Homologação técnica da Retaguarda
 
+Para a validação das seis divergências e a ordem de implantação do PR #24, siga o [procedimento pré-publicação](retaguarda-auditoria-pre-publicacao.md).
+
 ## Compatibilidade e correções
 
 - A verificação somente leitura de produção confirmou o constraint `viewer/editor/admin`, a chave de contas `(client_id, source, account_id)`, os contratos de associação e a ausência da tabela financeira. A migration financeira usa `private.is_dashboard_client_member` para leitura. A inclusão testa a associação do usuário autenticado e os papéis `editor/admin`, a mesma condição operacional de `private.dashboard_manual_has_role`. A existência de `manager` na migration-base do repositório é uma divergência histórica. O esquema de produção já aceita Editor. O ajuste de paridade para o ensaio fica em um fixture local e fora das migrations.
@@ -72,7 +74,7 @@ O ensaio usou a pilha nativa da CLI Supabase 3.2.0 no WSL, em projeto descartáv
 
 A revisão somente leitura de 17/11/2026 encontrou PostgreSQL 17.6, a chave única exigida de contas, o constraint `viewer/editor/admin` e os grants de associação necessários. A tabela e as funções da Retaguarda ainda estão ausentes. A versão `20261117045349` ainda não consta no histórico publicado.
 
-Seis nomes de migrations anteriores aparecem com versões diferentes. A comparação de nomes identifica a divergência, mas a equivalência do DDL antigo exige revisão própria.
+Seis migrations anteriores têm versões diferentes. A auditoria pré-publicação compara o SQL registrado e os objetos efetivos, incluindo as definições substituídas posteriormente.
 
 | Migration | Git | Supabase |
 | --- | --- | --- |
@@ -86,5 +88,5 @@ Seis nomes de migrations anteriores aparecem com versões diferentes. A compara�
 1. Revalide o histórico, os objetos, o backup e o SHA aprovado. Bloqueie o `db push` do diretório inteiro enquanto a divergência existir.
 2. Se a divergência continuar na janela de publicação, use o procedimento aprovado para aplicar **somente** `20261117045349_retaguarda_financial_entries.sql`. Pode-se executar o arquivo via `psql --single-transaction -v ON_ERROR_STOP=1 -f supabase/migrations/20261117045349_retaguarda_financial_entries.sql`, usando uma conexão autenticada do projeto confirmado. Use o arquivo do commit aprovado. Se o esquema e o histórico já tiverem sido reconciliados, confirme primeiro que a prévia da ferramenta de migrations contém apenas a versão esperada.
 3. Após o commit do DDL, confirme tabela, chave de conta e predecessora, índices únicos, gatilho de imutabilidade, RLS habilitada, grants por coluna e RPC de contas. Consulte o PostgREST autenticado. Se o schema ainda não estiver reconhecido, verifique a configuração e recarregue o cache antes de seguir.
-4. Se a aplicação tiver sido manual, registre a versão no histórico aprovado **somente após** verificar o esquema. O comando `supabase migration repair 20261117045349 --status applied --linked` registra a versão e exige que o vínculo aponte ao projeto autorizado. Confirme a entrada novamente em leitura. Se a execução do DDL e o registro da versão ficarem fora de sincronia, pare e verifique o estado antes de repetir a operação.
+4. Se a aplicação tiver sido manual, registre somente a versão financeira **após** verificar o esquema. Use a sintaxe de destino explícito da CLI instalada conforme o procedimento pré-publicação. Se o esquema e o histórico ficarem fora de sincronia, pare e verifique o estado antes de repetir a operação.
 5. Libere o frontend e execute a conferência pós-publicação. Mantenha a recuperação do frontend e o bloqueio de escrita separados da preservação do histórico financeiro.
