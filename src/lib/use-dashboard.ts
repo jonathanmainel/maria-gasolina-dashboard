@@ -10,15 +10,15 @@ import { byFront, inRange, organicSummary, previousRange, totals } from "./metri
 import { useTheme } from "../theme";
 import type { DateRange, Front, CommercialFront, CrmSummary, FrontDaily, OrganicDaily } from "../types";
 
-export function useDashboard(range: DateRange) {
+export function useDashboard(range: DateRange, enabled = true) {
   // A chave inclui o intervalo inteiro: trocar o período descarta o cache antigo
   // em vez de reaproveitá-lo, então nenhum card fica exibindo o período anterior
   // enquanto o novo carrega. Todas as telas leem deste mesmo hook, o que garante
   // que card, gráfico e tabela estejam sempre no mesmo intervalo.
-  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range), refetchInterval: 5 * 60 * 1000 });
-  const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range) });
-  const manual = useManualData();
-  const commercial = useCommercialData(range);
+  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range), enabled, refetchInterval: 5 * 60 * 1000 });
+  const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range), enabled });
+  const manual = useManualData(enabled);
+  const commercial = useCommercialData(range, enabled);
   const prev = useMemo(() => previousRange(range), [range]);
 
   const computed = useMemo(() => {

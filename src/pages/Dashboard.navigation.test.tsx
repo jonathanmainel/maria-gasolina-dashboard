@@ -26,6 +26,22 @@ function show(view: string, suffix = "") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/dashboard/maria-gasolina?view=${view}${suffix}`]}><DashboardPage /><Location /></MemoryRouter></QueryClientProvider>);
 }
+describe("Retaguarda", () => {
+  it("abre por URL direta e mantém o menu ativo mesmo quando as consultas legadas falham", async () => {
+    show("retaguarda", "&share=1");
+    expect(await screen.findByRole("heading", { name: "Retaguarda", level: 1 }, { timeout: 10000 })).not.toBeNull();
+    expect(screen.queryByText("Não foi possível carregar os dados", { exact: true })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retaguarda" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("navega pelo menu e preserva os demais parâmetros", () => {
+    show("company", "&custom=preserve");
+    fireEvent.click(screen.getByRole("button", { name: "Retaguarda" }));
+    expect(screen.getByTestId("location").textContent).toContain("view=retaguarda");
+    expect(screen.getByTestId("location").textContent).toContain("custom=preserve");
+  });
+});
+
 describe("URLs comerciais e independência das páginas vazias", () => {
   it.each([["company", "Empresas"], ["gym", "Academias"], ["hospital", "Hospitais"]])("abre %s apesar de erro/carregamento nas fontes existentes", (view, label) => {
     show(view);

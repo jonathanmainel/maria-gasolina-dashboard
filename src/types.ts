@@ -176,7 +176,7 @@ export type PendingFront = "company" | "gym" | "hospital";
 export type CommercialFront = Front | PendingFront;
 export type Channel = "google_ads" | "meta_ads";
 export type Platform = "instagram" | "facebook";
-export type AppView = "executive" | CommercialFront | "organic" | "site" | "crm" | "settings";
+export type AppView = "executive" | CommercialFront | "organic" | "site" | "retaguarda" | "crm" | "settings";
 
 export interface FrontDaily {
   date: string;

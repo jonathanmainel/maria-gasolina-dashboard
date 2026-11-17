@@ -3,6 +3,7 @@ import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockAnalyticsLandingPage
 import { supabase } from "./supabase";
 import { getMetaCreativePreviews } from "./creative-previews";
 import { rankedCreativeIds } from "./creatives";
+import { organicChannelLabels, summarizeOrganic, summarizePaid, type OrganicAcquisitionDay, type PaidCampaignDay } from "./retaguarda";
 
 export const CLIENT_SLUG = "maria-gasolina";
 
@@ -274,7 +275,7 @@ function paletteFor(id: string): [string, string] {
 const PAGE_SIZE = 1000;
 
 /** Lê uma tabela inteira em páginas — o PostgREST corta a resposta em 1000 linhas. */
-async function fetchAllRows<T>(
+export async function fetchAllRows<T>(
   table: string,
   columns: string,
   apply: (query: ReturnType<ReturnType<NonNullable<typeof supabase>["from"]>["select"]>) => typeof query,
@@ -305,6 +306,30 @@ export function getClientId(): Promise<number> {
   clientIdCache = pending;
   pending.catch(() => { clientIdCache = null; });
   return pending;
+}
+
+export async function getRetaguardaPaid(source: Channel, range: DateRange) {
+  if (isDemoMode) return summarizePaid([]);
+  const clientId = await getClientId();
+  const rows = await fetchAllRows<PaidCampaignDay>(
+    "dashboard_campaign_daily",
+    "source,account_id,campaign_id,metric_date,impressions,clicks,conversions",
+    (query) => query.eq("client_id", clientId).eq("source", source)
+      .gte("metric_date", range.start).lte("metric_date", range.end).order("id"),
+  );
+  return summarizePaid(rows);
+}
+
+export async function getRetaguardaOrganic(range: DateRange) {
+  if (isDemoMode) return summarizeOrganic([]);
+  const clientId = await getClientId();
+  const rows = await fetchAllRows<OrganicAcquisitionDay>(
+    "dashboard_ga4_acquisition_daily",
+    "metric_date,channel_group,sessions",
+    (query) => query.eq("client_id", clientId).in("channel_group", Object.keys(organicChannelLabels))
+      .gte("metric_date", range.start).lte("metric_date", range.end).order("id"),
+  );
+  return summarizeOrganic(rows);
 }
 
 interface CampaignDailyRow {

@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, ChevronDown, Download, Globe, Link2, LogOut, Menu, MonitorPlay, Moon, Rocket, Settings2, Sparkles, Sun, Users, X } from "lucide-react";
+import { Building2, CalendarDays, ClipboardList, ChevronDown, Download, Globe, Link2, LogOut, Menu, MonitorPlay, Moon, Rocket, Settings2, Sparkles, Sun, Users, X } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { useAuth } from "../auth";
 import { brandLogoUrl } from "../lib/app-path";
@@ -30,6 +30,7 @@ const viewTitles: Record<Exclude<AppView, CommercialFront>, { eyebrow: string; t
   executive: { eyebrow: "Visão executiva", title: "Resultado consolidado das três frentes" },
   organic: { eyebrow: "Frente 3 · Orgânico", title: "Instagram e Facebook" },
   site: { eyebrow: "Site · Google Analytics 4", title: "Comportamento dos usuários no site" },
+  retaguarda: { eyebrow: "Marketing", title: "Retaguarda" },
   crm: { eyebrow: "CRM Elo · Vendas", title: "Funil comercial e receita" },
   settings: { eyebrow: "Configurações", title: "Metas, compartilhamento e exportação" },
 };
@@ -116,6 +117,10 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
           })}
           {item("organic", "Orgânico", <Instagram size={17} />, "organic")}
           {item("site", "Site", <Globe size={17} />, "site")}
+        </div>
+        <div className="sidebar-group">
+          <small>Marketing</small>
+          {item("retaguarda", "Retaguarda", <ClipboardList size={17} />)}
         </div>
         <div className="sidebar-group">
           <small>Comercial</small>
