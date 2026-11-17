@@ -291,7 +291,7 @@ function normalizeMetaCampaignInsight(row: MetaInsight) {
   };
 }
 
-function normalizeMetaDailyInsight(row: MetaInsight) {
+function normalizeMetaDailyInsight(row: MetaInsight, currencyCode?: string) {
   return {
     account_id: row.account_id ?? null,
     metric_date: row.date_start ?? null,
@@ -308,10 +308,10 @@ function normalizeMetaDailyInsight(row: MetaInsight) {
 
     all_conversions: null,
 
-    spend: Number(row.spend ?? 0),
+    spend: row.spend?.trim() && Number.isFinite(Number(row.spend)) ? Number(row.spend) : null,
     conversion_value: 0,
 
-    extra_metrics: {},
+    extra_metrics: currencyCode ? { currency_code: currencyCode } : {},
     source_updated_at: null,
   };
 }
@@ -605,8 +605,9 @@ export default {
           }
         }
 
+        const currencies = new Map(accountMetadata.map((account) => [account.requested_account_id, account.currency]));
         const normalizedDailyRows = sortRows(
-          dailyInsights.map(normalizeMetaDailyInsight),
+          dailyInsights.map((row) => normalizeMetaDailyInsight(row, currencies.get(row.account_id ?? ""))),
           (row) => `${row.account_id ?? ""}|${row.metric_date ?? ""}`,
         );
 

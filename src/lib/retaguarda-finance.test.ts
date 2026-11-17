@@ -17,7 +17,7 @@ describe("financeiro da Retaguarda", () => {
     ("rejeita o valor inválido %s", (input) => expect(parseBrl(input)).toBeNull());
 
   it("recupera a versão vigente e as anteriores mantendo data, conta e plataforma", () => {
-    const correction = { ...entry, id: "correction", previous_id: entry.id, available_balance_brl: 31.9 };
+    const correction = { ...entry, id: "correction", previous_id: entry.id, available_balance_brl: 31.9, estimated_daily_spend_brl: null };
     const next = { ...correction, id: "next", previous_id: correction.id, available_balance_brl: 45 };
     const other = { ...entry, id: "other", account_id: "02" };
     const anotherDay = { ...entry, id: "another-day", reference_date: "2026-11-15" };
@@ -39,14 +39,14 @@ describe("financeiro da Retaguarda", () => {
     const previous = { ...entry, reference_date: "2026-11-15", available_balance_brl: 25 };
     const other = { ...entry, account_id: "02", available_balance_brl: 1.9, estimated_daily_spend_brl: 3.21 };
     expect(platformFinancialSummary([account, second, inactive, otherPlatform], [entry, previous, other], "meta_ads"))
-      .toMatchObject({ balance: 1.9, estimate: 15.55, date: "2026-11-16", items: [{ latest: entry }, { latest: other }] });
-    expect(platformFinancialSummary([account, second], [entry], "meta_ads")).toMatchObject({ balance: null, estimate: null });
+      .toMatchObject({ balance: 1.9, date: "2026-11-16", items: [{ latest: entry }, { latest: other }] });
+    expect(platformFinancialSummary([account, second], [entry], "meta_ads")).toMatchObject({ balance: null });
     expect(platformFinancialSummary([account, second], [entry, { ...other, reference_date: previous.reference_date }], "meta_ads"))
-      .toMatchObject({ balance: null, estimate: null, date: undefined });
+      .toMatchObject({ balance: null, date: undefined });
   });
 
   it("distingue o zero registrado de um campo ausente em importação", () => {
     expect(platformFinancialSummary([account], [{ ...entry, origin: "import", estimated_daily_spend_brl: null }], "meta_ads"))
-      .toMatchObject({ balance: 0, estimate: null });
+      .toMatchObject({ balance: 0 });
   });
 });

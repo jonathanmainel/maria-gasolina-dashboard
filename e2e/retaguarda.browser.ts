@@ -39,10 +39,30 @@ async function prepare(page: Page, options: {
   theme?: "dark" | "light"; empty?: boolean; failMeta?: boolean; holdMeta?: Promise<void>;
   finance?: boolean; seedFinance?: boolean; failWrite?: boolean; holdFinance?: Promise<void>; role?: "viewer" | "editor";
   writeMode?: "expired" | "conflict" | "lost"; multiAccounts?: boolean;
+  spendMode?: "complete" | "partial" | "failed";
 } = {}) {
   const audit = await install(page.context(), { appOrigin: test.info().project.use.baseURL, theme: options.theme, role: options.role ?? "admin" });
   await page.clock.setFixedTime(new Date("2026-11-17T16:00:00Z"));
   const reads: Array<{ source: string | null; from?: string; to?: string }> = [];
+  const spendRows = Array.from({ length: 7 }, (_, i) => ({
+    metric_date: `2026-11-${10 + i}`, ingested_at: "2026-11-17T04:00:08Z", extra_metrics: { currency_code: "BRL" },
+  })).flatMap(row => [
+    { ...row, account_id: "account-01", source: "meta_ads", spend: 20 },
+    { ...row, account_id: "account-02", source: "google_ads", spend: 0 },
+  ]);
+  await page.context().route((url) => url.origin === apiOrigin && url.pathname.endsWith("/dashboard_daily_metrics")
+    && url.searchParams.get("select")?.includes("extra_metrics") === true, async route => {
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    expect(new URL(route.request().url()).searchParams.getAll("metric_date")).toEqual(["gte.2026-11-10", "lte.2026-11-16"]);
+    return route.fulfill({ status: 200, headers, json: options.spendMode === "partial" ? spendRows.slice(2) : options.spendMode ? spendRows : [] });
+  });
+  await page.context().route(`${apiOrigin}/rest/v1/dashboard_automation_runs?*`, async route => {
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const meta = new URL(route.request().url()).searchParams.get("source") === "eq.meta_ads";
+    return route.fulfill({ status: 200, headers, json: { status: meta && options.spendMode === "failed" ? "failed" : "success" } });
+  });
   await page.context().route(`${apiOrigin}/rest/v1/dashboard_*_daily?*`, async (route) => {
     const url = new URL(route.request().url());
     const campaigns = url.pathname.endsWith("/dashboard_campaign_daily");
@@ -106,7 +126,7 @@ async function prepare(page: Page, options: {
       const entry = {
         ...firstFinancialEntry, ...draft,
         id: `financial-${financialEntries.length + 1}`,
-        available_balance_brl: Number(draft.available_balance_brl), estimated_daily_spend_brl: Number(draft.estimated_daily_spend_brl),
+        available_balance_brl: Number(draft.available_balance_brl), estimated_daily_spend_brl: draft.estimated_daily_spend_brl,
       };
       financialEntries.push(entry);
       if (options.writeMode === "lost") return route.abort("timedout");
@@ -179,24 +199,24 @@ test("mostra o estado vazio com o financeiro indisponível", async ({ page }) =>
   await page.goto(dashboard);
   await expect(page.getByText("Nenhum dado de mídia paga ou aquisição orgânica neste período.")).toBeVisible();
   await expect(page.getByText("Nenhum registro desta fonte no período.")).toHaveCount(3);
-  await expect(page.getByText("Não informado", { exact: true })).toHaveCount(4);
+  await expect(page.getByText("Saldo não informado no resumo", { exact: true })).toHaveCount(2);
   await expect(history(page)).toHaveCount(0);
 });
 
 test("editor registra zero, corrige e consulta a versão anterior", async ({ page }) => {
   const { financialWrites } = await prepare(page, { finance: true, role: "editor" });
   await page.goto(dashboard);
-  await page.getByRole("button", { name: "Registrar valores" }).click();
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
   await form.getByLabel("Plataforma").selectOption("meta_ads");
   await form.getByLabel("Saldo disponível (BRL)").fill("0,000");
-  await form.getByLabel("Estimativa de gastos diários (BRL)").fill("1.234,56");
+  await expect(form.getByLabel("Estimativa de gastos diários (BRL)")).toHaveCount(0);
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await expect(form.getByRole("alert")).toContainText("Use valores em reais");
   expect(financialWrites).toHaveLength(0);
   await form.getByLabel("Saldo disponível (BRL)").fill("0,00");
   await form.getByRole("button", { name: "Revisar registro" }).click();
-  await expect(form).toContainText("1.234,56");
+  await expect(form).toContainText("0,00");
   expect(financialWrites).toHaveLength(0);
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
   await expect(page.getByText("Registro financeiro salvo.")).toBeVisible();
@@ -211,6 +231,7 @@ test("editor registra zero, corrige e consulta a versão anterior", async ({ pag
   await expect(finances(page)).toContainText("52,90");
   await expect(finances(page)).toContainText("0,00");
   expect(financialWrites.map((draft) => [draft.available_balance_brl, draft.previous_id])).toEqual([["0.00", null], ["52.90", "financial-1"]]);
+  expect(financialWrites.map((draft) => draft.estimated_daily_spend_brl)).toEqual([null, null]);
   await changePeriod(page, previousDay, previousDay);
   await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
 });
@@ -235,7 +256,7 @@ test("viewer consulta sem controles de gravação", async ({ page }) => {
   await prepare(page, { finance: true, seedFinance: true, role: "viewer" });
   await page.goto(dashboard);
   await expect(finances(page)).toContainText("0,00");
-  await expect(page.getByRole("button", { name: "Registrar valores" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Registrar saldo", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Corrigir", exact: true })).toHaveCount(0);
 });
 
@@ -251,17 +272,16 @@ test("o carregamento financeiro preserva a leitura de mídia", async ({ page }) 
     release();
   }
   await expect(finances(page)).toContainText("0,00");
-  await expect(page.getByRole("button", { name: "Registrar valores" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Registrar saldo", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Corrigir", exact: true })).toHaveCount(0);
 });
 
 test("duplo clique após confirmar e resposta perdida geram um único lançamento", async ({ page }) => {
   const { financialWrites } = await prepare(page, { finance: true, role: "editor", writeMode: "lost" });
   await page.goto(dashboard);
-  await page.getByRole("button", { name: "Registrar valores" }).click();
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
   await form.getByLabel("Saldo disponível (BRL)").fill("12,34");
-  await form.getByLabel("Estimativa de gastos diários (BRL)").fill("0,00");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).evaluate((button: HTMLButtonElement) => {
     button.click();
@@ -296,7 +316,7 @@ test("múltiplas contas exigem cobertura da mesma data e permitem filtrar o hist
   await expect(metaSummary.getByText(/requer registros de todas as contas ativas/)).toBeVisible();
   await expect(metaSummary.getByText(/Meta Arquivada/)).toHaveCount(0);
   await expect(googleSummary.getByText(/1 de 2 contas ativas/)).toBeVisible();
-  await expect(googleSummary.getByText("Não informado", { exact: true })).toHaveCount(3);
+  await expect(googleSummary.getByText("Saldo não informado", { exact: true })).toHaveCount(1);
   await finance.getByLabel("Filtrar por plataforma").selectOption("meta_ads");
   await finance.getByLabel("Filtrar por conta").selectOption({ label: "Meta Ads · Meta Secundária · account-03" });
   await expect(finances(page).locator("tbody tr")).toHaveCount(1);
@@ -311,6 +331,24 @@ test("múltiplas contas exigem cobertura da mesma data e permitem filtrar o hist
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
   await expect(finances(page).locator("tbody")).toContainText("55,22");
   await expect(metaSummary.getByText(/requer registros de todas as contas ativas/)).toBeVisible();
+});
+
+test("mostra gasto automático sem saldo e distingue zero, cobertura e falha da coleta", async ({ page }) => {
+  await prepare(page, { finance: true, spendMode: "failed" });
+  await page.goto(dashboard);
+  const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
+  await expect(finance.getByText(/20,00 por dia · 7 de 7 dias em BRL/)).toBeVisible();
+  await expect(finance.getByText(/^R\$\s*0,00 por dia · 7 de 7 dias em BRL$/)).toBeVisible();
+  await expect(finance.getByText("Saldo não informado", { exact: true })).toHaveCount(2);
+  await expect(finance.getByText(/última sincronização de mídia falhou/)).toBeVisible();
+  await expect(finance.getByText(/Autonomia estimada/)).toHaveCount(0);
+});
+
+test("mostra cobertura parcial sem inventar uma estimativa em BRL", async ({ page }) => {
+  await prepare(page, { finance: true, spendMode: "partial" });
+  await page.goto(dashboard);
+  const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
+  await expect(finance.getByText(/6 de 7 dias válidos em BRL/)).toHaveCount(2);
 });
 
 test("Site não carrega o código nem as consultas financeiras da Retaguarda", async ({ page }) => {
@@ -333,12 +371,13 @@ test("Site não carrega o código nem as consultas financeiras da Retaguarda", a
 for (const [width, height, theme] of [[1440, 1000, "dark"], [1440, 1000, "light"], [820, 1000, "dark"], [820, 1000, "light"], [390, 844, "dark"], [390, 844, "light"]] as const) {
   test(`tabela e navegação em ${width}px no tema ${theme}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height });
-    await prepare(page, { theme, finance: true, seedFinance: true });
+    await prepare(page, { theme, finance: true, seedFinance: true, spendMode: "complete" });
     await page.goto(dashboard);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(history(page)).toBeVisible();
     await expect(history(page).locator("tfoot td").last()).toHaveText("44");
     await expect(finances(page)).toContainText("Conta Meta");
+    await expect(page.getByText(/Autonomia estimada da plataforma/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if (width < 900) {
       const viewport = page.getByRole("region", { name: "Colunas do acompanhamento diário" });

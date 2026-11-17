@@ -41,7 +41,7 @@ vi.mock("./supabase", () => ({
 
 const draft: FinancialDraft = {
   platform: "meta_ads", account_id: "account-a", reference_date: "2026-11-16",
-  available_balance_brl: "12.34", estimated_daily_spend_brl: "0.00",
+  available_balance_brl: "12.34",
   previous_id: null, request_key: "test-request",
 };
 
@@ -64,18 +64,26 @@ describe("envio financeiro protegido pela sessão", () => {
     fake.post.mockResolvedValue({ data: null, error: { message: "network" }, status: 0 });
     fake.lookup.mockResolvedValue({ data: {
       ...draft, id: "record", origin: "manual", created_by: "author",
-      available_balance_brl: 12.34, estimated_daily_spend_brl: 0,
+      available_balance_brl: 12.34, estimated_daily_spend_brl: null,
     }, status: 200 });
     await expect(saveFinancialEntry(draft, "author")).resolves.toBeUndefined();
     expect(fake.authorization).toHaveBeenCalledWith("Authorization", "Bearer synthetic-token");
     expect(fake.lookupAuthorization).toHaveBeenCalledWith("Authorization", "Bearer synthetic-token");
-    expect(fake.post).toHaveBeenCalledWith({ ...draft, client_id: 1 });
+    expect(fake.post).toHaveBeenCalledWith({ ...draft, client_id: 1, estimated_daily_spend_brl: null });
   });
 
   it("rejeita a chave de um registro com conteúdo diferente", async () => {
     fake.lookup.mockResolvedValue({ data: {
       ...draft, id: "record", origin: "manual", created_by: "author",
       available_balance_brl: 12.35, estimated_daily_spend_brl: 0,
+    }, status: 200 });
+    await expect(saveFinancialEntry(draft, "author")).rejects.toThrow("Este identificador já pertence a outro registro");
+  });
+
+  it("não confirma como saldo isolado um lançamento antigo que tinha estimativa manual", async () => {
+    fake.lookup.mockResolvedValue({ data: {
+      ...draft, id: "record", origin: "manual", created_by: "author",
+      available_balance_brl: 12.34, estimated_daily_spend_brl: 0,
     }, status: 200 });
     await expect(saveFinancialEntry(draft, "author")).rejects.toThrow("Este identificador já pertence a outro registro");
   });
