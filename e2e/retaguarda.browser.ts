@@ -39,6 +39,7 @@ async function prepare(page: Page, options: {
   theme?: "dark" | "light"; empty?: boolean; failMeta?: boolean; holdMeta?: Promise<void>;
   finance?: boolean; seedFinance?: boolean; failWrite?: boolean; holdFinance?: Promise<void>; role?: "viewer" | "editor";
   writeMode?: "expired" | "conflict" | "lost"; multiAccounts?: boolean;
+  balanceMode?: "success" | "failure" | "conflict";
   spendMode?: "complete" | "partial" | "failed";
 } = {}) {
   const audit = await install(page.context(), { appOrigin: test.info().project.use.baseURL, theme: options.theme, role: options.role ?? "admin" });
@@ -93,14 +94,40 @@ async function prepare(page: Page, options: {
     { ...firstFinancialEntry, id: "inactive", account_id: "account-inactive", available_balance_brl: 999 },
   );
   const financialWrites: Record<string, unknown>[] = [];
+  const balanceRequests: Record<string, unknown>[] = [];
+  await page.context().route(`${apiOrigin}/functions/v1/request-meta-balance`, async route => {
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const body = route.request().postDataJSON(); balanceRequests.push(body);
+    expect(body).toEqual({ client_slug: "maria-gasolina", account_id: "account-01", request_key: expect.any(String) });
+    expect(route.request().headers().authorization).toMatch(/^Bearer /);
+    if (options.balanceMode !== "success") return route.fulfill({ status: options.balanceMode === "conflict" ? 409 : 502,
+      headers, json: { state: options.balanceMode === "conflict" ? "conflict" : "failed" } });
+    financialEntries.push({ ...firstFinancialEntry, id: "synthetic-api-balance", origin: "api", reference_date: "2026-11-17", available_balance_brl: 123.45,
+      estimated_daily_spend_brl: null, previous_id: null, created_at: "2026-11-17T16:00:00Z", measured_at: "2026-11-17T16:00:00Z" });
+    return route.fulfill({ status: 200, headers, json: { state: "success", entry_id: "synthetic-api-balance" } });
+  });
   const financialCalls: string[] = [];
   await page.context().route((url) => url.origin === apiOrigin && [
     "/rest/v1/rpc/get_retaguarda_financial_accounts", "/rest/v1/dashboard_retaguarda_financial_entries",
+    "/rest/v1/rpc/get_retaguarda_latest_balances", "/rest/v1/rpc/get_retaguarda_meta_balance_status",
   ].includes(url.pathname), async (route) => {
     const url = new URL(route.request().url());
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST,OPTIONS" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     financialCalls.push(url.pathname);
+    if (url.pathname.endsWith("/get_retaguarda_meta_balance_status"))
+      return route.fulfill({ status: 200, headers, json: [] });
+    if (url.pathname.endsWith("/get_retaguarda_latest_balances")) {
+      await options.holdFinance;
+      const replaced = new Set(financialEntries.map(entry => entry.previous_id));
+      const latest = new Map<string, typeof firstFinancialEntry>();
+      for (const entry of financialEntries.filter(entry => !replaced.has(entry.id) && entry.available_balance_brl !== null)) {
+        const key = `${entry.platform}:${entry.account_id}`;
+        if (!latest.has(key) || latest.get(key)!.reference_date < entry.reference_date) latest.set(key, entry);
+      }
+      return route.fulfill({ status: 200, headers, json: [...latest.values()] });
+    }
     if (url.pathname.endsWith("/get_retaguarda_financial_accounts")) {
       expect(route.request().postDataJSON()).toEqual({ p_client_id: 1 });
       return route.fulfill({ status: 200, headers, json: options.finance ? [
@@ -141,7 +168,7 @@ async function prepare(page: Page, options: {
     const [from, to] = url.searchParams.getAll("reference_date").map((value) => value.slice(4));
     return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.reference_date >= from && entry.reference_date <= to) });
   });
-  return { reads, audit, financialWrites, financialCalls };
+  return { reads, audit, financialWrites, financialCalls, balanceRequests };
 }
 
 const history = (page: Page) => page.getByRole("table", { name: "Acompanhamento diário de marketing" });
@@ -258,6 +285,30 @@ test("viewer consulta sem controles de gravação", async ({ page }) => {
   await expect(finances(page)).toContainText("0,00");
   await expect(page.getByRole("button", { name: "Registrar saldo", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Corrigir", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Atualizar saldo Meta agora", exact: true })).toHaveCount(0);
+});
+
+test("editor consulta saldo no backend e atualiza resumo sem depender do período", async ({ page }) => {
+  const { balanceRequests, financialWrites } = await prepare(page, { finance: true, seedFinance: true, role: "editor", balanceMode: "success" });
+  await page.goto(dashboard);
+  await page.getByRole("button", { name: "Atualizar saldo Meta agora" }).click();
+  await expect(page.getByText("Nova medição confirmada e registrada.")).toBeVisible();
+  const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
+  await expect(finance.getByText(/Meta Ads API · Medição/)).toBeVisible();
+  await expect(finance.getByText(/^Saldo R\$\s*123,45$/)).toBeVisible();
+  expect(balanceRequests).toHaveLength(1); expect(financialWrites).toEqual([]);
+  await changePeriod(page, previousDay, previousDay);
+  await expect(finance.getByText(/^Saldo R\$\s*123,45$/)).toBeVisible();
+  await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+});
+
+test("falha e conflito da coleta não anunciam novo saldo nem removem o manual", async ({ page }) => {
+  await prepare(page, { finance: true, seedFinance: true, balanceMode: "conflict" });
+  await page.goto(dashboard);
+  await page.getByRole("button", { name: "Atualizar saldo Meta agora" }).click();
+  await expect(page.getByText(/O saldo manual\/importado ou uma alteração concorrente foi preservado/)).toBeVisible();
+  await expect(page.getByText("Nova medição confirmada e registrada.")).toHaveCount(0);
+  await expect(finances(page)).toContainText("0,00");
 });
 
 test("o carregamento financeiro preserva a leitura de mídia", async ({ page }) => {

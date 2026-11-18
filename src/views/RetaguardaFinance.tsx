@@ -7,6 +7,8 @@ import { ExpandableTableFooter, useExpandableRows } from "../components/ui/expan
 import { Kpi, Panel, Skeleton } from "../components/ui/primitives";
 import { TableViewport } from "../components/ui/table-viewport";
 import { CLIENT_SLUG, isDemoMode } from "../lib/api";
+import { MetaBalanceRefresh } from "../components/MetaBalanceRefresh";
+import { loadLatestBalances } from "../lib/meta-balance";
 import { loadCommercialAccess } from "../lib/commercial-access";
 import { dateTime, money } from "../lib/format";
 import { reportingToday } from "../lib/reporting-period";
@@ -38,6 +40,9 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   const entries = useQuery({
     queryKey: [...dataKey, range.start, range.end], queryFn: () => loadFinancialEntries(range), enabled, retry: 1,
   });
+  const currentBalances = useQuery({
+    queryKey: [...financeQueryKey, userId, "latest"], queryFn: loadLatestBalances, enabled, retry: 1, refetchInterval: 60_000,
+  });
   const spend = useQuery({
     queryKey: ["retaguarda-spend", CLIENT_SLUG, userId], queryFn: loadRetaguardaSpend, enabled, retry: 1,
     refetchInterval: 60_000,
@@ -51,7 +56,8 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   const accounts = accountQuery.isSuccess ? accountQuery.data : noAccounts;
   const data = entries.isSuccess ? entries.data : noEntries;
   const days = useMemo(() => financialDays(data), [data]);
-  const latest = useMemo(() => days.map((day) => day.current), [days]);
+  const historyLatest = useMemo(() => days.map((day) => day.current), [days]);
+  const latest = currentBalances.data ?? noEntries;
   const canEdit = enabled && !readOnly && access.isSuccess && access.data.canEdit && access.data.userId === userId
     && entries.isSuccess && accountQuery.isSuccess;
   const today = spend.data?.today ?? reportingToday();
@@ -69,6 +75,11 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
         {canCreate && !editing && <button type="button" className="secondary-button" onClick={() => edit("new")}>Registrar saldo</button>}
       </div>
       {isDemoMode && <p className="retaguarda-finance-note">Dados financeiros indisponíveis no modo demonstração.</p>}
+      {enabled && userId && accounts.some(account => account.active && account.platform === "meta_ads") && (
+        <MetaBalanceRefresh key={userId} userId={userId} canEdit={canEdit}
+          accountIds={accounts.filter(account => account.active && account.platform === "meta_ads").map(account => account.account_id)}
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: dataKey })} />
+      )}
       {(entries.isError || accountQuery.isError) && (
         <div className="inline-error" role="alert">
           <span>Não foi possível carregar os registros de saldo ou as contas.</span>
@@ -79,21 +90,22 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
         <div role="status" aria-label="Carregando registros financeiros"><Skeleton height={170} /></div>
       ) : (
         <div className="grid grid-2">
-          {platforms.map((platform) => <FinancePanel key={platform} platform={platform} accounts={accounts} latest={latest} lastDay={lastDay}
-            today={today} balancePending={enabled && entries.isPending} balanceError={entries.isError || accountQuery.isError}
+          {platforms.map((platform) => <FinancePanel key={platform} platform={platform} accounts={accounts} latest={latest}
+            today={today} balancePending={enabled && currentBalances.isPending} balanceError={currentBalances.isError || accountQuery.isError}
             spend={spend.data} spendError={spend.isError} spendPending={enabled && spend.isPending} />)}
         </div>
       )}
       {saved && <p className="retaguarda-finance-note" role="status">Registro financeiro salvo.</p>}
       {editing && canEdit && userId && (
         <FinanceForm key={`${range.start}:${range.end}:${editing === "new" ? "new" : editing.id}`}
-          accounts={accounts} latest={latest} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
+          accounts={accounts} latest={historyLatest} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
           onCancel={() => { setEditing(null); void queryClient.invalidateQueries({ queryKey: dataKey }); }}
           onSave={async (draft) => {
             await saveFinancialEntry(draft, userId);
             setEditing(null);
             setSaved(true);
             void queryClient.invalidateQueries({ queryKey: dataKey });
+            void queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] });
           }} />
       )}
       <div className="section-title"><h2>Histórico financeiro</h2></div>
@@ -109,8 +121,8 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   );
 }
 
-function FinancePanel({ platform, accounts, latest, lastDay, today, balancePending, balanceError, spend, spendError, spendPending }: {
-  platform: Channel; accounts: FinancialAccount[]; latest: FinancialEntry[]; lastDay: string; today: string;
+function FinancePanel({ platform, accounts, latest, today, balancePending, balanceError, spend, spendError, spendPending }: {
+  platform: Channel; accounts: FinancialAccount[]; latest: FinancialEntry[]; today: string;
   balancePending: boolean; balanceError: boolean;
   spend?: Awaited<ReturnType<typeof loadRetaguardaSpend>>; spendError: boolean; spendPending: boolean;
 }) {
@@ -131,7 +143,7 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
   const balanceNote = balancePending ? "Carregando saldos" : balanceError ? "Falha ao consultar o saldo" : "Saldo não informado";
   return (
     <Panel title={financePlatforms[platform]} description={summary.items.length
-      ? `${coverage} de ${summary.items.length} contas ativas com saldo no período`
+      ? `${coverage} de ${summary.items.length} contas ativas com saldo conhecido`
       : "Nenhuma conta ativa disponível"} noTilt>
       <div className="grid grid-2">
         <Kpi label="Saldo disponível" value={summary.balance} format={money} accent={accent} icon={<Wallet size={16} />} hideDelta foot={summary.balance === null ? `${balanceNote} no resumo` : undefined} />
@@ -143,7 +155,7 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
           : sync === "unavailable" ? " Status da sincronização indisponível." : ""}
       </p>}
       {autonomy !== null && <p className="retaguarda-finance-note">Autonomia estimada da plataforma <strong>{formatDays(autonomy)}</strong>. Projeção pelo ritmo observado.</p>}
-      {summary.date && <p className="retaguarda-finance-note">Referência do resumo em {displayDate(summary.date)}{summary.date < lastDay ? " · Desatualizado para o fim do período" : ""}.</p>}
+      {summary.date && <p className="retaguarda-finance-note">Último saldo conhecido em {displayDate(summary.date)} · independente do período{summary.items.some(item => !fresh(item.latest)) ? " · Medição desatualizada" : ""}.</p>}
       {summary.items.length > 1 && !summary.date && <p className="retaguarda-finance-note">O total por plataforma requer registros de todas as contas ativas com a mesma data de referência.</p>}
       {!!summary.items.length && (
         <ul className="retaguarda-accounts">
@@ -156,7 +168,7 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
                 ? `Estimativa indisponível · ${accountSpend.validDays} de 7 dias válidos em BRL${accountSpend.unverifiedCurrency ? " · Moeda não confirmada em BRL" : ""}`
                 : `${money(accountSpend.estimate)} por dia · 7 de 7 dias em BRL`}</span>}
               {items.length > 1 && accountSpend.lastCollection && <span>Última coleta {displayTime(accountSpend.lastCollection)}</span>}
-              {entry && <span>{displayDate(entry.reference_date)} · {financeOrigins[entry.origin]} · Medição em {displayTime(entry.measured_at)}
+              {entry && <span>{displayDate(entry.reference_date)} · {entry.origin === "api" && platform === "meta_ads" ? "Meta Ads API" : financeOrigins[entry.origin]} · Medição em {displayTime(entry.measured_at)}
                 {!fresh(entry) && " · Sem medição recente para a projeção"}</span>}
               {accountAutonomy !== null && <span>Autonomia estimada {formatDays(accountAutonomy)}</span>}
               {accountSpend.estimate === 0 && <span>Autonomia indisponível com gasto médio zero.</span>}
