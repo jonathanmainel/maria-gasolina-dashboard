@@ -36,7 +36,8 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   });
   const dataKey = [...financeQueryKey, userId, "entries"] as const;
   const entries = useQuery({
-    queryKey: [...dataKey, range.start, range.end], queryFn: () => loadFinancialEntries(range), enabled, retry: 1,
+    queryKey: [...dataKey, "all", reportingToday()], queryFn: () => loadFinancialEntries(), enabled, retry: 1,
+    staleTime: 60_000, refetchInterval: 60_000,
   });
   const spend = useQuery({
     queryKey: ["retaguarda-spend", CLIENT_SLUG, userId], queryFn: loadRetaguardaSpend, enabled, retry: 1,
@@ -50,13 +51,15 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   const [saved, setSaved] = useState(false);
   const accounts = accountQuery.isSuccess ? accountQuery.data : noAccounts;
   const data = entries.isSuccess ? entries.data : noEntries;
-  const days = useMemo(() => financialDays(data), [data]);
-  const latest = useMemo(() => days.map((day) => day.current), [days]);
+  const allDays = useMemo(() => financialDays(data), [data]);
+  const days = useMemo(() => allDays.filter(({ current }) => current.reference_date >= range.start
+    && current.reference_date <= range.end), [allDays, range.start, range.end]);
+  const latest = useMemo(() => allDays.map((day) => day.current), [allDays]);
   const canEdit = enabled && !readOnly && access.isSuccess && access.data.canEdit && access.data.userId === userId
     && entries.isSuccess && accountQuery.isSuccess;
   const today = spend.data?.today ?? reportingToday();
-  const lastDay = [range.end, today].sort()[0];
-  const canCreate = canEdit && accounts.some((account) => account.active) && range.start <= lastDay;
+  const lastDay = today;
+  const canCreate = canEdit && accounts.some((account) => account.active);
   function edit(entry: FinancialEntry | "new") {
     setSaved(false);
     setEditing(entry);
@@ -79,7 +82,7 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
         <div role="status" aria-label="Carregando registros financeiros"><Skeleton height={170} /></div>
       ) : (
         <div className="grid grid-2">
-          {platforms.map((platform) => <FinancePanel key={platform} platform={platform} accounts={accounts} latest={latest} lastDay={lastDay}
+          {platforms.map((platform) => <FinancePanel key={platform} platform={platform} accounts={accounts} latest={latest}
             today={today} balancePending={enabled && entries.isPending} balanceError={entries.isError || accountQuery.isError}
             spend={spend.data} spendError={spend.isError} spendPending={enabled && spend.isPending} />)}
         </div>
@@ -87,7 +90,7 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
       {saved && <p className="retaguarda-finance-note" role="status">Registro financeiro salvo.</p>}
       {editing && canEdit && userId && (
         <FinanceForm key={`${range.start}:${range.end}:${editing === "new" ? "new" : editing.id}`}
-          accounts={accounts} latest={latest} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
+          accounts={accounts} latest={latest} entry={editing === "new" ? undefined : editing} lastDay={lastDay}
           onCancel={() => { setEditing(null); void queryClient.invalidateQueries({ queryKey: dataKey }); }}
           onSave={async (draft) => {
             await saveFinancialEntry(draft, userId);
@@ -109,8 +112,8 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   );
 }
 
-function FinancePanel({ platform, accounts, latest, lastDay, today, balancePending, balanceError, spend, spendError, spendPending }: {
-  platform: Channel; accounts: FinancialAccount[]; latest: FinancialEntry[]; lastDay: string; today: string;
+function FinancePanel({ platform, accounts, latest, today, balancePending, balanceError, spend, spendError, spendPending }: {
+  platform: Channel; accounts: FinancialAccount[]; latest: FinancialEntry[]; today: string;
   balancePending: boolean; balanceError: boolean;
   spend?: Awaited<ReturnType<typeof loadRetaguardaSpend>>; spendError: boolean; spendPending: boolean;
 }) {
@@ -131,10 +134,10 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
   const balanceNote = balancePending ? "Carregando saldos" : balanceError ? "Falha ao consultar o saldo" : "Saldo não informado";
   return (
     <Panel title={financePlatforms[platform]} description={summary.items.length
-      ? `${coverage} de ${summary.items.length} contas ativas com saldo no período`
+      ? `${coverage} de ${summary.items.length} contas ativas com saldo conhecido`
       : "Nenhuma conta ativa disponível"} noTilt>
       <div className="grid grid-2">
-        <Kpi label="Saldo disponível" value={summary.balance} format={money} accent={accent} icon={<Wallet size={16} />} hideDelta foot={summary.balance === null ? `${balanceNote} no resumo` : undefined} />
+        <Kpi label="Saldo disponível" value={summary.balance} format={money} accent={accent} icon={<Wallet size={16} />} hideDelta foot={summary.balance === null ? `${balanceNote} no resumo` : "Último saldo conhecido · independente do período"} />
         <Kpi label="Estimativa de gastos diários" value={estimate} format={money} accent={accent} icon={<CalendarDays size={16} />} hideDelta foot={estimateNote} />
       </div>
       {spend && <p className="retaguarda-finance-note">
@@ -143,7 +146,7 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
           : sync === "unavailable" ? " Status da sincronização indisponível." : ""}
       </p>}
       {autonomy !== null && <p className="retaguarda-finance-note">Autonomia estimada da plataforma <strong>{formatDays(autonomy)}</strong>. Projeção pelo ritmo observado.</p>}
-      {summary.date && <p className="retaguarda-finance-note">Referência do resumo em {displayDate(summary.date)}{summary.date < lastDay ? " · Desatualizado para o fim do período" : ""}.</p>}
+      {summary.date && <p className="retaguarda-finance-note">Referência do saldo conhecido em {displayDate(summary.date)}{items.some(item => !fresh(item.latest)) ? " · Medição desatualizada" : " · Medição recente"}.</p>}
       {summary.items.length > 1 && !summary.date && <p className="retaguarda-finance-note">O total por plataforma requer registros de todas as contas ativas com a mesma data de referência.</p>}
       {!!summary.items.length && (
         <ul className="retaguarda-accounts">
@@ -168,8 +171,8 @@ function FinancePanel({ platform, accounts, latest, lastDay, today, balancePendi
   );
 }
 
-function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave }: {
-  accounts: FinancialAccount[]; latest: FinancialEntry[]; entry?: FinancialEntry; range: DateRange; lastDay: string;
+function FinanceForm({ accounts, latest, entry, lastDay, onCancel, onSave }: {
+  accounts: FinancialAccount[]; latest: FinancialEntry[]; entry?: FinancialEntry; lastDay: string;
   onCancel: () => void; onSave: (draft: FinancialDraft) => Promise<void>;
 }) {
   const active = accounts.filter((account) => account.active);
@@ -195,8 +198,8 @@ function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave
     if (locked.current) return;
     if (!draft) {
       const parsedBalance = parseBrl(balance);
-      if (!selected || !date || date < range.start || date > lastDay || parsedBalance === null) {
-        setError("Selecione uma conta e uma data do período até hoje. Use valores em reais com até duas casas decimais, como 1.234,56.");
+      if (!selected || !date || date > lastDay || parsedBalance === null) {
+        setError("Selecione uma conta e uma data até hoje. Use valores em reais com até duas casas decimais, como 1.234,56.");
         return;
       }
       setError("");
@@ -237,7 +240,7 @@ function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave
               <option value="">Selecione uma conta</option>
               {choices.map((account) => <option key={account.account_id} value={account.account_id}>{financialAccountLabel(account)}</option>)}
             </select></Field>
-            <Field label="Data de referência"><input type="date" required min={range.start} max={lastDay} value={date} disabled={!!entry} onChange={(event) => setDate(event.target.value)} /></Field>
+            <Field label="Data de referência"><input type="date" required max={lastDay} value={date} disabled={!!entry} onChange={(event) => setDate(event.target.value)} /></Field>
             <Field label="Saldo disponível (BRL)"><input inputMode="decimal" required placeholder="0,00" value={balance} onChange={(event) => setBalance(event.target.value)} /></Field>
           </div>
         )}

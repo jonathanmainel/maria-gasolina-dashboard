@@ -49,4 +49,20 @@ describe("financeiro da Retaguarda", () => {
     expect(platformFinancialSummary([account], [{ ...entry, origin: "import", estimated_daily_spend_brl: null }], "meta_ads"))
       .toMatchObject({ balance: 0 });
   });
+
+  it("usa o último saldo conhecido sem transformar uma estimativa importada em saldo", () => {
+    const estimateOnly = { ...entry, id: "estimate-only", reference_date: "2026-11-17", available_balance_brl: null };
+    expect(platformFinancialSummary([account], [estimateOnly, entry], "meta_ads"))
+      .toMatchObject({ balance: 0, date: entry.reference_date, items: [{ latest: entry }] });
+  });
+
+  it("resolve correções antes do saldo atual e não ressuscita uma versão substituída", () => {
+    const correction = { ...entry, id: "correction", previous_id: entry.id, available_balance_brl: 42 };
+    const olderCorrection = { ...entry, id: "older-date", reference_date: "2026-11-14", created_at: "2026-11-18T10:00:00Z", available_balance_brl: 999 };
+    const current = financialDays([entry, olderCorrection, correction]).map(day => day.current);
+    expect(platformFinancialSummary([account], current, "meta_ads")).toMatchObject({ balance: 42 });
+    const removedBalance = { ...correction, available_balance_brl: null, origin: "import" as const };
+    expect(platformFinancialSummary([account], financialDays([entry, removedBalance]).map(day => day.current), "meta_ads"))
+      .toMatchObject({ balance: null, items: [{ latest: undefined }] });
+  });
 });

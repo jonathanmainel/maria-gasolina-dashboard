@@ -1,5 +1,6 @@
 import { CLIENT_SLUG, fetchAllRows, getClientId, isDemoMode } from "./api";
 import { supabase } from "./supabase";
+import { reportingToday } from "./reporting-period";
 import type { Channel, DateRange } from "../types";
 export { parseBrl } from "./brl";
 
@@ -67,7 +68,7 @@ export function financialDays(entries: FinancialEntry[]) {
 export function platformFinancialSummary(accounts: FinancialAccount[], current: FinancialEntry[], platform: Channel) {
   const latestByAccount = new Map<string, FinancialEntry>();
   for (const entry of current) {
-    if (entry.platform !== platform) continue;
+    if (entry.platform !== platform || entry.available_balance_brl === null) continue;
     const previous = latestByAccount.get(entry.account_id);
     if (!previous || previous.reference_date < entry.reference_date) latestByAccount.set(entry.account_id, entry);
   }
@@ -89,11 +90,16 @@ export async function loadFinancialAccounts(): Promise<FinancialAccount[]> {
   return data ?? [];
 }
 
-export async function loadFinancialEntries(range: DateRange): Promise<FinancialEntry[]> {
+export async function loadFinancialEntries(range?: DateRange): Promise<FinancialEntry[]> {
   if (isDemoMode) return [];
   const clientId = await getClientId();
-  return fetchAllRows<FinancialEntry>(table, columns, (query) => query.eq("client_id", clientId)
-    .gte("reference_date", range.start).lte("reference_date", range.end).order("created_at").order("id"));
+  return fetchAllRows<FinancialEntry>(table, columns, (query) => {
+    const scoped = query.eq("client_id", clientId);
+    // One cached, paginated read supplies current balances and the filtered history.
+    // Resolve correction chains before selecting the last known balance.
+    return (range ? scoped.gte("reference_date", range.start).lte("reference_date", range.end)
+      : scoped.lte("reference_date", reportingToday())).order("created_at").order("id");
+  });
 }
 
 export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: string): Promise<void> {

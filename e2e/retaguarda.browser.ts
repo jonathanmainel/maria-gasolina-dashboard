@@ -138,8 +138,10 @@ async function prepare(page: Page, options: {
       const key = url.searchParams.get("request_key")?.slice(3);
       return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.request_key === key) });
     }
-    const [from, to] = url.searchParams.getAll("reference_date").map((value) => value.slice(4));
-    return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.reference_date >= from && entry.reference_date <= to) });
+    const dates = url.searchParams.getAll("reference_date");
+    const from = dates.find(value => value.startsWith("gte."))?.slice(4);
+    const to = dates.find(value => value.startsWith("lte."))!.slice(4);
+    return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => (!from || entry.reference_date >= from) && entry.reference_date <= to) });
   });
   return { reads, audit, financialWrites, financialCalls };
 }
@@ -209,6 +211,7 @@ test("editor registra zero, corrige e consulta a versão anterior", async ({ pag
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
   await form.getByLabel("Plataforma").selectOption("meta_ads");
+  await form.getByLabel("Data de referência").fill(day);
   await form.getByLabel("Saldo disponível (BRL)").fill("0,000");
   await expect(form.getByLabel("Estimativa de gastos diários (BRL)")).toHaveCount(0);
   await form.getByRole("button", { name: "Revisar registro" }).click();
@@ -281,6 +284,7 @@ test("duplo clique após confirmar e resposta perdida geram um único lançament
   await page.goto(dashboard);
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
+  await form.getByLabel("Data de referência").fill(day);
   await form.getByLabel("Saldo disponível (BRL)").fill("12,34");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).evaluate((button: HTMLButtonElement) => {
@@ -290,6 +294,31 @@ test("duplo clique após confirmar e resposta perdida geram um único lançament
   await expect(page.getByText("Registro financeiro salvo.")).toBeVisible();
   await expect(finances(page)).toContainText("12,34");
   expect(financialWrites).toHaveLength(1);
+});
+
+test("saldo atual independe do período e permite registro de hoje com histórico filtrado", async ({ page }) => {
+  const { financialCalls, financialWrites } = await prepare(page, { finance: true, seedFinance: true, spendMode: "complete", role: "editor" });
+  await page.goto(dashboard);
+  const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
+  const meta = finance.locator(".panel").filter({ has: page.getByRole("heading", { name: "Meta Ads", exact: true }) });
+  await expect(meta.getByText("Último saldo conhecido · independente do período")).toBeVisible();
+  await expect(finances(page)).toContainText("0,00");
+  const calls = financialCalls.length;
+  await changePeriod(page, previousDay, previousDay);
+  await expect(finance.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  await expect(meta.getByText(/Saldo R\$\s*0,00/)).toBeVisible();
+  await expect(meta.getByText(/7 de 7 dias em BRL/)).toBeVisible();
+  expect(financialCalls.length).toBe(calls);
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
+  const form = page.getByRole("form", { name: "Registro financeiro" });
+  await expect(form.getByLabel("Data de referência")).toHaveValue("2026-11-17");
+  await form.getByLabel("Saldo disponível (BRL)").fill("100,00");
+  await form.getByRole("button", { name: "Revisar registro" }).click();
+  await form.getByRole("button", { name: "Confirmar e salvar" }).click();
+  await expect(meta.getByText(/Saldo R\$\s*100,00/)).toBeVisible();
+  await expect(finance.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  expect(financialWrites).toHaveLength(1);
+  expect(financialWrites[0].reference_date).toBe("2026-11-17");
 });
 
 for (const [writeMode, message] of [["conflict", "O histórico mudou"], ["expired", "Sua sessão expirou ou mudou"]] as const) {
