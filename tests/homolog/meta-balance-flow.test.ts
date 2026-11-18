@@ -33,7 +33,7 @@ describe.skipIf(!container)("SQL scheduler → actual shared handler → immutab
     expect(body.account_id).toBe(account); expect(body.client_slug).toBe("maria-gasolina");
     expect(sql("select count(*) from private.retaguarda_balance_runs where claimed_at is null and client_id=1")).toBe("1");
     const fetcher = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ id: `act_${account}`, account_id: account, currency: "BRL", is_prepay_account: true,
-      funding_source_details: { type: 20, display_string: "Saldo disponível (R$ 123,45)" } })));
+      funding_source_details: { type: 20, display_string: "Saldo disponível (R$123,45 BRL)" } })));
     const literal = (value: unknown) => value === null ? "null" : `'${String(value).replaceAll("'", "''")}'`;
     const deps: BalanceDependencies = { mode: "scheduled", enabled: true, accountId: account, clientSlug: "maria-gasolina",
       getUser: vi.fn().mockResolvedValue({ id: author }),
@@ -54,6 +54,7 @@ describe.skipIf(!container)("SQL scheduler → actual shared handler → immutab
     const manual = await handleMetaBalance(request({ ...body, request_key: randomUUID() }), deps);
     expect(manual.status).toBe(200); expect(fetcher).toHaveBeenCalledTimes(2);
     expect(sql("select count(*) from public.dashboard_retaguarda_financial_entries where client_id=1")).toBe("2");
+    expect(sql("select count(*) from public.dashboard_retaguarda_financial_entries where client_id=1 and source_key like 'meta-stored-balance-pt-br-v2:%'")).toBe("2");
     expect(sql("select count(*) from public.dashboard_retaguarda_financial_entries where client_id=1 and previous_id is not null")).toBe("1");
     expect(sql(`select count(*) from public.dashboard_retaguarda_financial_entries where created_by='${author}'`)).toBe("1");
     sql(readFileSync("supabase/operations/retaguarda-meta-hourly-disable.sql", "utf8"));

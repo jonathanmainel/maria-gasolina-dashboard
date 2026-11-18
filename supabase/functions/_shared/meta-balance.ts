@@ -3,11 +3,13 @@ export class BalanceError extends Error {
   constructor(public readonly code: string) { super(code); }
 }
 
+export const META_BALANCE_PARSER_VERSION = "meta-stored-balance-pt-br-v2";
+
 export interface BalanceMeasurement {
   amount: string;
   measuredAt: string;
   currency: "BRL";
-  parser: "meta-stored-balance-pt-br-v1";
+  parser: typeof META_BALANCE_PARSER_VERSION;
 }
 
 export function parseMetaAvailableFunds(payload: unknown, accountId: string): string {
@@ -18,11 +20,12 @@ export function parseMetaAvailableFunds(payload: unknown, accountId: string): st
   if (data.is_prepay_account !== true) throw new BalanceError("META_NOT_PREPAID");
   const funding = data.funding_source_details as Record<string, unknown> | null;
   if (!funding || funding.type !== 20) throw new BalanceError("META_FUNDING_UNSUPPORTED");
-  // Provisional sanitized fixture contract: activation requires confirmation of
-  // this exact display format with the real backend credential. No fuzzy parsing.
+  // Exact shape observed by the authorized read-only diagnostic on 2026-11-18.
+  // Normalized amount still needs a second authorized read and billing UI comparison.
   const match = typeof funding.display_string === "string"
-    ? /^Saldo disponível \(R\$[ \u00a0]((?:0|[1-9]\d{0,2}(?:\.\d{3})*|[1-9]\d*)),(\d{2})\)$/.exec(funding.display_string) : null;
-  if (!match) throw new BalanceError("META_BALANCE_FORMAT_UNSUPPORTED");
+    ? /^Saldo disponível \(R\$((?:0|[1-9]\d{0,2}(?:\.\d{3})+|[1-9]\d*)),(\d{2}) BRL\)$/.exec(funding.display_string) : null;
+  // JS `$` also matches before a final newline; require the entire original string.
+  if (!match || match[0] !== funding.display_string) throw new BalanceError("META_BALANCE_FORMAT_UNSUPPORTED");
   const integer = match[1].replaceAll(".", "");
   if (integer.length > 12) throw new BalanceError("META_BALANCE_OUT_OF_RANGE");
   return `${integer}.${match[2]}`;
@@ -71,5 +74,5 @@ export async function readMetaFundingResponse(options: {
 export async function readMetaAvailableFunds(options: Parameters<typeof readMetaFundingResponse>[0]): Promise<BalanceMeasurement> {
   const { payload, measuredAt } = await readMetaFundingResponse(options);
   const amount = parseMetaAvailableFunds(payload, options.accountId);
-  return { amount, currency: "BRL", measuredAt, parser: "meta-stored-balance-pt-br-v1" };
+  return { amount, currency: "BRL", measuredAt, parser: META_BALANCE_PARSER_VERSION };
 }

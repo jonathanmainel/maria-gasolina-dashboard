@@ -1,4 +1,4 @@
-import { BalanceError, parseMetaAvailableFunds } from "./meta-balance.ts";
+import { BalanceError, META_BALANCE_PARSER_VERSION, parseMetaAvailableFunds } from "./meta-balance.ts";
 import { META_BALANCE_ACCOUNT_ID } from "./meta-balance-config.ts";
 
 /** No raw display string: preserve only known labels and formatting punctuation. */
@@ -56,7 +56,7 @@ export function createMetaBalanceDiagnostic(deps: DiagnosticDependencies) {
       try { amount = parseMetaAvailableFunds(payload, META_BALANCE_ACCOUNT_ID); }
       catch (error) { parserError = error instanceof BalanceError ? error.code : "META_INVALID_RESPONSE"; }
       return reply({ account_id: META_BALANCE_ACCOUNT_ID, currency: "BRL", is_prepay_account: true, funding_type: 20,
-        measured_at: measuredAt, display_shape: fundingDisplayShape(funding.display_string), parser_accepted: amount !== null,
+        measured_at: measuredAt, display_shape: fundingDisplayShape(funding.display_string), parser: META_BALANCE_PARSER_VERSION, parser_accepted: amount !== null,
         available_balance_brl: amount, error_code: parserError, database_write_performed: false });
     } catch (error) { return reply({ error_code: error instanceof BalanceError ? error.code : "META_API_FAILED", database_write_performed: false }, 502); }
   };

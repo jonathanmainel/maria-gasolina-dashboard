@@ -124,7 +124,7 @@ begin
       insert into public.dashboard_retaguarda_financial_entries(client_id,platform,account_id,reference_date,measured_at,
         available_balance_brl,estimated_daily_spend_brl,origin,created_by,previous_id,request_key,source_key)
         values(v_run.client_id,'meta_ads',v_run.account_id,v_run.reference_date,p_measured_at,p_amount,null,'api',v_run.requested_by,
-          v_run.previous_id,v_run.request_key,'meta-stored-balance-pt-br-v1:'||v_run.id) returning id into v_entry;
+          v_run.previous_id,v_run.request_key,'meta-stored-balance-pt-br-v2:'||v_run.id) returning id into v_entry;
     exception when unique_violation then v_code:='BALANCE_HISTORY_CHANGED'; end;
   end if;
   v_state:=case when v_code is null then 'success' else 'conflict' end;

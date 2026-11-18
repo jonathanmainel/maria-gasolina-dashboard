@@ -4,11 +4,14 @@
 
 Branch `codex/retaguarda-meta-integracao`, baseada na main do PR #25. Reaproveita PR #27
 e preserva as funcionalidades de saldo atual do PR #26. PRs originais/heads preservados.
-Não houve deploy, migration, ativação de flags/cron, alteração de secrets ou escrita
-financeira em produção. **Código pronto para homologação não é fonte homologada.**
+Automação definitiva sem migration, deploy, ativação de flags/cron ou escrita financeira
+em produção. A única intervenção autorizada foi o diagnóstico temporário descrito abaixo,
+já removido e desativado. **Código pronto para homologação não é fonte homologada.**
 
-Token real, permissões, formato de `display_string` e correspondência com Fundos
-disponíveis permanecem pendentes. Credencial não foi recuperada; fixtures são sintéticas.
+A primeira leitura real confirmou credencial, conta, BRL, prepay e type=20, mas o parser
+v1 rejeitou o formato. O parser v2 foi corrigido em desenvolvimento; sua aceitação real e
+a correspondência numérica com Fundos disponíveis permanecem pendentes. Credencial
+não foi recuperada; fixtures contêm valores sintéticos no formato sanitizado observado.
 Escopo fixo: projeto `hlqrpreqvvxtkruwsolg`, cliente `maria-gasolina`/ID 1 no executor,
 conta `1063721474298569`. Não altera coletores nem jobs de campanhas.
 
@@ -21,9 +24,11 @@ conta `1063721474298569`. Não altera coletores nem jobs de campanhas.
   header, sem redirects/retry/log bruto, timeout 15 s e resposta máxima 32 KiB.
 - Valida identidade, BRL, prepay=true e type=20. Não usa balance, orçamento, limite,
   gasto acumulado ou campos de cupons como crédito disponível.
-- Parser provisório aceita estritamente `Saldo disponível (R$ 1.234,56)`, com agrupamento
-  válido e duas casas. Este é contrato **sintético**. Formato desconhecido é rejeitado,
-  sem extrair qualquer número da resposta. Zero explícito válido; ausência não vira zero.
+- Parser `meta-stored-balance-pt-br-v2` aceita estritamente o formato observado
+  `Saldo disponível (R$#.###,## BRL)`: sem espaço após R$, com sufixo literal BRL,
+  duas casas decimais e agrupamento brasileiro válido ou inteiro sem agrupamento.
+  Zero explícito é válido; ausência não vira zero. Limite preservado: 999999999999,99.
+  Não aceita espaços extras, quebras de linha, formato antigo ou extração genérica de números.
 - `META_BALANCE_ENABLED` e `META_BALANCE_FORMAT_VALIDATED` ficam false até prova real.
   Formato diferente exige revisão somente do contrato/parser e testes antes de ativar.
 
@@ -63,9 +68,9 @@ antes da homologação ou em falha de estado. Bloqueio manual explica efeito no 
 Polling só na Retaguarda: 60 s normal, 3 s em execução. Sucesso atualiza cards/histórico
 sem reload; uma falha não elimina última medição.
 
-## Diagnóstico temporário, ainda não publicado
+## Diagnóstico temporário — removido após o primeiro teste
 
-`diagnose-meta-balance` usa o mesmo segredo já disponível no runtime; não modifica
+O código de `diagnose-meta-balance` usa o mesmo segredo já disponível no runtime; não modifica
 sync-meta-ads nem devolve/extrai tokens. POST vazio/{} (máximo 64 bytes), conta/projeto
 fixos, um GET, sem SQL, logger, retries ou gravações.
 
@@ -84,7 +89,51 @@ e máscara do formato. Dígitos viram #, textos desconhecidos ?, apenas rótulos
 e pontuação são preservados. Sem display_string bruto, detalhes de pagamento ou token.
 Valor normalizado continua privado; não publicar resposta financeira em PR aberto.
 
-### Procedimento da consulta real — exige autorização específica
+### Primeira consulta real — 18/11/2026
+
+Uma invocação operacional autenticada pelo painel oficial, medida às 19:22:58 UTC
+(16:22:58 de Brasília), confirmou conta 1063721474298569, BRL, prepay=true e type=20.
+Máscara retornada: `{AVAILABLE_PT} ({BRL_SYMBOL}#.###,## {BRL_CODE})`.
+Parser v1 recusou com META_BALANCE_FORMAT_UNSUPPORTED; nenhum valor foi normalizado,
+nenhuma correspondência com faturamento foi declarada e nenhuma linha financeira foi gravada.
+Resposta bruta, credenciais e valores privados não foram incluídos no repositório/PR.
+
+O diagnóstico foi removido; endpoint HEAD retornou 404, flag diagnóstica=false e
+expiração encerrada. Credenciais Meta preservadas por comparação dos digests.
+As seis funções existentes mantiveram seus hashes de código; versões de execução
+avançaram duas posições durante a configuração/desativação dos controles do projeto.
+
+### Correção v2 e segunda consulta — preparada, NÃO autorizada nem executada
+
+A v1 esperava espaço após R$ e omitia BRL. A v2 reconhece apenas o contrato observado;
+exemplos de teste como `Saldo disponível (R$1.234,56 BRL)` são **valores fictícios**,
+não o saldo da conta. Mantém identidade, moeda, prepay, type=20, precisão e limites.
+Diagnóstico agora identifica `parser=meta-stored-balance-pt-br-v2`, além de aceitação,
+valor normalizado e máscara sanitizada. Erro continua sem saldo e sem gravação.
+
+Novas medições terão source_key `meta-stored-balance-pt-br-v2:<run_id>`. A proposta de
+migration 20261118150949, ainda não aplicada, foi atualizada somente nesse prefixo;
+nenhuma migration aplicada ou registro anterior foi alterado. Chaves/versões antigas
+continuam preservadas. Rever checksum antes de qualquer futura aplicação.
+
+Validação da correção: 101 testes financeiros aprovados; backend completo com 387
+aprovados e 2 ignorados fora do harness; TypeScript e Deno check dos três entrypoints
+aprovados. PostgreSQL 17 isolado confirmou source_key v2 no fluxo real de gravação
+com Graph sintética, replay, concorrência e preservação do saldo manual. CI do novo
+commit é acompanhado no PR #28; não reutilizar o resultado do commit anterior.
+
+Para a segunda consulta, obter **nova autorização explícita**, com uma invocação somente
+leitura e comparação próxima na interface da mesma conta. Não reutilizar a autorização
+da primeira execução, criar flags ativas ou publicar função antecipadamente. Manter
+META_BALANCE_ENABLED/FORMAT_VALIDATED/SCHEDULE_ENABLED desligados e Cron inativo.
+
+Critério de aprovação: HTTP autenticado válido, conta/BRL/prepay/type corretos,
+parser v2 aceito, amount decimal normalizado e comparação documentada com Fundos
+disponíveis em horário próximo. Registrar horário financeiro e horário da conferência
+separadamente em evidência privada. Rejeição, diferença ou falta de acesso à interface
+mantém homologação pendente. Não registrar o valor em PR público nem gravar no Supabase.
+
+### Procedimento da segunda consulta real — exige nova autorização específica
 
 1. Autorizar publicação temporária e uma consulta da função no projeto/conta exatos.
    Manter flags financeiras e Cron desligados.
@@ -98,7 +147,7 @@ Valor normalizado continua privado; não publicar resposta financeira em PR aber
    com segurança, usar executor administrativo previamente autorizado. Se inexistente,
    parar a consulta real até disponibilizá-lo; sessão do painel sozinha não comprova invocador.
 5. Registrar evidência privada de conta/BRL/prepay/type, máscara e horário; comparar
-   valor aceito com Fundos disponíveis em horário próximo. Formato rejeitado não habilita
+   valor aceito e parser v2 com Fundos disponíveis em horário próximo. Formato rejeitado não habilita
    gravações. Se a máscara não permitir confirmar o contrato, obter evidência sanitizada
    autorizada, sem ampliar retorno bruto nem flexibilizar regex genericamente.
 6. Desligar flag diagnóstica, remover somente essa função e conferir rota indisponível.

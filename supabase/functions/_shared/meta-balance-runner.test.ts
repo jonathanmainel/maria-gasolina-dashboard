@@ -10,7 +10,7 @@ beforeEach(() => {
   deps = { mode: "manual", enabled: true, accountId: body.account_id, clientSlug: body.client_slug, getUser: vi.fn().mockResolvedValue({ id: "verified-author" }),
     rpc: vi.fn().mockImplementation(name => Promise.resolve({ data: name.startsWith("reserve") || name.startsWith("claim") ? { state: "accepted", run_id: "run" }
       : { state: "success", entry_id: "saved" }, error: null })),
-    collect: vi.fn().mockResolvedValue({ amount: "0.00", currency: "BRL", measuredAt: "2026-11-18T15:00:00Z", parser: "meta-stored-balance-pt-br-v1" }) };
+    collect: vi.fn().mockResolvedValue({ amount: "0.00", currency: "BRL", measuredAt: "2026-11-18T15:00:00Z", parser: "meta-stored-balance-pt-br-v2" }) };
 });
 describe("independent authenticated balance collection", () => {
   it("answers preflight without collection and rejects other methods", async () => {

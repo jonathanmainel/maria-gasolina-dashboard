@@ -5,15 +5,25 @@ import { BalanceError } from "./meta-balance.ts";
 const time = new Date("2026-11-18T18:00:00Z");
 let deps: DiagnosticDependencies;
 const req = (body = "{}", method = "POST") => new Request("https://local.invalid/probe", { method, ...(method === "POST" ? { body } : {}) });
-const fixture = (display = "Saldo disponível (R$ 123,45)") => ({ id: `act_${id}`, account_id: id, currency: "BRL", is_prepay_account: true,
+const fixture = (display = "Saldo disponível (R$1.234,56 BRL)") => ({ id: `act_${id}`, account_id: id, currency: "BRL", is_prepay_account: true,
   funding_source_details: { type: 20, display_string: display, private_payment_id: "PRIVATE" }, balance: "PRIVATE" });
 beforeEach(() => { deps = { authorize: vi.fn().mockResolvedValue(true), enabled: true, expiresAt: "2026-11-18T18:10:00Z", now: () => time,
   read: vi.fn().mockResolvedValue({ payload: fixture(), measuredAt: time.toISOString() }) }; });
 describe("bounded read-only administrative diagnostic", () => {
   it("returns only validated normalized funds and sanitized shape", async () => {
     const result = await createMetaBalanceDiagnostic(deps)(req()); const json = await result.json();
-    expect(json).toMatchObject({ account_id: id, available_balance_brl: "123.45", parser_accepted: true, database_write_performed: false });
-    expect(JSON.stringify(json)).not.toContain("PRIVATE"); expect(json.display_shape).toBe("{AVAILABLE_PT} ({BRL_SYMBOL} ###,##)");
+    expect(json).toMatchObject({ account_id: id, available_balance_brl: "1234.56", parser: "meta-stored-balance-pt-br-v2", parser_accepted: true, database_write_performed: false });
+    expect(JSON.stringify(json)).not.toContain("PRIVATE"); expect(json.display_shape).toBe("{AVAILABLE_PT} ({BRL_SYMBOL}#.###,## {BRL_CODE})");
+  });
+  it("returns a legitimate normalized zero without treating it as missing", async () => {
+    vi.mocked(deps.read).mockResolvedValue({ payload: fixture("Saldo disponível (R$0,00 BRL)"), measuredAt: time.toISOString() });
+    const json = await (await createMetaBalanceDiagnostic(deps)(req())).json();
+    expect(json).toMatchObject({ available_balance_brl: "0.00", parser_accepted: true, parser: "meta-stored-balance-pt-br-v2", error_code: null });
+  });
+  it("keeps the old synthetic format rejected, without a monetary fallback", async () => {
+    vi.mocked(deps.read).mockResolvedValue({ payload: fixture("Saldo disponível (R$ 123,45)"), measuredAt: time.toISOString() });
+    const json = await (await createMetaBalanceDiagnostic(deps)(req())).json();
+    expect(json).toMatchObject({ available_balance_brl: null, parser_accepted: false, error_code: "META_BALANCE_FORMAT_UNSUPPORTED", database_write_performed: false });
   });
   it("masks unknown text and never treats its number as confirmed funds", async () => {
     vi.mocked(deps.read).mockResolvedValue({ payload: fixture("SensitivePerson card 1234 email@test.invalid R$ 123,45"), measuredAt: time.toISOString() });
