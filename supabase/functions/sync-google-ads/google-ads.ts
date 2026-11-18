@@ -8,7 +8,7 @@ export type GoogleAdsMetrics = {
 };
 
 export type GoogleAdsRow = {
-  customer?: { id?: string };
+  customer?: { id?: string; currencyCode?: string };
   segments?: { date?: string };
   metrics?: GoogleAdsMetrics;
   campaign?: {
@@ -130,6 +130,7 @@ export function buildGoogleAdsQueries(startDate: string, endDate: string) {
     daily: `
       SELECT
         customer.id,
+        customer.currency_code,
         segments.date,
         ${metrics}
       FROM customer
@@ -416,9 +417,12 @@ export function normalizeGoogleAdsData(raw: GoogleAdsRawData) {
       account_id: row.customer?.id ?? null,
       metric_date: row.segments?.date ?? null,
       ...metricValues(row),
+      spend: row.metrics?.costMicros?.trim() && Number.isFinite(Number(row.metrics.costMicros))
+        ? microsToUnits(row.metrics.costMicros)
+        : null,
       reach: null,
       link_clicks: null,
-      extra_metrics: {},
+      extra_metrics: row.customer?.currencyCode ? { currency_code: row.customer.currencyCode } : {},
       source_updated_at: null,
     })),
     (row) => `${row.account_id ?? ""}|${row.metric_date ?? ""}`,

@@ -38,12 +38,21 @@ begin
     raise exception 'Manual author, measurement or exact monetary amount was lost';
   end if;
   insert into public.dashboard_retaguarda_financial_entries
-    (client_id, platform, account_id, reference_date, available_balance_brl, estimated_daily_spend_brl, previous_id)
-  values (99000001, 'meta_ads', 'test-meta', date '2026-01-01', 22.41, 99.50, original)
+    (client_id, platform, account_id, reference_date, available_balance_brl, previous_id)
+  values (99000001, 'meta_ads', 'test-meta', date '2026-01-01', 22.41, original)
   returning id into correction;
-  if (select count(*) from public.dashboard_retaguarda_financial_entries where id in (original, correction)) <> 2 then
-    raise exception 'Previous version was lost';
+  if not exists (select 1 from public.dashboard_retaguarda_financial_entries where id = original and estimated_daily_spend_brl = 1000.99)
+    or not exists (select 1 from public.dashboard_retaguarda_financial_entries where id = correction
+      and available_balance_brl = 22.41 and estimated_daily_spend_brl is null and previous_id = original) then
+    raise exception 'Balance-only correction or previous estimate was lost';
   end if;
+  begin
+    insert into public.dashboard_retaguarda_financial_entries
+      (client_id, platform, account_id, reference_date, estimated_daily_spend_brl)
+    values (99000001, 'meta_ads', 'test-meta', date '2026-01-02', 1);
+    raise exception 'An estimate without a balance was accepted for manual entry';
+  exception when check_violation then null;
+  end;
   begin
     insert into public.dashboard_retaguarda_financial_entries
       (client_id, platform, account_id, reference_date, available_balance_brl, estimated_daily_spend_brl, previous_id)
@@ -97,8 +106,8 @@ begin
   end if;
   begin
     insert into public.dashboard_retaguarda_financial_entries
-      (client_id, platform, account_id, reference_date, available_balance_brl, estimated_daily_spend_brl)
-    values (99000001, 'meta_ads', 'test-meta', date '2026-01-02', 1, 1);
+      (client_id, platform, account_id, reference_date, available_balance_brl)
+    values (99000001, 'meta_ads', 'test-meta', date '2026-01-02', 1);
     raise exception 'Viewer wrote a financial record';
   exception when insufficient_privilege then null;
   end;
@@ -119,8 +128,12 @@ begin
   exception when insufficient_privilege then null;
   end;
   insert into public.dashboard_retaguarda_financial_entries
-    (client_id, platform, account_id, reference_date, available_balance_brl, estimated_daily_spend_brl)
-  values (99000002, 'meta_ads', 'test-other', date '2026-01-02', 1, 1);
+    (client_id, platform, account_id, reference_date, available_balance_brl)
+  values (99000002, 'meta_ads', 'test-other', date '2026-01-02', 0);
+  if not exists (select 1 from public.dashboard_retaguarda_financial_entries
+    where client_id = 99000002 and available_balance_brl = 0 and estimated_daily_spend_brl is null) then
+    raise exception 'Admin balance-only zero was lost';
+  end if;
 end;
 $$;
 

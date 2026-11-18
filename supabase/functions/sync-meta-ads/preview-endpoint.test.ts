@@ -65,6 +65,24 @@ describe("selective endpoint retains the integrated collector guards", () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(mocks.enrich).not.toHaveBeenCalled();
   });
+  it("carrega a moeda da conta na normalização diária e preserva zero e gasto ausente", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL) => {
+      const url = new URL(input);
+      if (!url.pathname.endsWith("/insights")) return Response.json({ currency: "BRL" });
+      if (url.searchParams.get("level") !== "account") return Response.json({ data: [] });
+      return Response.json({ data: [
+        { account_id: "123", date_start: "2026-10-01", spend: "0" },
+        { account_id: "123", date_start: "2026-10-02" },
+      ] });
+    }));
+    const { json, response, rpc } = await call({ ...body, preview_ad_ids: undefined });
+    expect(response.status).toBe(200);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(json.normalized_preview.daily_rows).toMatchObject([
+      { spend: 0, extra_metrics: { currency_code: "BRL" } },
+      { spend: null, extra_metrics: { currency_code: "BRL" } },
+    ]);
+  });
   it("does not authorize preview writes without a reservation", async () => {
     const { response, json } = await call({ ...body, dry_run: false });
     expect(response.status).toBe(409);

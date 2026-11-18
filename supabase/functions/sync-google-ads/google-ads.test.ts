@@ -49,6 +49,18 @@ describe("Google Ads ingestion helpers", () => {
     );
     expect(queries.pmaxAssets).toContain("metrics.cost_micros");
     expect(queries.pmaxAssetMetadata).not.toContain("metrics.cost_micros");
+    expect(queries.daily).toContain("customer.currency_code");
+  });
+
+  it("persiste a moeda da conta e separa custo zero de custo ausente", () => {
+    const raw = emptyRawData();
+    const customer = { id: "12345", currencyCode: "USD" };
+    raw.daily.push({ customer, segments: { date: "2026-09-01" }, metrics: { costMicros: "0" } });
+    raw.daily.push({ customer, segments: { date: "2026-09-02" }, metrics: {} });
+    expect(normalizeGoogleAdsData(raw).daily).toMatchObject([
+      { spend: 0, extra_metrics: { currency_code: "USD" } },
+      { spend: null, extra_metrics: { currency_code: "USD" } },
+    ]);
   });
 
   it("normalizes all domains without inventing reach or ad names", () => {

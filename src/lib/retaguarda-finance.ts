@@ -29,7 +29,6 @@ export interface FinancialDraft {
   account_id: string;
   reference_date: string;
   available_balance_brl: string;
-  estimated_daily_spend_brl: string;
   previous_id: string | null;
   request_key: string;
 }
@@ -76,12 +75,10 @@ export function platformFinancialSummary(accounts: FinancialAccount[], current: 
     .map((account) => ({ account, latest: latestByAccount.get(account.account_id) }));
   const date = items[0]?.latest?.reference_date;
   const aligned = Boolean(date && items.every(({ latest }) => latest?.reference_date === date));
-  const sum = (field: "available_balance_brl" | "estimated_daily_spend_brl") => {
-    if (!aligned || items.some(({ latest }) => latest?.[field] == null)) return null;
-    const cents = items.reduce((total, { latest }) => total + Math.round(latest![field]! * 100), 0);
-    return Number.isSafeInteger(cents) ? cents / 100 : null;
-  };
-  return { items, date: aligned ? date : undefined, balance: sum("available_balance_brl"), estimate: sum("estimated_daily_spend_brl") };
+  const balances = items.map(({ latest }) => latest?.available_balance_brl);
+  const cents = balances.reduce<number>((total, balance) => total + Math.round((balance ?? 0) * 100), 0);
+  const balance = aligned && balances.every(value => value != null) && Number.isSafeInteger(cents) ? cents / 100 : null;
+  return { items, date: aligned ? date : undefined, balance };
 }
 
 export async function loadFinancialAccounts(): Promise<FinancialAccount[]> {
@@ -106,7 +103,7 @@ export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: st
   if (sessionError || !session || session.user.id !== expectedUser) throw new Error(sessionMessage);
   const clientId = await getClientId();
   const authorization = `Bearer ${session.access_token}`;
-  const { data, error, status } = await supabase.from(table).insert({ ...draft, client_id: clientId })
+  const { data, error, status } = await supabase.from(table).insert({ ...draft, client_id: clientId, estimated_daily_spend_brl: null })
     .select("id,created_by").single().setHeader("Authorization", authorization);
   if (!error && data?.id && data.created_by === expectedUser) return;
   if (status === 401) throw new Error(sessionMessage);
@@ -120,7 +117,7 @@ export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: st
     && existing.platform === draft.platform && existing.account_id === draft.account_id
     && existing.reference_date === draft.reference_date && existing.previous_id === draft.previous_id
     && existing.available_balance_brl === Number(draft.available_balance_brl)
-    && existing.estimated_daily_spend_brl === Number(draft.estimated_daily_spend_brl)) return;
+    && existing.estimated_daily_spend_brl === null) return;
 
   if (lookupStatus === 401) throw new Error(sessionMessage);
   if (existing) throw new Error("Este identificador já pertence a outro registro. Cancele e revise o histórico antes de enviar novamente.");
