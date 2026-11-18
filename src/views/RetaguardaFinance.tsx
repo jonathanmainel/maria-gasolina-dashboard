@@ -15,7 +15,7 @@ import { reportingToday } from "../lib/reporting-period";
 import { consolidateSpend, estimateAutonomy, hasRecentBalance, loadRetaguardaSpend, spendWindow, summarizeAccountSpend } from "../lib/retaguarda-spend";
 import {
   financeOrigins, financePlatforms, financeQueryKey, financialAccountKey, financialAccountLabel, financialDays,
-  loadFinancialAccounts, loadFinancialEntries, parseBrl, platformFinancialSummary, saveFinancialEntry,
+  loadFinancialAccounts, loadFinancialDayEntries, loadFinancialEntries, parseBrl, platformFinancialSummary, saveFinancialEntry,
   type FinancialAccount, type FinancialDraft, type FinancialEntry,
 } from "../lib/retaguarda-finance";
 import type { Channel, DateRange } from "../types";
@@ -61,8 +61,8 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
   const canEdit = enabled && !readOnly && access.isSuccess && access.data.canEdit && access.data.userId === userId
     && entries.isSuccess && accountQuery.isSuccess;
   const today = spend.data?.today ?? reportingToday();
-  const lastDay = [range.end, today].sort()[0];
-  const canCreate = canEdit && accounts.some((account) => account.active) && range.start <= lastDay;
+  const lastDay = today;
+  const canCreate = canEdit && accounts.some((account) => account.active);
   function edit(entry: FinancialEntry | "new") {
     setSaved(false);
     setEditing(entry);
@@ -98,7 +98,7 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
       {saved && <p className="retaguarda-finance-note" role="status">Registro financeiro salvo.</p>}
       {editing && canEdit && userId && (
         <FinanceForm key={`${range.start}:${range.end}:${editing === "new" ? "new" : editing.id}`}
-          accounts={accounts} latest={historyLatest} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
+          accounts={accounts} latest={historyLatest} userId={userId} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
           onCancel={() => { setEditing(null); void queryClient.invalidateQueries({ queryKey: dataKey }); }}
           onSave={async (draft) => {
             await saveFinancialEntry(draft, userId);
@@ -180,8 +180,8 @@ function FinancePanel({ platform, accounts, latest, today, balancePending, balan
   );
 }
 
-function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave }: {
-  accounts: FinancialAccount[]; latest: FinancialEntry[]; entry?: FinancialEntry; range: DateRange; lastDay: string;
+function FinanceForm({ accounts, latest, userId, entry, range, lastDay, onCancel, onSave }: {
+  accounts: FinancialAccount[]; latest: FinancialEntry[]; userId: string; entry?: FinancialEntry; range: DateRange; lastDay: string;
   onCancel: () => void; onSave: (draft: FinancialDraft) => Promise<void>;
 }) {
   const active = accounts.filter((account) => account.active);
@@ -200,17 +200,23 @@ function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave
   }, []);
   const choices = accounts.filter((account) => account.platform === platform && (account.active || account.account_id === entry?.account_id));
   const selected = choices.find((account) => account.account_id === accountId);
-  const previous = entry ?? latest.find((row) => row.platform === platform && row.account_id === accountId && row.reference_date === date);
+  const outsideHistory = date < range.start || date > range.end;
+  const dayHead = useQuery({ queryKey: [...financeQueryKey, userId, "day-head", platform, accountId, date],
+    queryFn: () => loadFinancialDayEntries(platform, accountId, date),
+    enabled: !entry && outsideHistory && !!selected && !!date && date <= lastDay, retry: 1, staleTime: 0 });
+  const headRows = outsideHistory ? financialDays(dayHead.data ?? []).map(day => day.current) : latest;
+  const previous = entry ?? headRows.find((row) => row.platform === platform && row.account_id === accountId && row.reference_date === date);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (locked.current) return;
     if (!draft) {
       const parsedBalance = parseBrl(balance);
-      if (!selected || !date || date < range.start || date > lastDay || parsedBalance === null) {
-        setError("Selecione uma conta e uma data do período até hoje. Use valores em reais com até duas casas decimais, como 1.234,56.");
+      if (!selected || !date || date > lastDay || parsedBalance === null) {
+        setError("Selecione uma conta e uma data até hoje. Use valores em reais com até duas casas decimais, como 1.234,56.");
         return;
       }
+      if (!entry && outsideHistory && !dayHead.isSuccess) { setError("Aguarde a confirmação da versão vigente para esta conta/data."); return; }
       setError("");
       setDraft({ platform, account_id: accountId, reference_date: date, available_balance_brl: parsedBalance,
         previous_id: previous?.id ?? null, request_key: crypto.randomUUID() });
@@ -249,7 +255,7 @@ function FinanceForm({ accounts, latest, entry, range, lastDay, onCancel, onSave
               <option value="">Selecione uma conta</option>
               {choices.map((account) => <option key={account.account_id} value={account.account_id}>{financialAccountLabel(account)}</option>)}
             </select></Field>
-            <Field label="Data de referência"><input type="date" required min={range.start} max={lastDay} value={date} disabled={!!entry} onChange={(event) => setDate(event.target.value)} /></Field>
+            <Field label="Data de referência"><input type="date" required max={lastDay} value={date} disabled={!!entry} onChange={(event) => setDate(event.target.value)} /></Field>
             <Field label="Saldo disponível (BRL)"><input inputMode="decimal" required placeholder="0,00" value={balance} onChange={(event) => setBalance(event.target.value)} /></Field>
           </div>
         )}

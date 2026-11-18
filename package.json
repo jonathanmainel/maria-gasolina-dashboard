@@ -11,7 +11,7 @@
     "preview": "vite preview --configLoader runner",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src --configLoader runner",
-    "test:meta-balance": "vitest run --config supabase/functions/sync-vitest.config.ts --configLoader runner supabase/functions/_shared/meta-balance.test.ts supabase/functions/_shared/meta-balance-runner.test.ts",
+    "test:meta-balance": "vitest run --config supabase/functions/sync-vitest.config.ts --configLoader runner supabase/functions/_shared/meta-balance.test.ts supabase/functions/_shared/meta-balance-runner.test.ts supabase/functions/_shared/meta-balance-diagnostic.test.ts",
     "test:meta-balance:sql": "node scripts/test-meta-balance-sql.mjs",
     "test:e2e": "playwright test",
     "test:sites": "node --test tests/sites-worker.test.mjs"

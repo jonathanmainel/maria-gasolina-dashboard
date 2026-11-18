@@ -469,3 +469,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-meta-balance/deno.json"
 entrypoint = "./functions/sync-meta-balance/index.ts"
+
+[functions.diagnose-meta-balance]
+# Temporary, never deployed by this change. Authenticated server-secret handler.
+enabled = true
+verify_jwt = false
+import_map = "./functions/diagnose-meta-balance/deno.json"
+entrypoint = "./functions/diagnose-meta-balance/index.ts"

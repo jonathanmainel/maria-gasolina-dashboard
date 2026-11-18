@@ -28,13 +28,13 @@ export function parseMetaAvailableFunds(payload: unknown, accountId: string): st
   return `${integer}.${match[2]}`;
 }
 
-export async function readMetaAvailableFunds(options: {
+export async function readMetaFundingResponse(options: {
   accountId: string; token: string; version: string; fetcher?: typeof fetch; now?: () => Date;
-}): Promise<BalanceMeasurement> {
+}): Promise<{ payload: unknown; measuredAt: string }> {
   if (!/^\d{1,30}$/.test(options.accountId) || !/^v\d{1,3}\.0$/.test(options.version) || !options.token)
     throw new BalanceError("BALANCE_CONFIGURATION_ERROR");
   const url = new URL(`https://graph.facebook.com/${options.version}/act_${options.accountId}`);
-  url.searchParams.set("fields", "id,account_id,currency,is_prepay_account,funding_source_details,balance");
+  url.searchParams.set("fields", "id,account_id,currency,is_prepay_account,funding_source_details");
   let response: Response;
   try {
     response = await (options.fetcher ?? fetch)(url, {
@@ -65,6 +65,11 @@ export async function readMetaAvailableFunds(options: {
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(text); } catch { throw new BalanceError("META_INVALID_RESPONSE"); }
   if (payload?.error) throw new BalanceError("META_PERMISSION_OR_AUTH");
+  return { payload, measuredAt: (options.now ?? (() => new Date()))().toISOString() };
+}
+
+export async function readMetaAvailableFunds(options: Parameters<typeof readMetaFundingResponse>[0]): Promise<BalanceMeasurement> {
+  const { payload, measuredAt } = await readMetaFundingResponse(options);
   const amount = parseMetaAvailableFunds(payload, options.accountId);
-  return { amount, currency: "BRL", measuredAt: (options.now ?? (() => new Date()))().toISOString(), parser: "meta-stored-balance-pt-br-v1" };
+  return { amount, currency: "BRL", measuredAt, parser: "meta-stored-balance-pt-br-v1" };
 }

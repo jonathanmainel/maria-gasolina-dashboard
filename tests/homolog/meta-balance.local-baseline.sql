@@ -21,3 +21,22 @@ $$;
 grant select on public.dashboard_client_users to authenticated;
 create table private.meta_balance_test_marker(token text);
 insert into private.meta_balance_test_marker values ('isolated-synthetic-meta-balance');
+
+-- SQL-contract doubles only: no cron daemon, Vault secrets or outbound HTTP.
+create schema cron;
+create table cron.job(jobid bigint generated always as identity primary key,jobname text unique,schedule text,command text,active boolean default true);
+create function cron.schedule(p_name text,p_schedule text,p_command text) returns bigint language sql as $$
+ insert into cron.job(jobname,schedule,command) values(p_name,p_schedule,p_command) returning jobid;
+$$;
+create function cron.alter_job(job_id bigint,active boolean) returns void language sql as $$
+ update cron.job set active=$2 where jobid=$1;
+$$;
+create schema vault;
+create table vault.secrets(name text unique);
+create table vault.decrypted_secrets(name text unique,decrypted_secret text);
+create schema net;
+create table net.test_requests(id bigint generated always as identity, url text,body jsonb);
+create function net.http_post(url text,body jsonb,headers jsonb,timeout_milliseconds integer) returns bigint language sql as $$
+ insert into net.test_requests(url,body) values($1,$2) returning id;
+$$;
+insert into cron.job(jobname,schedule,command,active) values('existing-synthetic-media-job','0 4 * * *','select 1',true);

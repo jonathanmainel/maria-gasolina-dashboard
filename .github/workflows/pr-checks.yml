@@ -41,5 +41,11 @@ jobs:
       - name: Testar dry-run da Retaguarda
         run: node --test tests/retaguarda-import.test.mjs
 
+      - name: Testar leitura financeira, diagnóstico e autenticação simulada
+        run: npm run test:meta-balance
+
+      - name: Testar histórico e disparo horário em PostgreSQL isolado
+        run: npm run test:meta-balance:sql
+
       - name: Compilar para GitHub Pages
         run: npm run build:pages

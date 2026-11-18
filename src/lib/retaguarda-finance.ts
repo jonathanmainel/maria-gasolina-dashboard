@@ -67,7 +67,7 @@ export function financialDays(entries: FinancialEntry[]) {
 export function platformFinancialSummary(accounts: FinancialAccount[], current: FinancialEntry[], platform: Channel) {
   const latestByAccount = new Map<string, FinancialEntry>();
   for (const entry of current) {
-    if (entry.platform !== platform) continue;
+    if (entry.platform !== platform || entry.available_balance_brl === null) continue;
     const previous = latestByAccount.get(entry.account_id);
     if (!previous || previous.reference_date < entry.reference_date) latestByAccount.set(entry.account_id, entry);
   }
@@ -94,6 +94,13 @@ export async function loadFinancialEntries(range: DateRange): Promise<FinancialE
   const clientId = await getClientId();
   return fetchAllRows<FinancialEntry>(table, columns, (query) => query.eq("client_id", clientId)
     .gte("reference_date", range.start).lte("reference_date", range.end).order("created_at").order("id"));
+}
+
+export async function loadFinancialDayEntries(platform: Channel, accountId: string, date: string): Promise<FinancialEntry[]> {
+  if (isDemoMode) return [];
+  const clientId = await getClientId();
+  return fetchAllRows<FinancialEntry>(table, columns, query => query.eq("client_id", clientId).eq("platform", platform)
+    .eq("account_id", accountId).eq("reference_date", date).order("created_at").order("id"));
 }
 
 export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: string): Promise<void> {

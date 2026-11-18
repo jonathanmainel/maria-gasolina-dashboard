@@ -63,7 +63,7 @@ begin
   select max(requested_at)+interval '5 minutes' into v_next from private.retaguarda_balance_runs where client_id=v_client and account_id=p_account_id;
   if v_next>clock_timestamp() then return jsonb_build_object('state','cooldown','retry_at',v_next); end if;
   if p_trigger='scheduled' then
-    select max(requested_at)+interval '1 hour' into v_next from private.retaguarda_balance_runs
+    select date_trunc('hour',max(requested_at),'UTC')+interval '1 hour' into v_next from private.retaguarda_balance_runs
       where client_id=v_client and account_id=p_account_id and trigger='scheduled';
     if v_next>clock_timestamp() then return jsonb_build_object('state','cooldown','retry_at',v_next); end if;
   end if;

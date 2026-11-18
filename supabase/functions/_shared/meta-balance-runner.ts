@@ -3,6 +3,8 @@ import { BalanceError, type BalanceMeasurement } from "./meta-balance.ts";
 type RpcResult = { data: any; error: { code?: string } | null };
 export interface BalanceDependencies {
   enabled: boolean;
+  accountId: string;
+  clientSlug: string;
   mode: "manual" | "scheduled";
   getUser: (token: string) => Promise<{ id: string } | null>;
   rpc: (name: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
@@ -25,7 +27,6 @@ export async function handleMetaBalance(req: Request, deps: BalanceDependencies)
     try { userId = (await deps.getUser(auth.slice(7)))?.id ?? null; } catch { /* deny */ }
     if (!userId) return json({ state: "failed", error_code: "UNAUTHENTICATED" }, 401);
   }
-  if (!deps.enabled) return json({ state: "disabled", error_code: "BALANCE_NOT_HOMOLOGATED" }, 503);
   let body: Record<string, unknown>;
   try {
     const reader = req.body?.getReader(); if (!reader) throw new Error();
@@ -37,11 +38,25 @@ export async function handleMetaBalance(req: Request, deps: BalanceDependencies)
       text += decoder.decode(value, { stream: true });
     }
     body = JSON.parse(text + decoder.decode());
+    if (deps.mode === "manual" && body?.action === "status") {
+      if (Object.keys(body).some(k => !["action", "client_slug"].includes(k)) || typeof body.client_slug !== "string"
+        || !/^[a-z0-9-]{1,100}$/.test(body.client_slug)) throw new Error();
+      if (body.client_slug !== deps.clientSlug) return json({ error_code: "FORBIDDEN" }, 403);
+      const result = await deps.rpc("get_retaguarda_meta_balance_context", { p_client_slug: body.client_slug, p_user_id: userId });
+      if (result.error) return json({ error_code: result.error.code === "42501" ? "FORBIDDEN" : "BALANCE_UNAVAILABLE" }, result.error.code === "42501" ? 403 : 503);
+      const context = result.data;
+      if (!context || !Array.isArray(context.accounts)) return json({ error_code: "BALANCE_UNAVAILABLE" }, 503);
+      return json({ available: deps.enabled, can_request: deps.enabled && context.can_request === true,
+        reason: deps.enabled ? null : "BALANCE_NOT_HOMOLOGATED", server_time: context.server_time,
+        accounts: context.accounts.map((account: Record<string, unknown>) => ({ ...account, allowed: account.account_id === deps.accountId })) });
+    }
     if (!body || Array.isArray(body) || Object.keys(body).some(k => !["client_slug", "account_id", "request_key"].includes(k))
       || typeof body.client_slug !== "string" || !/^[a-z0-9-]{1,100}$/.test(body.client_slug)
       || typeof body.account_id !== "string" || !/^\d{1,30}$/.test(body.account_id)
       || typeof body.request_key !== "string" || !UUID.test(body.request_key)) throw new Error();
   } catch { return json({ state: "failed", error_code: "INVALID_REQUEST" }, 400); }
+  if (body.account_id !== deps.accountId || body.client_slug !== deps.clientSlug) return json({ state: "failed", error_code: "FORBIDDEN" }, 403);
+  if (!deps.enabled) return json({ state: "disabled", error_code: "BALANCE_NOT_HOMOLOGATED" }, 503);
 
   let reservation: any;
   try {
@@ -51,7 +66,10 @@ export async function handleMetaBalance(req: Request, deps: BalanceDependencies)
     });
     if (result.error) return json({ state: "failed", error_code: result.error.code === "42501" ? "FORBIDDEN" : "BALANCE_UNAVAILABLE" }, result.error.code === "42501" ? 403 : 503);
     reservation = result.data;
-    if (reservation?.state !== "accepted") return json(reservation ?? { state: "indeterminate" }, reservation?.state === "cooldown" ? 429 : reservation?.state === "conflict" ? 409 : 200);
+    if (!["accepted", "running"].includes(reservation?.state)) return json(reservation ?? { state: "indeterminate" }, reservation?.state === "cooldown" ? 429 : reservation?.state === "conflict" ? 409 : 200);
+    const claimed = await deps.rpc("claim_retaguarda_meta_balance", { p_run_id: reservation.run_id });
+    if (claimed.error) return json({ state: "indeterminate", error_code: "BALANCE_UNAVAILABLE" }, 503);
+    if (claimed.data?.state !== "accepted") return json(claimed.data ?? { state: "indeterminate" });
   } catch { return json({ state: "indeterminate", error_code: "BALANCE_UNAVAILABLE" }, 503); }
 
   let measurement: BalanceMeasurement;

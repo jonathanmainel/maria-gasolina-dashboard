@@ -10,8 +10,10 @@ beforeEach(() => {
 });
 describe("financial backend client", () => {
   it("reads current balances without the historical period and scopes status to client", async () => {
+    fake.invoke.mockResolvedValue({ data: { available: false, can_request: false, reason: "BALANCE_NOT_HOMOLOGATED", server_time: "2026-11-18T18:00:00Z", accounts: [] }, error: null });
     await loadLatestBalances(); await loadMetaBalanceStatus();
-    expect(fake.rpc.mock.calls).toEqual([["get_retaguarda_latest_balances", { p_client_id: 1 }], ["get_retaguarda_meta_balance_status", { p_client_id: 1 }]]);
+    expect(fake.rpc.mock.calls).toEqual([["get_retaguarda_latest_balances", { p_client_id: 1 }]]);
+    expect(fake.invoke).toHaveBeenCalledWith("request-meta-balance", { body: { action: "status", client_slug: "synthetic-client" } });
   });
   it("invokes an actual backend collection without amount, author, secret or arbitrary origin", async () => {
     await requestMetaBalance("123", "request-key", "verified");
@@ -33,6 +35,10 @@ describe("financial backend client", () => {
     fake.invoke.mockResolvedValue({ data: { ok: true }, error: null });
     await expect(requestMetaBalance("123", "key", "verified")).rejects.toThrow("não confirmada");
     expect(metaBalanceMessage(undefined)).toContain("Nenhuma coleta");
+  });
+  it.each([[502, "failed", true], [503, "indeterminate", false]])("distinguishes a definitive failure from uncertain delivery (%s)", async (status, state, discardRequestKey) => {
+    fake.invoke.mockResolvedValue({ data: null, error: { context: Response.json({ state }, { status }) } });
+    await expect(requestMetaBalance("123", "key", "verified")).rejects.toMatchObject({ discardRequestKey });
   });
   it("does not replace read errors with empty data or zero", async () => {
     fake.rpc.mockResolvedValue({ data: null, error: new Error("unavailable") });

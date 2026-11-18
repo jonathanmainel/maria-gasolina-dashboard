@@ -40,6 +40,7 @@ async function prepare(page: Page, options: {
   finance?: boolean; seedFinance?: boolean; failWrite?: boolean; holdFinance?: Promise<void>; role?: "viewer" | "editor";
   writeMode?: "expired" | "conflict" | "lost"; multiAccounts?: boolean;
   balanceMode?: "success" | "failure" | "conflict";
+  balanceReady?: boolean; balanceBlocked?: boolean;
   spendMode?: "complete" | "partial" | "failed";
 } = {}) {
   const audit = await install(page.context(), { appOrigin: test.info().project.use.baseURL, theme: options.theme, role: options.role ?? "admin" });
@@ -98,7 +99,13 @@ async function prepare(page: Page, options: {
   await page.context().route(`${apiOrigin}/functions/v1/request-meta-balance`, async route => {
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
-    const body = route.request().postDataJSON(); balanceRequests.push(body);
+    const body = route.request().postDataJSON();
+    if (body.action === "status") return route.fulfill({ status: 200, headers, json: {
+      available: options.balanceReady !== false, can_request: options.balanceReady !== false && options.role !== "viewer",
+      reason: options.balanceReady === false ? "BALANCE_NOT_HOMOLOGATED" : null, server_time: "2026-11-17T16:00:00Z",
+      accounts: [{ account_id: "account-01", allowed: true, status: null, manual_blocked_today: !!options.balanceBlocked }],
+    } });
+    balanceRequests.push(body);
     expect(body).toEqual({ client_slug: "maria-gasolina", account_id: "account-01", request_key: expect.any(String) });
     expect(route.request().headers().authorization).toMatch(/^Bearer /);
     if (options.balanceMode !== "success") return route.fulfill({ status: options.balanceMode === "conflict" ? 409 : 502,
@@ -165,6 +172,9 @@ async function prepare(page: Page, options: {
       const key = url.searchParams.get("request_key")?.slice(3);
       return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.request_key === key) });
     }
+    if (url.searchParams.get("reference_date")?.startsWith("eq.")) return route.fulfill({ status: 200, headers,
+      json: financialEntries.filter(entry => entry.reference_date === url.searchParams.get("reference_date")!.slice(3)
+        && entry.account_id === url.searchParams.get("account_id")?.slice(3) && entry.platform === url.searchParams.get("platform")?.slice(3)) });
     const [from, to] = url.searchParams.getAll("reference_date").map((value) => value.slice(4));
     return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.reference_date >= from && entry.reference_date <= to) });
   });
@@ -236,6 +246,7 @@ test("editor registra zero, corrige e consulta a versão anterior", async ({ pag
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
   await form.getByLabel("Plataforma").selectOption("meta_ads");
+  await form.getByLabel("Data de referência").fill(day);
   await form.getByLabel("Saldo disponível (BRL)").fill("0,000");
   await expect(form.getByLabel("Estimativa de gastos diários (BRL)")).toHaveCount(0);
   await form.getByRole("button", { name: "Revisar registro" }).click();
@@ -311,6 +322,35 @@ test("falha e conflito da coleta não anunciam novo saldo nem removem o manual",
   await expect(finances(page)).toContainText("0,00");
 });
 
+test("homologação desligada mantém botão desativado e registro manual disponível", async ({ page }) => {
+  const { balanceRequests } = await prepare(page, { finance: true, balanceReady: false, role: "editor" });
+  await page.goto(dashboard);
+  await expect(page.getByText(/Coleta automática em homologação/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Atualizar saldo Meta agora" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Registrar saldo", exact: true })).toBeEnabled();
+  expect(balanceRequests).toEqual([]);
+});
+
+test("saldo manual no mesmo dia bloqueia também a rotina horária", async ({ page }) => {
+  await prepare(page, { finance: true, balanceBlocked: true }); await page.goto(dashboard);
+  await expect(page.getByText(/atualização automática e horária bloqueadas/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Atualizar saldo Meta agora" })).toBeDisabled();
+});
+
+test("registra saldo de hoje com histórico antigo, resolve a versão vigente e mantém consultas separadas", async ({ page }) => {
+  const { financialWrites } = await prepare(page, { finance: true, seedFinance: true, role: "editor" });
+  await page.goto(dashboard); await changePeriod(page, previousDay, previousDay);
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
+  const form = page.getByRole("form", { name: "Registro financeiro" });
+  await expect(form.getByLabel("Data de referência")).toHaveValue("2026-11-17");
+  await form.getByLabel("Saldo disponível (BRL)").fill("100,00");
+  await form.getByRole("button", { name: "Revisar registro" }).click();
+  await form.getByRole("button", { name: "Confirmar e salvar" }).click();
+  await expect(page.getByText(/^Saldo R\$\s*100,00$/)).toBeVisible();
+  await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  expect(financialWrites[0].reference_date).toBe("2026-11-17");
+});
+
 test("o carregamento financeiro preserva a leitura de mídia", async ({ page }) => {
   let release!: () => void;
   const held = new Promise<void>((resolve) => { release = resolve; });
@@ -332,6 +372,7 @@ test("duplo clique após confirmar e resposta perdida geram um único lançament
   await page.goto(dashboard);
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
+  await form.getByLabel("Data de referência").fill(day);
   await form.getByLabel("Saldo disponível (BRL)").fill("12,34");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).evaluate((button: HTMLButtonElement) => {

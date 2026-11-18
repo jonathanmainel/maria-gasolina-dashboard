@@ -1,5 +1,10 @@
 # Meta Ads — coleta financeira independente (proposta local)
 
+> Registro histórico do PR #27. A consolidação, o diagnóstico temporário, o scheduler
+> já implementado e o procedimento vigente estão em
+> [Retaguarda Meta — integração e ativação](retaguarda-meta-integracao-ativacao.md).
+> As contagens e instruções de ativação abaixo descrevem a versão anterior, não a entrega consolidada.
+
 ## Estado e limites
 
 Branch própria baseada na main do PR #25. O PR #26 permanece intacto e sem merge.

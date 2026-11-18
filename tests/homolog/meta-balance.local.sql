@@ -112,5 +112,15 @@ do $$ begin
     raise exception 'Viewer invoked service RPC'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
+do $$ declare r jsonb; begin
+  r:=public.get_retaguarda_meta_balance_context('test-a','00000000-0000-4000-8000-000000000003');
+  if (r->>'can_request')::boolean then raise exception 'Viewer request capability'; end if;
+  if not exists(select 1 from jsonb_array_elements(r->'accounts') a where a->>'account_id'='111'
+    and (a->>'manual_blocked_today')::boolean) then raise exception 'Missing manual conflict state'; end if;
+  if has_function_privilege('authenticated','public.claim_retaguarda_meta_balance(uuid)','execute')
+    or has_function_privilege('authenticated','public.get_retaguarda_meta_balance_context(text,uuid)','execute') then raise exception 'Service RPC leaked'; end if;
+  if private.retaguarda_meta_hour_key('2026-11-18T12:07:00-03')<>private.retaguarda_meta_hour_key('2026-11-18T15:59:59Z')
+    or private.retaguarda_meta_hour_key('2026-11-18T15:59:59Z')=private.retaguarda_meta_hour_key('2026-11-18T16:00:00Z') then raise exception 'Hour key not stable'; end if;
+end $$;
 rollback;
 select 'Meta financial SQL checks passed (synthetic, rollback)' as result;

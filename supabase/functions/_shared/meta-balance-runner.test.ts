@@ -7,8 +7,8 @@ const request = (patch = {}, headers = { Authorization: "Bearer synthetic-sessio
 });
 let deps: BalanceDependencies;
 beforeEach(() => {
-  deps = { mode: "manual", enabled: true, getUser: vi.fn().mockResolvedValue({ id: "verified-author" }),
-    rpc: vi.fn().mockImplementation(name => Promise.resolve({ data: name.startsWith("reserve") ? { state: "accepted", run_id: "run" }
+  deps = { mode: "manual", enabled: true, accountId: body.account_id, clientSlug: body.client_slug, getUser: vi.fn().mockResolvedValue({ id: "verified-author" }),
+    rpc: vi.fn().mockImplementation(name => Promise.resolve({ data: name.startsWith("reserve") || name.startsWith("claim") ? { state: "accepted", run_id: "run" }
       : { state: "success", entry_id: "saved" }, error: null })),
     collect: vi.fn().mockResolvedValue({ amount: "0.00", currency: "BRL", measuredAt: "2026-11-18T15:00:00Z", parser: "meta-stored-balance-pt-br-v1" }) };
 });
@@ -23,7 +23,8 @@ describe("independent authenticated balance collection", () => {
     expect(result.status).toBe(200); expect(await result.json()).toEqual({ state: "success", entry_id: "saved" });
     expect(deps.rpc).toHaveBeenNthCalledWith(1, "reserve_retaguarda_meta_balance", { p_client_slug: body.client_slug, p_account_id: body.account_id,
       p_request_key: body.request_key, p_trigger: "manual", p_user_id: "verified-author" });
-    expect(deps.rpc).toHaveBeenNthCalledWith(2, "finish_retaguarda_meta_balance", { p_run_id: "run", p_amount: "0.00", p_measured_at: "2026-11-18T15:00:00Z", p_error_code: null });
+    expect(deps.rpc).toHaveBeenNthCalledWith(2, "claim_retaguarda_meta_balance", { p_run_id: "run" });
+    expect(deps.rpc).toHaveBeenNthCalledWith(3, "finish_retaguarda_meta_balance", { p_run_id: "run", p_amount: "0.00", p_measured_at: "2026-11-18T15:00:00Z", p_error_code: null });
   });
   it.each(["created_by", "p_user_id", "origin", "amount", "trigger", "token"])("rejects browser-controlled %s", async field => {
     expect((await handleMetaBalance(request({ [field]: "forged" }), deps)).status).toBe(400);
@@ -44,9 +45,23 @@ describe("independent authenticated balance collection", () => {
     const req = new Request("https://local.invalid", { method: "POST", headers: { Authorization: "Bearer synthetic" }, body: " ".repeat(3000) });
     expect((await handleMetaBalance(req, deps)).status).toBe(400); expect(deps.rpc).not.toHaveBeenCalled();
   });
-  it.each(["success", "running", "conflict", "indeterminate", "cooldown"])("does not recollect on reservation %s", async state => {
+  it.each(["success", "conflict", "indeterminate", "cooldown"])("does not recollect on reservation %s", async state => {
     vi.mocked(deps.rpc).mockResolvedValue({ data: { state, replayed: true }, error: null });
     await handleMetaBalance(request(), deps); expect(deps.collect).not.toHaveBeenCalled(); expect(deps.rpc).toHaveBeenCalledTimes(1);
+  });
+  it("claims a scheduled reservation once and does not recollect an already claimed worker", async () => {
+    vi.mocked(deps.rpc).mockResolvedValueOnce({ data: { state: "running", run_id: "run" }, error: null })
+      .mockResolvedValueOnce({ data: { state: "running", replayed: true }, error: null });
+    await handleMetaBalance(request(), deps); expect(deps.collect).not.toHaveBeenCalled();
+  });
+  it("serves backend availability while disabled, without Graph calls or write RPCs", async () => {
+    deps.enabled = false;
+    vi.mocked(deps.rpc).mockResolvedValue({ data: { can_request: true, server_time: "2026-11-18T15:00:00Z", accounts: [{ account_id: body.account_id }] }, error: null });
+    const req = new Request("https://local.invalid", { method: "POST", headers: { Authorization: "Bearer session" }, body: JSON.stringify({ action: "status", client_slug: body.client_slug }) });
+    const result = await handleMetaBalance(req, deps);
+    expect(await result.json()).toMatchObject({ available: false, can_request: false, reason: "BALANCE_NOT_HOMOLOGATED" });
+    expect(deps.rpc).toHaveBeenCalledWith("get_retaguarda_meta_balance_context", { p_client_slug: body.client_slug, p_user_id: "verified-author" });
+    expect(deps.collect).not.toHaveBeenCalled();
   });
   it("records sanitized collection failure without creating a measurement or invoking campaign ingestion", async () => {
     vi.mocked(deps.collect).mockRejectedValue(new BalanceError("META_BALANCE_FORMAT_UNSUPPORTED"));
@@ -54,7 +69,8 @@ describe("independent authenticated balance collection", () => {
     expect(deps.rpc).toHaveBeenLastCalledWith("finish_retaguarda_meta_balance", { p_run_id: "run", p_amount: null, p_measured_at: null, p_error_code: "META_BALANCE_FORMAT_UNSUPPORTED" });
   });
   it("never acknowledges a failed or timed out database commit", async () => {
-    vi.mocked(deps.rpc).mockResolvedValueOnce({ data: { state: "accepted", run_id: "run" }, error: null }).mockRejectedValueOnce(new Error("timeout"));
+    vi.mocked(deps.rpc).mockResolvedValueOnce({ data: { state: "accepted", run_id: "run" }, error: null })
+      .mockResolvedValueOnce({ data: { state: "accepted" }, error: null }).mockRejectedValueOnce(new Error("timeout"));
     const result = await handleMetaBalance(request(), deps); expect(result.status).toBe(503); expect(await result.json()).toMatchObject({ state: "indeterminate" });
   });
   it("uses scheduled provenance only at the separate authenticated backend entry", async () => {
