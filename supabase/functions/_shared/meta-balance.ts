@@ -3,7 +3,7 @@ export class BalanceError extends Error {
   constructor(public readonly code: string) { super(code); }
 }
 
-export const META_BALANCE_PARSER_VERSION = "meta-stored-balance-pt-br-v2";
+export const META_BALANCE_PARSER_VERSION = "meta-stored-balance-pt-br-v3";
 
 export interface BalanceMeasurement {
   amount: string;
@@ -20,10 +20,10 @@ export function parseMetaAvailableFunds(payload: unknown, accountId: string): st
   if (data.is_prepay_account !== true) throw new BalanceError("META_NOT_PREPAID");
   const funding = data.funding_source_details as Record<string, unknown> | null;
   if (!funding || funding.type !== 20) throw new BalanceError("META_FUNDING_UNSUPPORTED");
-  // Exact shape observed by the authorized read-only diagnostic on 2026-11-18.
-  // Normalized amount still needs a second authorized read and billing UI comparison.
+  // The 2026-11-19 authorized probe confirmed U+00A0 before BRL. Allow exactly
+  // one ASCII space or NBSP in that position only, never generic whitespace.
   const match = typeof funding.display_string === "string"
-    ? /^Saldo disponível \(R\$((?:0|[1-9]\d{0,2}(?:\.\d{3})+|[1-9]\d*)),(\d{2}) BRL\)$/.exec(funding.display_string) : null;
+    ? /^Saldo disponível \(R\$((?:0|[1-9]\d{0,2}(?:\.\d{3})+|[1-9]\d*)),(\d{2})[ \u00a0]BRL\)$/.exec(funding.display_string) : null;
   // JS `$` also matches before a final newline; require the entire original string.
   if (!match || match[0] !== funding.display_string) throw new BalanceError("META_BALANCE_FORMAT_UNSUPPORTED");
   const integer = match[1].replaceAll(".", "");

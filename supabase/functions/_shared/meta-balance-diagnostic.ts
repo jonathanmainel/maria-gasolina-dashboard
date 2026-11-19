@@ -7,6 +7,9 @@ export function fundingDisplayShape(value: unknown): string | null {
   return value.replace(/Saldo disponível/g, "\u0001").replace(/Available balance/g, "\u0002")
     .replace(/R\$/g, "\u0003").replace(/BRL/g, "\u0004")
     .replace(/[0-9]/g, "#").replace(/[^#.,:() \u00a0\u0001-\u0004]/g, "?")
+    // A literal NBSP can be rendered indistinguishably from ASCII space by the
+    // dashboard/accessibility tree. Make it explicit without relaxing the parser.
+    .replace(/\u00a0/g, "{NBSP}")
     .replace(/\u0001/g, "{AVAILABLE_PT}").replace(/\u0002/g, "{AVAILABLE_EN}")
     .replace(/\u0003/g, "{BRL_SYMBOL}").replace(/\u0004/g, "{BRL_CODE}");
 }

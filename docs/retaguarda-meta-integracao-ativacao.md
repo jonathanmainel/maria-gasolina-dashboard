@@ -8,10 +8,11 @@ Automação definitiva sem migration, deploy, ativação de flags/cron ou escrit
 em produção. A única intervenção autorizada foi o diagnóstico temporário descrito abaixo,
 já removido e desativado. **Código pronto para homologação não é fonte homologada.**
 
-A primeira leitura real confirmou credencial, conta, BRL, prepay e type=20, mas o parser
-v1 rejeitou o formato. O parser v2 foi corrigido em desenvolvimento; sua aceitação real e
-a correspondência numérica com Fundos disponíveis permanecem pendentes. Credencial
-não foi recuperada; fixtures contêm valores sintéticos no formato sanitizado observado.
+A leitura real de 19/11/2026 confirmou credencial, conta, BRL, prepay e type=20. O parser
+v3 normalizou o valor; a interface atualizada um minuto depois confirmou igualdade
+exata em centavos com Fundos disponíveis. V1/v2 haviam rejeitado o formato; a diferença
+era U+00A0 antes de BRL, visualmente indistinguível do espaço comum na primeira máscara.
+Credencial não foi recuperada; fixtures contêm somente valores sintéticos.
 Escopo fixo: projeto `hlqrpreqvvxtkruwsolg`, cliente `maria-gasolina`/ID 1 no executor,
 conta `1063721474298569`. Não altera coletores nem jobs de campanhas.
 
@@ -24,8 +25,9 @@ conta `1063721474298569`. Não altera coletores nem jobs de campanhas.
   header, sem redirects/retry/log bruto, timeout 15 s e resposta máxima 32 KiB.
 - Valida identidade, BRL, prepay=true e type=20. Não usa balance, orçamento, limite,
   gasto acumulado ou campos de cupons como crédito disponível.
-- Parser `meta-stored-balance-pt-br-v2` aceita estritamente o formato observado
-  `Saldo disponível (R$#.###,## BRL)`: sem espaço após R$, com sufixo literal BRL,
+- Parser `meta-stored-balance-pt-br-v3` aceita estritamente o formato observado
+  `Saldo disponível (R$#.###,##\u00a0BRL)`: sem espaço após R$, com sufixo literal BRL,
+  precedido de exatamente um espaço ASCII ou U+00A0 apenas nessa posição,
   duas casas decimais e agrupamento brasileiro válido ou inteiro sem agrupamento.
   Zero explícito é válido; ausência não vira zero. Limite preservado: 999999999999,99.
   Não aceita espaços extras, quebras de linha, formato antigo ou extração genérica de números.
@@ -106,7 +108,7 @@ expiração encerrada. Credenciais Meta preservadas por comparação dos digests
 As seis funções existentes mantiveram seus hashes de código; versões de execução
 avançaram duas posições durante a configuração/desativação dos controles do projeto.
 
-### Correção v2 e segunda consulta — preparada, NÃO autorizada nem executada
+### Correção v2 — evidência histórica, substituída pela v3
 
 A v1 esperava espaço após R$ e omitia BRL. A v2 reconhece apenas o contrato observado;
 exemplos de teste como `Saldo disponível (R$1.234,56 BRL)` são **valores fictícios**,
@@ -125,10 +127,30 @@ aprovados. PostgreSQL 17 isolado confirmou source_key v2 no fluxo real de grava�
 com Graph sintética, replay, concorrência e preservação do saldo manual. CI do novo
 commit é acompanhado no PR #28; não reutilizar o resultado do commit anterior.
 
-Para a segunda consulta, obter **nova autorização explícita**, com uma invocação somente
+Para a segunda consulta, era necessária **nova autorização explícita**, com uma invocação somente
 leitura e comparação próxima na interface da mesma conta. Não reutilizar a autorização
 da primeira execução, criar flags ativas ou publicar função antecipadamente. Manter
 META_BALANCE_ENABLED/FORMAT_VALIDATED/SCHEDULE_ENABLED desligados e Cron inativo.
+
+### Homologação real v3 — 19/11/2026
+
+A consulta v2 às 12:37:46 UTC confirmou metadados, mas rejeitou o formato. Uma consulta
+adicional explicitamente autorizada às 12:47:47 UTC identificou a máscara
+`{AVAILABLE_PT} ({BRL_SYMBOL}#.###,##{NBSP}{BRL_CODE})`. Nenhuma delas gravou saldo.
+O diagnóstico passou a representar U+00A0 como `{NBSP}`, evitando a normalização visual.
+
+A v3 permite exatamente um ASCII space ou NBSP antes de BRL, sem `\s`, trim ou
+captura genérica. Mantém as validações monetárias e rejeita outros espaços, separadores
+repetidos, dívida/orçamento/cupom e formatos incorretos. Prefixo novo e coerente:
+`meta-stored-balance-pt-br-v3:<run_id>`; somente migration ainda não aplicada foi ajustada.
+
+Consulta final explicitamente autorizada: 12:50:41.965 UTC, parser v3 aceito, valor
+normalizado e conta/BRL/prepay/type=20 confirmados. Às 12:51:41 UTC, faturamento
+atualizado da mesma conta confirmou igualdade exata em centavos. A tela anterior
+estava desatualizada; nenhum valor privado foi publicado neste documento.
+Diagnóstico desativado/removido após cada teste; endpoint HEAD 404. Sem escrita
+financeira, migration ou agendamento nessa etapa. Testes financeiros: 122 aprovados;
+TypeScript aprovado. Novas etapas de implantação seguem os gates abaixo.
 
 Critério de aprovação: HTTP autenticado válido, conta/BRL/prepay/type corretos,
 parser v2 aceito, amount decimal normalizado e comparação documentada com Fundos

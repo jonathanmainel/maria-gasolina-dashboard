@@ -12,13 +12,21 @@ beforeEach(() => { deps = { authorize: vi.fn().mockResolvedValue(true), enabled:
 describe("bounded read-only administrative diagnostic", () => {
   it("returns only validated normalized funds and sanitized shape", async () => {
     const result = await createMetaBalanceDiagnostic(deps)(req()); const json = await result.json();
-    expect(json).toMatchObject({ account_id: id, available_balance_brl: "1234.56", parser: "meta-stored-balance-pt-br-v2", parser_accepted: true, database_write_performed: false });
+    expect(json).toMatchObject({ account_id: id, available_balance_brl: "1234.56", parser: "meta-stored-balance-pt-br-v3", parser_accepted: true, database_write_performed: false });
     expect(JSON.stringify(json)).not.toContain("PRIVATE"); expect(json.display_shape).toBe("{AVAILABLE_PT} ({BRL_SYMBOL}#.###,## {BRL_CODE})");
   });
   it("returns a legitimate normalized zero without treating it as missing", async () => {
     vi.mocked(deps.read).mockResolvedValue({ payload: fixture("Saldo disponível (R$0,00 BRL)"), measuredAt: time.toISOString() });
     const json = await (await createMetaBalanceDiagnostic(deps)(req())).json();
-    expect(json).toMatchObject({ available_balance_brl: "0.00", parser_accepted: true, parser: "meta-stored-balance-pt-br-v2", error_code: null });
+    expect(json).toMatchObject({ available_balance_brl: "0.00", parser_accepted: true, parser: "meta-stored-balance-pt-br-v3", error_code: null });
+  });
+  it("makes the confirmed non-breaking separator visible and normalizes exact cents", async () => {
+    const display = "Saldo disponível (R$1.234,56\u00a0BRL)";
+    expect(fundingDisplayShape(display)).toBe("{AVAILABLE_PT} ({BRL_SYMBOL}#.###,##{NBSP}{BRL_CODE})");
+    vi.mocked(deps.read).mockResolvedValue({ payload: fixture(display), measuredAt: time.toISOString() });
+    const json = await (await createMetaBalanceDiagnostic(deps)(req())).json();
+    expect(json).toMatchObject({ available_balance_brl: "1234.56", parser_accepted: true,
+      parser: "meta-stored-balance-pt-br-v3", error_code: null, database_write_performed: false });
   });
   it("keeps the old synthetic format rejected, without a monetary fallback", async () => {
     vi.mocked(deps.read).mockResolvedValue({ payload: fixture("Saldo disponível (R$ 123,45)"), measuredAt: time.toISOString() });
