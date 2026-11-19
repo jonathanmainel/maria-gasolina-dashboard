@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Wallet } from "lucide-react";
+import { CalendarDays, Info, Wallet, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Popover } from "../components/ui/popover";
 import { useAuth } from "../auth";
 import { Kpi, Panel, Skeleton } from "../components/ui/primitives";
 import { CLIENT_SLUG, isDemoMode } from "../lib/api";
@@ -65,11 +66,6 @@ export function RetaguardaFinance({ readOnly }: { range: DateRange; readOnly: bo
         {canCreate && !editing && <button type="button" className="secondary-button" onClick={edit}>Registrar saldo</button>}
       </div>
       {isDemoMode && <p className="retaguarda-finance-note">Dados financeiros indisponíveis no modo demonstração.</p>}
-      {enabled && userId && accounts.some(account => account.active && account.platform === "meta_ads") && (
-        <MetaBalanceRefresh key={userId} userId={userId} canEdit={canEdit}
-          accountIds={accounts.filter(account => account.active && account.platform === "meta_ads").map(account => account.account_id)}
-          onRefresh={() => queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] })} />
-      )}
       {accountQuery.isError && (
         <div className="inline-error" role="alert">
           <span>Não foi possível carregar os registros de saldo ou as contas.</span>
@@ -81,6 +77,10 @@ export function RetaguardaFinance({ readOnly }: { range: DateRange; readOnly: bo
       ) : (
         <div className="grid grid-2">
           {platforms.map((platform) => <FinancePanel key={platform} platform={platform} accounts={accounts} latest={latest}
+            refreshControl={platform === "meta_ads" && enabled && userId && accounts.some(account => account.active && account.platform === "meta_ads")
+              ? <MetaBalanceRefresh key={userId} userId={userId} canEdit={canEdit}
+                  accountIds={accounts.filter(account => account.active && account.platform === "meta_ads").map(account => account.account_id)}
+                  onRefresh={() => queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] })} /> : undefined}
             today={today} balancePending={enabled && currentBalances.isPending} balanceError={currentBalances.isError || accountQuery.isError}
             spend={spend.data} spendError={spend.isError} spendPending={enabled && spend.isPending} />)}
         </div>
@@ -101,11 +101,15 @@ export function RetaguardaFinance({ readOnly }: { range: DateRange; readOnly: bo
   );
 }
 
-function FinancePanel({ platform, accounts, latest, today, balancePending, balanceError, spend, spendError, spendPending }: {
+function FinancePanel({ platform, accounts, latest, today, balancePending, balanceError, spend, spendError, spendPending, refreshControl }: {
   platform: Channel; accounts: FinancialAccount[]; latest: FinancialEntry[]; today: string;
   balancePending: boolean; balanceError: boolean;
   spend?: Awaited<ReturnType<typeof loadRetaguardaSpend>>; spendError: boolean; spendPending: boolean;
+  refreshControl?: ReactNode;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const infoAnchor = useRef<HTMLButtonElement>(null);
+  const closeDetails = useCallback(() => setDetailsOpen(false), []);
   const summary = platformFinancialSummary(accounts, latest, platform);
   const accent = platform === "meta_ads" ? "sky" : "green";
   const coverage = summary.items.filter(({ latest }) => latest?.available_balance_brl != null).length;
@@ -120,42 +124,56 @@ function FinancePanel({ platform, accounts, latest, today, balancePending, balan
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
   const estimateNote = spendPending ? "Carregando gastos observados" : spendError ? "Falha ao consultar os gastos"
     : "Média dos últimos 7 dias completos";
-  const balanceNote = balancePending ? "Carregando saldos" : balanceError ? "Falha ao consultar o saldo" : "Saldo não informado";
+  const balanceNote = balancePending ? "Carregando saldos" : balanceError ? "Falha ao consultar o saldo"
+    : coverage > 0 && items.length > 1 ? "Saldo consolidado indisponível" : "Saldo não informado";
+  const financialTime = items.filter(item => item.latest?.available_balance_brl != null).map(item => item.latest?.measured_at)
+    .filter((time): time is string => !!time).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+  const stale = items.some(item => item.latest && !fresh(item.latest));
+  const partialSpend = spend && estimate === null && !spendPending && !spendError;
   return (
-    <Panel title={financePlatforms[platform]} description={summary.items.length
-      ? `${coverage} de ${summary.items.length} contas ativas com saldo conhecido`
-      : "Nenhuma conta ativa disponível"} noTilt>
-      <div className="grid grid-2">
-        <Kpi label="Saldo disponível" value={summary.balance} format={money} accent={accent} icon={<Wallet size={16} />} hideDelta foot={summary.balance === null ? `${balanceNote} no resumo` : undefined} />
-        <Kpi label="Estimativa de gastos diários" value={estimate} format={money} accent={accent} icon={<CalendarDays size={16} />} hideDelta foot={estimateNote} />
+    <Panel className="retaguarda-finance-card" noTilt>
+      <header className="finance-card-head">
+        <div className="finance-card-title">
+          <h3>{financePlatforms[platform]}</h3>
+          <button ref={infoAnchor} type="button" className="finance-info-button" aria-label={`Informações financeiras de ${financePlatforms[platform]}`}
+            aria-haspopup="dialog" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(true)}><Info size={17} /></button>
+        </div>
+        {refreshControl}
+      </header>
+      <div className="grid grid-2 finance-card-kpis">
+        <Kpi label="Saldo disponível" value={summary.balance} format={money} accent={accent} icon={<Wallet size={16} />} hideDelta foot={summary.balance === null ? balanceNote : undefined} />
+        <Kpi label="Gasto médio diário" value={estimate} format={money} accent={accent} icon={<CalendarDays size={16} />} hideDelta
+          foot={partialSpend ? items.length === 1 ? `${items[0].spend.validDays} de 7 dias válidos em BRL` : "Histórico incompleto · consulte as contas" : estimateNote} />
       </div>
-      {spend && <p className="retaguarda-finance-note">
-        {displayDate(period.start)} a {displayDate(period.end)} · Última coleta {lastCollection ? displayTime(lastCollection) : "não registrada"}.
-        {sync === "failed" ? " A última sincronização de mídia falhou." : sync === "indeterminate" ? " A última sincronização não foi confirmada."
-          : sync === "unavailable" ? " Status da sincronização indisponível." : ""}
-      </p>}
-      {autonomy !== null && <p className="retaguarda-finance-note">Autonomia estimada da plataforma <strong>{formatDays(autonomy)}</strong>. Projeção pelo ritmo observado.</p>}
-      {summary.date && <p className="retaguarda-finance-note">Último saldo conhecido em {displayDate(summary.date)} · independente do período{summary.items.some(item => !fresh(item.latest)) ? " · Medição desatualizada" : ""}.</p>}
-      {summary.items.length > 1 && !summary.date && <p className="retaguarda-finance-note">O total por plataforma requer registros de todas as contas ativas com a mesma data de referência.</p>}
-      {!!summary.items.length && (
+      <footer className="finance-card-foot">
+        {autonomy !== null && <span>Autonomia estimada: <strong>{formatDays(autonomy)}</strong></span>}
+        <span>{financialTime ? `Última medição: ${displayTime(financialTime)}` : summary.date
+          ? `Referência financeira: ${displayDate(summary.date)}` : lastCollection ? `Coleta de gastos: ${displayTime(lastCollection)}` : "Sem atualização financeira"}</span>
+        {stale && <span className="finance-stale">Saldo desatualizado</span>}
+        {items.length > 1 && <span>{coverage} de {items.length} contas ativas com saldo conhecido</span>}
+      </footer>
+      {items.length > 1 && !summary.date && <p className="finance-card-warning">O total por plataforma requer registros de todas as contas ativas com a mesma data de referência.</p>}
+      {failed && <p className="finance-card-warning" role="status">{sync === "failed" ? "A última sincronização de mídia falhou." : "A última sincronização não foi confirmada."}</p>}
+      {sync === "unavailable" && <p className="finance-card-warning" role="status">Status da sincronização indisponível.</p>}
+      {!items.length && <p className="finance-card-warning">Nenhuma conta ativa disponível</p>}
+      <Popover open={detailsOpen} onClose={closeDetails} anchorRef={infoAnchor} label={`Informações financeiras de ${financePlatforms[platform]}`} width={430} align="start" className="finance-details">
+        <header><h4>{financePlatforms[platform]} · Detalhes financeiros</h4><button type="button" className="finance-info-button" aria-label={`Fechar detalhes de ${financePlatforms[platform]}`} onClick={closeDetails}><X size={18} /></button></header>
+        <p>Gasto médio: {displayDate(period.start)} a {displayDate(period.end)}, últimos sete dias completos. Não é orçamento de campanha.</p>
         <ul className="retaguarda-accounts">
-          {items.map(({ account, latest: entry, spend: accountSpend }) => {
-            const accountAutonomy = estimateAutonomy(entry?.available_balance_brl, accountSpend.estimate, fresh(entry) && !failed && !spendError);
-            return <li key={account.account_id}>
-              <strong>{financialAccountLabel(account)}</strong>
-              <span>{entry?.available_balance_brl == null ? balanceNote : `Saldo ${money(entry.available_balance_brl)}`}</span>
-              {spend && <span>{accountSpend.estimate === null
-                ? `Estimativa indisponível · ${accountSpend.validDays} de 7 dias válidos em BRL${accountSpend.unverifiedCurrency ? " · Moeda não confirmada em BRL" : ""}`
-                : `${money(accountSpend.estimate)} por dia · 7 de 7 dias em BRL`}</span>}
-              {items.length > 1 && accountSpend.lastCollection && <span>Última coleta {displayTime(accountSpend.lastCollection)}</span>}
-              {entry && <span>{displayDate(entry.reference_date)} · {entry.origin === "api" && platform === "meta_ads" ? "Meta Ads API" : financeOrigins[entry.origin]} · Medição em {displayTime(entry.measured_at)}
-                {!fresh(entry) && " · Sem medição recente para a projeção"}</span>}
-              {accountAutonomy !== null && <span>Autonomia estimada {formatDays(accountAutonomy)}</span>}
-              {accountSpend.estimate === 0 && <span>Autonomia indisponível com gasto médio zero.</span>}
-            </li>;
-          })}
+          {items.map(({ account, latest: entry, spend: accountSpend }, index) => <li key={account.account_id}>
+            <strong>{items.length > 1 && `Conta ${index + 1} · `}{account.account_name || financePlatforms[platform]}</strong>
+            <span>ID: {account.account_id}</span>
+            <span>{entry?.available_balance_brl == null ? "Saldo não informado" : `Origem do saldo: ${entry.origin === "api" && platform === "meta_ads" ? "Meta Ads API · confirmado pela API oficial" : financeOrigins[entry.origin]}`}</span>
+            {items.length > 1 && <span>Saldo: {entry?.available_balance_brl == null ? "Não informado" : money(entry.available_balance_brl)} · Gasto médio diário: {accountSpend.estimate === null ? "Indisponível" : money(accountSpend.estimate)}</span>}
+            {entry && <span>{displayDate(entry.reference_date)} · Medição em {displayTime(entry.measured_at)}{!fresh(entry) && " · Saldo desatualizado"}</span>}
+            <span>Última coleta de gastos: {accountSpend.lastCollection ? displayTime(accountSpend.lastCollection) : "não registrada"}</span>
+            {spend && <span>{accountSpend.validDays} de 7 dias válidos em BRL{accountSpend.unverifiedCurrency && " · Moeda não confirmada em BRL"}</span>}
+            {accountSpend.estimate === 0 && <span>Autonomia indisponível com gasto médio zero.</span>}
+          </li>)}
         </ul>
-      )}
+        <p>A autonomia divide o saldo confirmado pelo gasto médio observado. É uma projeção, não uma garantia; depende de saldo recente e dados completos.</p>
+        {platform === "meta_ads" && <p>A consulta financeira é independente da sincronização das campanhas.</p>}
+      </Popover>
     </Panel>
   );
 }

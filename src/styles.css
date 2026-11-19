@@ -1078,6 +1078,48 @@ tbody tr:hover { background: var(--surface-2); }
 .sales-front-select { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 650; }
 .sales-front-select select { min-width: 170px; max-width: 100%; border: 1px solid var(--line-2); border-radius: 9px; padding: 9px 12px; background: var(--surface-solid); color: var(--text); }
 .commercial-access-note { padding: 12px 15px; border: 1px solid var(--line-2); border-radius: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+/* Financial density is scoped: shared KPI/panel geometry remains unchanged. */
+.retaguarda-finance-card { padding: 16px 18px; }
+.finance-card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; min-height: 40px; gap: 8px 12px; margin-bottom: 12px; }
+.finance-card-title { display: flex; align-items: center; gap: 4px; }
+.finance-card-title h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.finance-info-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; color: var(--muted); background: transparent; line-height: 1; }
+.finance-info-button:hover, .finance-info-button[aria-expanded="true"] { color: var(--text); background: var(--surface-2); }
+.finance-card-kpis { gap: 10px; }
+.finance-card-kpis .kpi { padding: 12px 14px; }
+.finance-card-kpis .kpi-icon { width: 28px; height: 28px; border-radius: 8px; }
+.finance-card-kpis .kpi-value { margin-top: 8px; }
+.finance-card-kpis .kpi-foot { margin-top: 7px; min-height: 0; }
+.finance-card-kpis .kpi-foot:has(> span:empty) { display: none; }
+.finance-card-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.finance-card-foot strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.finance-stale { color: var(--gold-text); }
+.finance-card-warning { margin: 8px 0 0; font-size: 11px; color: var(--gold-text); line-height: 1.5; }
+.meta-balance-control { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; max-width: 100%; }
+.meta-balance-control select { min-height: 40px; max-width: 100%; padding: 0 8px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface-solid); font-size: 11px; }
+.meta-balance-messages { flex-basis: 100%; max-width: 390px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.meta-balance-messages:empty { display: none; }
+.meta-balance-messages p { margin: 4px 0 0; }
+.meta-balance-messages [role="alert"] { color: var(--red-text); }
+/* Normalize the inherited text line box, not the optical position via offsets. */
+.retaguarda-finance :is(.primary-button, .secondary-button),
+.data-sync-control .secondary-button, .data-sync-panel :is(.primary-button, .secondary-button) { line-height: 1.2; padding-block: 0; }
+.meta-balance-control .secondary-button { height: 40px; padding-inline: 12px; white-space: nowrap; }
+.retaguarda-finance button svg, .data-sync-control button svg, .data-sync-panel button svg { display: block; flex-shrink: 0; }
+.finance-details { padding: 18px; overflow-y: auto; color: var(--text); background: var(--surface-solid); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow); overflow-wrap: anywhere; }
+.finance-details > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.finance-details h4 { margin: 0; font-size: 14px; font-weight: 700; }
+.finance-details p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.finance-details .retaguarda-accounts { margin-top: 8px; }
+@media (max-width: 640px) {
+  .retaguarda-finance-card { padding: 14px; }
+  .finance-card-head { gap: 6px; }
+  .finance-info-button { width: 44px; height: 44px; }
+  .retaguarda-finance :is(.primary-button, .secondary-button), .meta-balance-control select,
+  .data-sync-control .secondary-button, .data-sync-panel :is(.primary-button, .secondary-button) { min-height: 44px; height: auto; }
+  .finance-card-foot { gap: 5px 12px; }
+}
 .sales-editors { align-items: start; }
 @media (max-width: 640px) { .crm-head-side, .commercial-selection { width: 100%; align-items: stretch; } .sales-front-select { flex: 1; } }
 
