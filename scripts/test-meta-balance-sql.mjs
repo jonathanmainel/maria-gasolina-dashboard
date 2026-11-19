@@ -23,7 +23,9 @@ try {
   const info = JSON.parse(run("inspect", container))[0];
   assert.equal(info.HostConfig.NetworkMode, "none"); assert.equal(info.HostConfig.PortBindings && Object.keys(info.HostConfig.PortBindings).length, 0);
   for (let i = 0; i < 40; i++) {
-    if (spawnSync("docker", ["exec", container, "pg_isready", "-U", "postgres"], { stdio: "ignore" }).status === 0) break;
+    // initdb starts a temporary socket-only server and then restarts it. Wait
+    // for TCP on loopback so readiness cannot select that transient server.
+    if (spawnSync("docker", ["exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], { stdio: "ignore" }).status === 0) break;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   for (const file of ["tests/homolog/meta-balance.local-baseline.sql", "supabase/migrations/20261117045349_retaguarda_financial_entries.sql",
