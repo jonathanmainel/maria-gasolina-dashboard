@@ -532,6 +532,11 @@ for (const [width, height, theme] of [[1440, 1000, "dark"], [1440, 1000, "light"
     await expect(history(page).locator("tfoot td").last()).toHaveText("44");
     await expect(finances(page).getByText('Conta Meta', { exact: true })).toHaveCount(0);
     await expect(page.getByText(/Autonomia estimada:/)).toBeVisible();
+    const financialKpis = finances(page).locator('.finance-card-kpis').first().locator('.kpi');
+    const firstKpi = (await financialKpis.nth(0).boundingBox())!;
+    const secondKpi = (await financialKpis.nth(1).boundingBox())!;
+    if (width > 640) expect(secondKpi.y).toBeCloseTo(firstKpi.y, 0);
+    else expect(secondKpi.y).toBeGreaterThan(firstKpi.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if (width < 900) {
       const viewport = page.getByRole("region", { name: "Colunas do acompanhamento diário" });
