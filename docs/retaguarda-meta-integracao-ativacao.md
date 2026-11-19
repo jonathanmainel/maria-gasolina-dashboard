@@ -4,9 +4,11 @@
 
 Branch `codex/retaguarda-meta-integracao`, baseada na main do PR #25. Reaproveita PR #27
 e preserva as funcionalidades de saldo atual do PR #26. PRs originais/heads preservados.
-Automação definitiva sem migration, deploy, ativação de flags/cron ou escrita financeira
-em produção. A única intervenção autorizada foi o diagnóstico temporário descrito abaixo,
-já removido e desativado. **Código pronto para homologação não é fonte homologada.**
+Implantação parcial em 19/11/2026: as duas migrations financeiras incrementais foram
+aplicadas/registradas. As 44 entradas anteriores permanecem intactas (46 no total).
+Job horário criado inativo; nenhuma função financeira definitiva foi publicada,
+nenhuma gravação financeira ou coleta horária foi ativada. Diagnóstico removido/desativado.
+A fonte foi homologada em leitura; a persistência e a operação definitiva seguem pendentes.
 
 A leitura real de 19/11/2026 confirmou credencial, conta, BRL, prepay e type=20. O parser
 v3 normalizou o valor; a interface atualizada um minuto depois confirmou igualdade
@@ -216,13 +218,29 @@ Scripts preparados, não executados remotamente:
 
 ## Migrations e permissões
 
-Aplicar após autorização, checksums e pré-requisitos, nesta ordem:
+**Já aplicadas em produção em 19/11/2026; não reaplicar.** Ordem executada após
+autorização, checksums e validação da leitura real:
 
-1. `20261118150949_retaguarda_meta_balance_collection.sql`: proposta ainda não aplicada
-   do PR #27. Integração ajustou **uma linha** de cooldown agendado para próxima faixa UTC;
-   exige revisar novo checksum. Nenhuma migration já aplicada foi alterada.
+1. `20261118150949_retaguarda_meta_balance_collection.sql`: versão consolidada do PR #27,
+   com cooldown na próxima faixa UTC e proveniência do parser v3. SHA-256:
+   `4ae5d4b224cbe3d650d40c9d157e484dd21c69899dd5481293ceb937330eb8ed`.
 2. `20261118183030_complete_retaguarda_meta_automation.sql`: duas colunas no log existente,
    claim/contexto, leitura da folha vigente com RLS, dispatcher e job inativo. Sem nova tabela operacional.
+   SHA-256: `4bcadc28e21eb17b91a575e80bd12da4a21f9f4c3aac5e90f7064fcf28745080`.
+
+DDL e statements do histórico correspondem aos blobs Git aprovados. Aplicação em uma
+transação com lock_timeout=5s/statement_timeout=45s. Digest das 44 entradas anteriores
+preservado: `28bb8623cfb9315182a90e486293b04d`. Tabela financeira permaneceu sem registros;
+RLS, grants por coluna, políticas Admin/Editor e bloqueio UPDATE/DELETE preservados.
+
+**Ocorrência operacional:** CLI 2.117.0 `db query --linked`, embora documentado no help
+como Management API, inicializou uma credencial temporária para `cli_login_postgres`.
+Essa inicialização contrariou a restrição operacional; próximas alterações foram
+interrompidas para decisão do operador. Credencial expirou em 19/11/2026 13:03:50 UTC;
+consulta às 13:03:58 UTC confirmou expiração e zero sessões. Papel não foi alterado
+ou excluído manualmente. Não usar comandos de banco da CLI vinculados ao projeto;
+prosseguir somente pelo conector administrativo/SQL Editor autorizado, sem inicializar
+papéis temporários. Não há segredo ou valor de saldo neste registro.
 
 Exige migrations financeiras 20261117045349/20261117150000, clientes/vínculos/contas,
 helpers de associação/papéis existentes, pg_cron/pg_net e Vault. Colisão no nome do job
@@ -256,7 +274,9 @@ Aviso preexistente de bundles >500 kB não é falha de build.
 
 ## Sequência única de ativação e rollback
 
-Cada operação remota abaixo exige autorização; nenhuma foi executada:
+Checklist de operação. Leitura real e migrations concluídas; demais passos ainda
+pendentes neste checkpoint. A autorização de publicação existe, mas a retomada após
+a ocorrência da CLI aguarda decisão específica do operador.
 
 1. Diagnóstico real restrito, sem gravação.
 2. Parser/valor comparados com Fundos disponíveis; discrepância ou permissão insuficiente
