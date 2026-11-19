@@ -186,6 +186,38 @@ async function prepare(page: Page, options: {
 
 const history = (page: Page) => page.getByRole("table", { name: "Acompanhamento diário de marketing" });
 
+test("resumo compacto e popover por clique e teclado, sem repetir dados", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await prepare(page, { finance: true, seedFinance: true, spendMode: "complete" });
+  await page.goto(dashboard);
+  await expect(page.getByRole("button", { name: "Atualizar saldo Meta agora" })).toBeEnabled();
+  const meta = page.locator('.retaguarda-finance-card').filter({ has: page.getByRole('heading', { name: 'Meta Ads', exact: true }) });
+  await expect(meta.getByText('Conta Meta', { exact: true })).toHaveCount(0);
+  await expect(meta.getByText(/account-01/)).toHaveCount(0);
+  await expect(meta.getByText(/Autonomia estimada:/)).toHaveCount(1);
+  expect((await meta.boundingBox())!.height).toBeLessThan(300);
+  const trigger = meta.getByRole('button', { name: 'Informações financeiras de Meta Ads' });
+  await trigger.focus(); await page.keyboard.press('Enter');
+  const details = page.getByRole('dialog', { name: 'Informações financeiras de Meta Ads' });
+  await expect(details.getByText('Conta Meta', { exact: true })).toBeVisible();
+  await expect(details.getByText('ID: account-01', { exact: true })).toBeVisible();
+  await expect(details.getByText(/Última coleta de gastos/)).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(details).toHaveCount(0); await expect(trigger).toBeFocused();
+  await trigger.click(); await page.locator('.overlay-backdrop').click({ position: { x: 2, y: 2 } });
+  await expect(details).toHaveCount(0);
+  const styles = await meta.getByRole('button', { name: 'Atualizar saldo Meta agora' }).evaluate(el => {
+    const s = getComputedStyle(el); return { height: el.getBoundingClientRect().height, paddingTop: s.paddingTop, paddingBottom: s.paddingBottom, lineHeight: parseFloat(s.lineHeight), fontSize: parseFloat(s.fontSize), align: s.alignItems };
+  });
+  expect(styles).toMatchObject({ height: 40, paddingTop: '0px', paddingBottom: '0px', align: 'center' });
+  expect(styles.lineHeight / styles.fontSize).toBeCloseTo(1.2);
+  await page.getByRole('button', { name: 'Ver atualização das fontes' }).click();
+  const todayButton = page.getByRole('button', { name: 'Ver Hoje · parcial' });
+  await expect(todayButton).toBeVisible();
+  expect(await todayButton.evaluate(el => parseFloat(getComputedStyle(el).lineHeight)/parseFloat(getComputedStyle(el).fontSize))).toBeCloseTo(1.2);
+  await page.keyboard.press('Escape');
+  await page.screenshot({ path: test.info().outputPath('finance-compact.png'), fullPage: true });
+});
+
 async function changePeriod(page: Page, start: string, end: string) {
   await page.getByRole("button", { name: /Período/i }).click();
   const picker = page.getByRole("dialog", { name: "Escolher período" });
@@ -239,7 +271,7 @@ test("mostra o estado vazio com o financeiro indisponível", async ({ page }) =>
   await page.goto(dashboard);
   await expect(page.getByText("Nenhum dado de mídia paga ou aquisição orgânica neste período.")).toBeVisible();
   await expect(page.getByText("Nenhum registro desta fonte no período.")).toHaveCount(3);
-  await expect(page.getByText("Saldo não informado no resumo", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Saldo não informado", { exact: true })).toHaveCount(2);
   await expect(history(page)).toHaveCount(0);
 });
 
@@ -311,11 +343,13 @@ test("editor consulta saldo no backend e atualiza resumo sem depender do períod
   await page.getByRole("button", { name: "Atualizar saldo Meta agora" }).click();
   await expect(page.getByText("Nova medição confirmada e registrada.")).toBeVisible();
   const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
-  await expect(finance.getByText(/Meta Ads API · Medição/)).toBeVisible();
-  await expect(finance.getByText(/^Saldo R\$\s*123,45$/)).toBeVisible();
+  await expect(finance.getByText(/^R\$\s*123,45$/)).toBeVisible();
+  await finance.getByRole('button', { name: 'Informações financeiras de Meta Ads' }).click();
+  await expect(page.getByRole('dialog').getByText(/Meta Ads API · confirmado pela API oficial/)).toBeVisible();
+  await page.keyboard.press('Escape');
   expect(balanceRequests).toHaveLength(1); expect(financialWrites).toEqual([]);
   await changePeriod(page, previousDay, previousDay);
-  await expect(finance.getByText(/^Saldo R\$\s*123,45$/)).toBeVisible();
+  await expect(finance.getByText(/^R\$\s*123,45$/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Histórico financeiro" })).toHaveCount(0);
 });
 
@@ -339,7 +373,7 @@ test("homologação desligada mantém botão desativado e registro manual dispon
 
 test("saldo manual no mesmo dia bloqueia também a rotina horária", async ({ page }) => {
   await prepare(page, { finance: true, balanceBlocked: true }); await page.goto(dashboard);
-  await expect(page.getByText(/atualização automática e horária bloqueadas/)).toBeVisible();
+  await expect(page.getByText(/atualização automática e pelo botão bloqueadas/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Atualizar saldo Meta agora" })).toBeDisabled();
 });
 
@@ -352,7 +386,7 @@ test("registra saldo de hoje com histórico antigo, resolve a versão vigente e 
   await form.getByLabel("Saldo disponível (BRL)").fill("100,00");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
-  await expect(page.getByText(/^Saldo R\$\s*100,00$/)).toBeVisible();
+  await expect(finances(page).getByText(/^R\$\s*100,00$/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Histórico financeiro" })).toHaveCount(0);
   expect(financialWrites[0].reference_date).toBe("2026-11-17");
 });
@@ -363,7 +397,7 @@ test("o carregamento financeiro preserva a leitura de mídia", async ({ page }) 
   await prepare(page, { finance: true, seedFinance: true, holdFinance: held });
   try {
     await page.goto(`${dashboard}&share=1`);
-    await expect(finances(page).getByText("Carregando saldos no resumo", { exact: true })).toHaveCount(2);
+    await expect(finances(page).getByText("Carregando saldos", { exact: true })).toHaveCount(2);
     await expect(history(page).locator("tfoot td").last()).toHaveText("44");
   } finally {
     release();
@@ -416,7 +450,7 @@ test("múltiplas contas exigem cobertura da mesma data e permitem corrigir conta
   await expect(metaSummary.getByText(/requer registros de todas as contas ativas/)).toBeVisible();
   await expect(metaSummary.getByText(/Meta Arquivada/)).toHaveCount(0);
   await expect(googleSummary.getByText(/1 de 2 contas ativas/)).toBeVisible();
-  await expect(googleSummary.getByText("Saldo não informado", { exact: true })).toHaveCount(1);
+  await expect(googleSummary.getByText("Saldo consolidado indisponível", { exact: true })).toHaveCount(1);
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
   await form.getByLabel("Conta de anúncios").selectOption("account-03");
@@ -426,7 +460,9 @@ test("múltiplas contas exigem cobertura da mesma data e permitem corrigir conta
   await form.getByLabel("Saldo disponível (BRL)").fill("55,22");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
-  await expect(finances(page)).toContainText("55,22");
+  await finance.getByRole('button', { name: 'Informações financeiras de Meta Ads' }).click();
+  await expect(page.getByRole('dialog')).toContainText('55,22');
+  await page.keyboard.press('Escape');
   await expect(page.getByRole("table", { name: "Histórico financeiro" })).toHaveCount(0);
   await expect(metaSummary.getByText(/requer registros de todas as contas ativas/)).toBeVisible();
 });
@@ -435,8 +471,8 @@ test("mostra gasto automático sem saldo e distingue zero, cobertura e falha da 
   await prepare(page, { finance: true, spendMode: "failed" });
   await page.goto(dashboard);
   const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
-  await expect(finance.getByText(/20,00 por dia · 7 de 7 dias em BRL/)).toBeVisible();
-  await expect(finance.getByText(/^R\$\s*0,00 por dia · 7 de 7 dias em BRL$/)).toBeVisible();
+  await expect(finance.getByText(/^R\$\s*20,00$/)).toBeVisible();
+  await expect(finance.getByText(/^R\$\s*0,00$/)).toBeVisible();
   await expect(finance.getByText("Saldo não informado", { exact: true })).toHaveCount(2);
   await expect(finance.getByText(/última sincronização de mídia falhou/)).toBeVisible();
   await expect(finance.getByText(/Autonomia estimada/)).toHaveCount(0);
@@ -466,6 +502,26 @@ test("Site não carrega o código nem as consultas financeiras da Retaguarda", a
   expect(chunks).toHaveLength(1);
 });
 
+test.describe('detalhes financeiros por toque', () => {
+  test.use({ hasTouch: true });
+  for (const theme of ['dark', 'light'] as const) test(`popover mobile ${theme}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await prepare(page, { theme, finance: true, seedFinance: true, multiAccounts: true, spendMode: 'complete' });
+    await page.goto(dashboard);
+    await page.getByRole('button', { name: 'Informações financeiras de Meta Ads' }).tap();
+    const details = page.getByRole('dialog', { name: 'Informações financeiras de Meta Ads' });
+    await expect(details).toContainText('account-01'); await expect(details).toContainText('account-03');
+    const box = (await details.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(390);
+    expect(box.y + box.height).toBeLessThanOrEqual(844);
+    await page.screenshot({ path: info.outputPath(`finance-popover-${theme}.png`) });
+    await page.locator('.overlay-backdrop').tap({ position: { x: 2, y: 2 } });
+    await expect(details).toHaveCount(0);
+    const refresh = page.getByRole('button', { name: 'Atualizar saldo Meta agora' });
+    expect((await refresh.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  });
+});
+
 for (const [width, height, theme] of [[1440, 1000, "dark"], [1440, 1000, "light"], [820, 1000, "dark"], [820, 1000, "light"], [390, 844, "dark"], [390, 844, "light"]] as const) {
   test(`tabela e navegação em ${width}px no tema ${theme}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height });
@@ -474,8 +530,13 @@ for (const [width, height, theme] of [[1440, 1000, "dark"], [1440, 1000, "light"
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(history(page)).toBeVisible();
     await expect(history(page).locator("tfoot td").last()).toHaveText("44");
-    await expect(finances(page)).toContainText("Conta Meta");
-    await expect(page.getByText(/Autonomia estimada da plataforma/)).toBeVisible();
+    await expect(finances(page).getByText('Conta Meta', { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Autonomia estimada:/)).toBeVisible();
+    const financialKpis = finances(page).locator('.finance-card-kpis').first().locator('.kpi');
+    const firstKpi = (await financialKpis.nth(0).boundingBox())!;
+    const secondKpi = (await financialKpis.nth(1).boundingBox())!;
+    if (width > 640) expect(secondKpi.y).toBeCloseTo(firstKpi.y, 0);
+    else expect(secondKpi.y).toBeGreaterThan(firstKpi.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if (width < 900) {
       const viewport = page.getByRole("region", { name: "Colunas do acompanhamento diário" });
