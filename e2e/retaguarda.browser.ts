@@ -28,7 +28,7 @@ const acquisitionRows = [
   { metric_date: day, channel_group: "Paid Search", sessions: 800 },
 ];
 
-const finances = (page: Page) => page.getByRole("table", { name: "Histórico financeiro" });
+const finances = (page: Page) => page.getByRole("region", { name: "Financeiro da Retaguarda" });
 const firstFinancialEntry = {
   id: "financial-original", platform: "meta_ads", account_id: "account-01", reference_date: day,
   available_balance_brl: 0, estimated_daily_spend_brl: 21.9, origin: "manual", previous_id: null, created_by: user.id,
@@ -118,11 +118,18 @@ async function prepare(page: Page, options: {
   await page.context().route((url) => url.origin === apiOrigin && [
     "/rest/v1/rpc/get_retaguarda_financial_accounts", "/rest/v1/dashboard_retaguarda_financial_entries",
     "/rest/v1/rpc/get_retaguarda_latest_balances", "/rest/v1/rpc/get_retaguarda_meta_balance_status",
+    "/rest/v1/rpc/get_retaguarda_financial_day_head",
   ].includes(url.pathname), async (route) => {
     const url = new URL(route.request().url());
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST,OPTIONS" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     financialCalls.push(url.pathname);
+    if (url.pathname.endsWith("/get_retaguarda_financial_day_head")) {
+      const args = route.request().postDataJSON(); expect(args.p_client_id).toBe(1);
+      const replaced = new Set(financialEntries.map(entry => entry.previous_id));
+      return route.fulfill({ status: 200, headers, json: financialEntries.filter(entry => !replaced.has(entry.id)
+        && entry.platform === args.p_platform && entry.account_id === args.p_account_id && entry.reference_date === args.p_reference_date).slice(0,1) });
+    }
     if (url.pathname.endsWith("/get_retaguarda_meta_balance_status"))
       return route.fulfill({ status: 200, headers, json: [] });
     if (url.pathname.endsWith("/get_retaguarda_latest_balances")) {
@@ -172,11 +179,7 @@ async function prepare(page: Page, options: {
       const key = url.searchParams.get("request_key")?.slice(3);
       return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.request_key === key) });
     }
-    if (url.searchParams.get("reference_date")?.startsWith("eq.")) return route.fulfill({ status: 200, headers,
-      json: financialEntries.filter(entry => entry.reference_date === url.searchParams.get("reference_date")!.slice(3)
-        && entry.account_id === url.searchParams.get("account_id")?.slice(3) && entry.platform === url.searchParams.get("platform")?.slice(3)) });
-    const [from, to] = url.searchParams.getAll("reference_date").map((value) => value.slice(4));
-    return route.fulfill({ status: 200, headers, json: financialEntries.filter((entry) => entry.reference_date >= from && entry.reference_date <= to) });
+    throw new Error("A interface não deve consultar séries de histórico financeiro.");
   });
   return { reads, audit, financialWrites, financialCalls, balanceRequests };
 }
@@ -240,7 +243,7 @@ test("mostra o estado vazio com o financeiro indisponível", async ({ page }) =>
   await expect(history(page)).toHaveCount(0);
 });
 
-test("editor registra zero, corrige e consulta a versão anterior", async ({ page }) => {
+test("editor registra zero e corrige pela folha vigente sem exibir versões anteriores", async ({ page }) => {
   const { financialWrites } = await prepare(page, { finance: true, role: "editor" });
   await page.goto(dashboard);
   await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
@@ -259,27 +262,30 @@ test("editor registra zero, corrige e consulta a versão anterior", async ({ pag
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
   await expect(page.getByText("Registro financeiro salvo.")).toBeVisible();
   await expect(finances(page)).toContainText("0,00");
-  await page.getByRole("button", { name: "Corrigir", exact: true }).click();
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
+  await form.getByLabel("Data de referência").fill(day);
+  await expect(form.getByLabel("Saldo disponível (BRL)")).toHaveValue(/0,00/);
   await form.getByLabel("Saldo disponível (BRL)").fill("52,90");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await expect(form).toContainText("cria uma nova versão");
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
-  await finances(page).getByText("Consultar 2 versões").click();
-  await expect(finances(page).getByText("Versão anterior", { exact: true })).toBeVisible();
   await expect(finances(page)).toContainText("52,90");
-  await expect(finances(page)).toContainText("0,00");
+  await expect(page.getByRole("table", { name: "Histórico financeiro" })).toHaveCount(0);
+  await expect(page.getByText("Consultar 2 versões")).toHaveCount(0);
   expect(financialWrites.map((draft) => [draft.available_balance_brl, draft.previous_id])).toEqual([["0.00", null], ["52.90", "financial-1"]]);
   expect(financialWrites.map((draft) => draft.estimated_daily_spend_brl)).toEqual([null, null]);
   await changePeriod(page, previousDay, previousDay);
-  await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  await expect(finances(page)).toContainText("52,90");
 });
 
 test("a falha de gravação não anuncia sucesso e mantém os valores para nova tentativa", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { financialWrites } = await prepare(page, { finance: true, seedFinance: true, role: "editor", failWrite: true });
   await page.goto(dashboard);
-  await page.getByRole("button", { name: "Corrigir", exact: true }).click();
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
+  await form.getByLabel("Data de referência").fill(day);
+  await expect(form.getByLabel("Saldo disponível (BRL)")).toHaveValue(/0,00/);
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
   await expect(form.getByRole("alert")).toContainText("não permite");
@@ -310,7 +316,7 @@ test("editor consulta saldo no backend e atualiza resumo sem depender do períod
   expect(balanceRequests).toHaveLength(1); expect(financialWrites).toEqual([]);
   await changePeriod(page, previousDay, previousDay);
   await expect(finance.getByText(/^Saldo R\$\s*123,45$/)).toBeVisible();
-  await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Histórico financeiro" })).toHaveCount(0);
 });
 
 test("falha e conflito da coleta não anunciam novo saldo nem removem o manual", async ({ page }) => {
@@ -347,7 +353,7 @@ test("registra saldo de hoje com histórico antigo, resolve a versão vigente e 
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
   await expect(page.getByText(/^Saldo R\$\s*100,00$/)).toBeVisible();
-  await expect(page.getByText("Nenhum registro financeiro no período.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Histórico financeiro" })).toHaveCount(0);
   expect(financialWrites[0].reference_date).toBe("2026-11-17");
 });
 
@@ -357,7 +363,7 @@ test("o carregamento financeiro preserva a leitura de mídia", async ({ page }) 
   await prepare(page, { finance: true, seedFinance: true, holdFinance: held });
   try {
     await page.goto(`${dashboard}&share=1`);
-    await expect(page.getByRole("status", { name: "Carregando histórico financeiro" })).toBeVisible();
+    await expect(finances(page).getByText("Carregando saldos no resumo", { exact: true })).toHaveCount(2);
     await expect(history(page).locator("tfoot td").last()).toHaveText("44");
   } finally {
     release();
@@ -388,8 +394,10 @@ for (const [writeMode, message] of [["conflict", "O histórico mudou"], ["expire
   test(`gravação com ${writeMode} mostra a causa sem anunciar sucesso`, async ({ page }) => {
     const { financialWrites } = await prepare(page, { finance: true, seedFinance: true, role: "editor", writeMode });
     await page.goto(dashboard);
-    await page.getByRole("button", { name: "Corrigir", exact: true }).click();
+    await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
     const form = page.getByRole("form", { name: "Registro financeiro" });
+    await form.getByLabel("Data de referência").fill(day);
+    await expect(form.getByLabel("Saldo disponível (BRL)")).toHaveValue(/0,00/);
     await form.getByRole("button", { name: "Revisar registro" }).click();
     await form.getByRole("button", { name: "Confirmar e salvar" }).click();
     await expect(form.getByRole("alert")).toContainText(message);
@@ -398,7 +406,7 @@ for (const [writeMode, message] of [["conflict", "O histórico mudou"], ["expire
   });
 }
 
-test("múltiplas contas exigem cobertura da mesma data e permitem filtrar o histórico", async ({ page }) => {
+test("múltiplas contas exigem cobertura da mesma data e permitem corrigir conta/data sem histórico", async ({ page }) => {
   await prepare(page, { finance: true, seedFinance: true, multiAccounts: true });
   await page.goto(dashboard);
   const finance = page.getByRole("region", { name: "Financeiro da Retaguarda" });
@@ -409,19 +417,17 @@ test("múltiplas contas exigem cobertura da mesma data e permitem filtrar o hist
   await expect(metaSummary.getByText(/Meta Arquivada/)).toHaveCount(0);
   await expect(googleSummary.getByText(/1 de 2 contas ativas/)).toBeVisible();
   await expect(googleSummary.getByText("Saldo não informado", { exact: true })).toHaveCount(1);
-  await finance.getByLabel("Filtrar por plataforma").selectOption("meta_ads");
-  await finance.getByLabel("Filtrar por conta").selectOption({ label: "Meta Ads · Meta Secundária · account-03" });
-  await expect(finances(page).locator("tbody tr")).toHaveCount(1);
-  await finance.getByLabel("Filtrar por data").fill(day);
-  await expect(finance.getByText("Nenhum registro para os filtros escolhidos.")).toBeVisible();
-  await finance.getByLabel("Filtrar por data").fill(previousDay);
-  await finances(page).getByRole("button", { name: "Corrigir", exact: true }).click();
+  await page.getByRole("button", { name: "Registrar saldo", exact: true }).click();
   const form = page.getByRole("form", { name: "Registro financeiro" });
+  await form.getByLabel("Conta de anúncios").selectOption("account-03");
+  await form.getByLabel("Data de referência").fill(previousDay);
+  await expect(form.getByLabel("Saldo disponível (BRL)")).toHaveValue(/12,00/);
   await expect(form.getByLabel("Conta de anúncios")).toHaveValue("account-03");
   await form.getByLabel("Saldo disponível (BRL)").fill("55,22");
   await form.getByRole("button", { name: "Revisar registro" }).click();
   await form.getByRole("button", { name: "Confirmar e salvar" }).click();
-  await expect(finances(page).locator("tbody")).toContainText("55,22");
+  await expect(finances(page)).toContainText("55,22");
+  await expect(page.getByRole("table", { name: "Histórico financeiro" })).toHaveCount(0);
   await expect(metaSummary.getByText(/requer registros de todas as contas ativas/)).toBeVisible();
 });
 

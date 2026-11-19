@@ -98,9 +98,12 @@ export async function loadFinancialEntries(range: DateRange): Promise<FinancialE
 
 export async function loadFinancialDayEntries(platform: Channel, accountId: string, date: string): Promise<FinancialEntry[]> {
   if (isDemoMode) return [];
-  const clientId = await getClientId();
-  return fetchAllRows<FinancialEntry>(table, columns, query => query.eq("client_id", clientId).eq("platform", platform)
-    .eq("account_id", accountId).eq("reference_date", date).order("created_at").order("id"));
+  if (!supabase) throw new Error("Leitura financeira indisponível.");
+  const { data, error } = await supabase.rpc("get_retaguarda_financial_day_head", {
+    p_client_id: await getClientId(), p_platform: platform, p_account_id: accountId, p_reference_date: date,
+  });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: string): Promise<void> {

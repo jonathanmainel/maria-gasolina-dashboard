@@ -18,7 +18,7 @@ export function MetaBalanceRefresh({ userId, canEdit, accountIds, onRefresh }: {
     if (!status.data?.accounts.some(row => row.entry_id)) return;
     void queryClient.invalidateQueries({ predicate: query => query.queryKey[0] === financeQueryKey[0]
       && query.queryKey[1] === financeQueryKey[1] && query.queryKey[2] === userId
-      && ["entries", "latest"].includes(String(query.queryKey[3])) });
+      && query.queryKey[3] === "latest" });
   }, [completion, queryClient, userId]);
   async function refresh(accountId: string) {
     if (lock.current) return;
@@ -33,7 +33,7 @@ export function MetaBalanceRefresh({ userId, canEdit, accountIds, onRefresh }: {
       setNotice(error instanceof Error ? error.message : "Coleta não confirmada.");
     }
     finally {
-      await Promise.allSettled([status.refetch(), onRefresh(), queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] })]);
+      await Promise.allSettled([status.refetch(), onRefresh()]);
       setPending(null); lock.current = false;
     }
   }

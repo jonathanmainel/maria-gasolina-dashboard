@@ -107,6 +107,9 @@ do $$ begin
     or (select count(*) from public.get_retaguarda_latest_balances(2))<>0
     or (select count(*) from public.get_retaguarda_meta_balance_status(1))<>2
     or (select count(*) from public.get_retaguarda_meta_balance_status(2))<>0 then raise exception 'Member isolation failed'; end if;
+  if (select count(*) from public.get_retaguarda_financial_day_head(1,'meta_ads','111',(now() at time zone 'America/Sao_Paulo')::date))<>1
+    or (select count(*) from public.get_retaguarda_financial_day_head(2,'meta_ads','111',(now() at time zone 'America/Sao_Paulo')::date))<>0
+    then raise exception 'Current-day leaf isolation failed'; end if;
   begin
     perform public.reserve_retaguarda_meta_balance('test-a','111',gen_random_uuid(),'scheduled',null);
     raise exception 'Viewer invoked service RPC'; exception when insufficient_privilege then null; end;

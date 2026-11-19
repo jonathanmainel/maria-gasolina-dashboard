@@ -1,4 +1,17 @@
 -- Completes the UNPUBLISHED financial proposal. No existing collector or job is changed.
+-- Manual correction reads just the valid leaf, without downloading prior versions.
+create function public.get_retaguarda_financial_day_head(p_client_id bigint,p_platform text,p_account_id text,p_reference_date date)
+returns setof public.dashboard_retaguarda_financial_entries
+language sql stable security invoker set search_path='' as $$
+  select e.* from public.dashboard_retaguarda_financial_entries e
+  where e.client_id=p_client_id and e.platform=p_platform and e.account_id=p_account_id
+    and e.reference_date=p_reference_date and e.reference_date<=(now() at time zone 'America/Sao_Paulo')::date
+    and not exists(select 1 from public.dashboard_retaguarda_financial_entries n where n.previous_id=e.id)
+  order by e.created_at desc,e.id limit 1;
+$$;
+revoke all on function public.get_retaguarda_financial_day_head(bigint,text,text,date) from public,anon,authenticated,service_role;
+grant execute on function public.get_retaguarda_financial_day_head(bigint,text,text,date) to authenticated;
+
 alter table private.retaguarda_balance_runs
   add column claimed_at timestamptz,
   add column dispatch_id bigint;

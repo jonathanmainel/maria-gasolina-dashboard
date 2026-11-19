@@ -53,10 +53,13 @@ de dia durante coleta é rejeitada. Falha preserva último saldo confirmado.
 
 ## PRs #26/#27 e botão
 
-Escolhida **uma RPC limitada para saldo atual** com RLS e exclusão de datas futuras;
-histórico continua consultado por período. Não foi incorporada a estratégia de carregar
-todo o histórico do PR #26 em paralelo à RPC do PR #27. Consulta pontual conta/dia somente
-ao registrar fora do período carregado resolve a folha sem varrer histórico completo.
+Escolhida **uma RPC limitada para saldo atual** com RLS e exclusão de datas futuras.
+Por decisão de publicação, o histórico financeiro foi removido integralmente da interface:
+sem seção, tabela, filtros, detalhes ou visualização de versões. O histórico continua
+imutável no banco. Nenhuma série histórica financeira é consultada pelo frontend.
+“Registrar saldo” consulta somente a folha vigente da conta/data pela RPC invoker
+`get_retaguarda_financial_day_head`; uma correção referencia essa folha e cria nova versão.
+O filtro global continua nos indicadores de marketing, sem afetar saldos ou formulário.
 
 Preservados: último saldo não nulo independente do filtro, zero distinto de ausência,
 registro de hoje com período antigo, correções/versões, autoria, origem/horário e autonomia.
@@ -65,7 +68,7 @@ Fonte API aparece como Meta Ads API. Nenhuma alteração visual em outras págin
 `action=status` retorna disponibilidade/backend, papel, conta permitida, cooldown,
 conflito e estado de execução. Viewer sem botão; Admin/Editor com botão **desativado**
 antes da homologação ou em falha de estado. Bloqueio manual explica efeito no horário.
-Polling só na Retaguarda: 60 s normal, 3 s em execução. Sucesso atualiza cards/histórico
+Polling só na Retaguarda: 60 s normal, 3 s em execução. Sucesso atualiza cards
 sem reload; uma falha não elimina última medição.
 
 ## Diagnóstico temporário — removido após o primeiro teste
@@ -197,7 +200,7 @@ Aplicar após autorização, checksums e pré-requisitos, nesta ordem:
    do PR #27. Integração ajustou **uma linha** de cooldown agendado para próxima faixa UTC;
    exige revisar novo checksum. Nenhuma migration já aplicada foi alterada.
 2. `20261118183030_complete_retaguarda_meta_automation.sql`: duas colunas no log existente,
-   claim/contexto, dispatcher e job inativo. Sem nova tabela operacional.
+   claim/contexto, leitura da folha vigente com RLS, dispatcher e job inativo. Sem nova tabela operacional.
 
 Exige migrations financeiras 20261117045349/20261117150000, clientes/vínculos/contas,
 helpers de associação/papéis existentes, pg_cron/pg_net e Vault. Colisão no nome do job
@@ -243,11 +246,12 @@ Cada operação remota abaixo exige autorização; nenhuma foi executada:
 6. Autorizar primeira medição real. Folha manual/import hoje: preservar, aguardar próximo
    dia ou decisão de conciliação; nunca criar valor fictício ou apagar para liberar.
 7. Conferir BRL, origem, autoria, instante, referência, source_key/predecessor e replay.
-8. Autorizar frontend consolidado; validar filtros, saldo atual e manual. Não integrar
+8. Autorizar frontend consolidado; validar ausência de histórico na interface, filtros,
+   saldo atual e registro/correção manual pela folha vigente. Não integrar
    PRs originais em paralelo sem tratar a sobreposição já resolvida aqui.
 9. Autorizar horário: ligar SCHEDULE_ENABLED, depois executar somente enable.sql;
    confirmar novo job e preservar job de campanhas. Primeira medição API recente exigida.
-10. Acompanhar primeiras execuções, botão após cooldown, histórico e sincronizações de mídia.
+10. Acompanhar primeiras execuções, botão após cooldown, histórico exclusivamente no banco e sincronizações de mídia.
 
 Rollback: **primeiro desligar job financeiro**, depois flags SCHEDULE_ENABLED/ENABLED;
 retornar somente frontend/funções financeiras se necessário. Preservar todos os registros

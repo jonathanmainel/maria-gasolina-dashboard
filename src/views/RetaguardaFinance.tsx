@@ -1,11 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "../auth";
-import { ExpandableTableFooter, useExpandableRows } from "../components/ui/expandable-table";
 import { Kpi, Panel, Skeleton } from "../components/ui/primitives";
-import { TableViewport } from "../components/ui/table-viewport";
 import { CLIENT_SLUG, isDemoMode } from "../lib/api";
 import { MetaBalanceRefresh } from "../components/MetaBalanceRefresh";
 import { loadLatestBalances } from "../lib/meta-balance";
@@ -14,8 +12,8 @@ import { dateTime, money } from "../lib/format";
 import { reportingToday } from "../lib/reporting-period";
 import { consolidateSpend, estimateAutonomy, hasRecentBalance, loadRetaguardaSpend, spendWindow, summarizeAccountSpend } from "../lib/retaguarda-spend";
 import {
-  financeOrigins, financePlatforms, financeQueryKey, financialAccountKey, financialAccountLabel, financialDays,
-  loadFinancialAccounts, loadFinancialDayEntries, loadFinancialEntries, parseBrl, platformFinancialSummary, saveFinancialEntry,
+  financeOrigins, financePlatforms, financeQueryKey, financialAccountLabel,
+  loadFinancialAccounts, loadFinancialDayEntries, parseBrl, platformFinancialSummary, saveFinancialEntry,
   type FinancialAccount, type FinancialDraft, type FinancialEntry,
 } from "../lib/retaguarda-finance";
 import type { Channel, DateRange } from "../types";
@@ -23,22 +21,17 @@ import type { Channel, DateRange } from "../types";
 const platforms = ["meta_ads", "google_ads"] as const;
 const displayDate = (date: string) => format(parseISO(date), "dd/MM/yyyy");
 const displayTime = (time: string | null) => time ? dateTime(time) : "Horário não informado";
-const currency = (value: number | null) => value === null ? "Não informado" : money(value);
 const formatDays = (value: number) => `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value)} dias`;
 const noEntries: FinancialEntry[] = [];
 const noAccounts: FinancialAccount[] = [];
 
-export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readOnly: boolean }) {
+export function RetaguardaFinance({ readOnly }: { range: DateRange; readOnly: boolean }) {
   const { session } = useAuth();
   const userId: string | undefined = session?.user?.id;
   const queryClient = useQueryClient();
   const enabled = Boolean(userId && !isDemoMode);
   const accountQuery = useQuery({
     queryKey: [...financeQueryKey, userId, "accounts"], queryFn: loadFinancialAccounts, enabled, retry: 1, staleTime: 60_000,
-  });
-  const dataKey = [...financeQueryKey, userId, "entries"] as const;
-  const entries = useQuery({
-    queryKey: [...dataKey, range.start, range.end], queryFn: () => loadFinancialEntries(range), enabled, retry: 1,
   });
   const currentBalances = useQuery({
     queryKey: [...financeQueryKey, userId, "latest"], queryFn: loadLatestBalances, enabled, retry: 1, refetchInterval: 60_000,
@@ -51,39 +44,36 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
     queryKey: ["commercial-access", CLIENT_SLUG, userId], queryFn: loadCommercialAccess,
     enabled: enabled && !readOnly, retry: 1, refetchInterval: 30_000,
   });
-  const [editing, setEditing] = useState<FinancialEntry | "new" | null>(null);
+  const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const accounts = accountQuery.isSuccess ? accountQuery.data : noAccounts;
-  const data = entries.isSuccess ? entries.data : noEntries;
-  const days = useMemo(() => financialDays(data), [data]);
-  const historyLatest = useMemo(() => days.map((day) => day.current), [days]);
   const latest = currentBalances.data ?? noEntries;
   const canEdit = enabled && !readOnly && access.isSuccess && access.data.canEdit && access.data.userId === userId
-    && entries.isSuccess && accountQuery.isSuccess;
+    && accountQuery.isSuccess;
   const today = spend.data?.today ?? reportingToday();
   const lastDay = today;
   const canCreate = canEdit && accounts.some((account) => account.active);
-  function edit(entry: FinancialEntry | "new") {
+  function edit() {
     setSaved(false);
-    setEditing(entry);
+    setEditing(true);
   }
 
   return (
     <section aria-label="Financeiro da Retaguarda" className="retaguarda-finance">
       <div className="section-title">
         <h2>Resumo financeiro</h2>
-        {canCreate && !editing && <button type="button" className="secondary-button" onClick={() => edit("new")}>Registrar saldo</button>}
+        {canCreate && !editing && <button type="button" className="secondary-button" onClick={edit}>Registrar saldo</button>}
       </div>
       {isDemoMode && <p className="retaguarda-finance-note">Dados financeiros indisponíveis no modo demonstração.</p>}
       {enabled && userId && accounts.some(account => account.active && account.platform === "meta_ads") && (
         <MetaBalanceRefresh key={userId} userId={userId} canEdit={canEdit}
           accountIds={accounts.filter(account => account.active && account.platform === "meta_ads").map(account => account.account_id)}
-          onRefresh={() => queryClient.invalidateQueries({ queryKey: dataKey })} />
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] })} />
       )}
-      {(entries.isError || accountQuery.isError) && (
+      {accountQuery.isError && (
         <div className="inline-error" role="alert">
           <span>Não foi possível carregar os registros de saldo ou as contas.</span>
-          <button type="button" className="secondary-button" onClick={() => { void entries.refetch(); void accountQuery.refetch(); }}>Tentar novamente</button>
+          <button type="button" className="secondary-button" onClick={() => { void accountQuery.refetch(); }}>Tentar novamente</button>
         </div>
       )}
       {enabled && accountQuery.isPending ? (
@@ -97,25 +87,15 @@ export function RetaguardaFinance({ range, readOnly }: { range: DateRange; readO
       )}
       {saved && <p className="retaguarda-finance-note" role="status">Registro financeiro salvo.</p>}
       {editing && canEdit && userId && (
-        <FinanceForm key={`${range.start}:${range.end}:${editing === "new" ? "new" : editing.id}`}
-          accounts={accounts} latest={historyLatest} userId={userId} entry={editing === "new" ? undefined : editing} range={range} lastDay={lastDay}
-          onCancel={() => { setEditing(null); void queryClient.invalidateQueries({ queryKey: dataKey }); }}
+        <FinanceForm accounts={accounts} userId={userId} lastDay={lastDay}
+          onCancel={() => setEditing(false)}
           onSave={async (draft) => {
             await saveFinancialEntry(draft, userId);
-            setEditing(null);
+            setEditing(false);
             setSaved(true);
-            void queryClient.invalidateQueries({ queryKey: dataKey });
+            void queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "day-head"] });
             void queryClient.invalidateQueries({ queryKey: [...financeQueryKey, userId, "latest"] });
           }} />
-      )}
-      <div className="section-title"><h2>Histórico financeiro</h2></div>
-      {entries.isSuccess ? (
-        <FinanceHistory key={`${range.start}:${range.end}`} range={range} accounts={accounts} days={days}
-          onCorrect={canEdit && !editing ? edit : undefined} />
-      ) : enabled && entries.isPending ? (
-        <div role="status" aria-label="Carregando histórico financeiro"><Skeleton height={160} /></div>
-      ) : (
-        <div className="empty-state">{entries.isError ? "Histórico financeiro indisponível." : "Nenhum registro financeiro disponível."}</div>
       )}
     </section>
   );
@@ -180,15 +160,15 @@ function FinancePanel({ platform, accounts, latest, today, balancePending, balan
   );
 }
 
-function FinanceForm({ accounts, latest, userId, entry, range, lastDay, onCancel, onSave }: {
-  accounts: FinancialAccount[]; latest: FinancialEntry[]; userId: string; entry?: FinancialEntry; range: DateRange; lastDay: string;
+function FinanceForm({ accounts, userId, lastDay, onCancel, onSave }: {
+  accounts: FinancialAccount[]; userId: string; lastDay: string;
   onCancel: () => void; onSave: (draft: FinancialDraft) => Promise<void>;
 }) {
   const active = accounts.filter((account) => account.active);
-  const [platform, setPlatform] = useState<Channel>(entry?.platform ?? active[0]?.platform ?? "meta_ads");
-  const [accountId, setAccountId] = useState(entry?.account_id ?? active[0]?.account_id ?? "");
-  const [date, setDate] = useState(entry?.reference_date ?? lastDay);
-  const [balance, setBalance] = useState(entry?.available_balance_brl == null ? "" : money(entry.available_balance_brl));
+  const [platform, setPlatform] = useState<Channel>(active[0]?.platform ?? "meta_ads");
+  const [accountId, setAccountId] = useState(active[0]?.account_id ?? "");
+  const [date, setDate] = useState(lastDay);
+  const [balance, setBalance] = useState("");
   const [draft, setDraft] = useState<FinancialDraft | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -198,14 +178,16 @@ function FinanceForm({ accounts, latest, userId, entry, range, lastDay, onCancel
     form.current?.closest("section")?.scrollIntoView?.({ block: "start" });
     form.current?.querySelector<HTMLElement>("select:not(:disabled), input:not(:disabled)")?.focus({ preventScroll: true });
   }, []);
-  const choices = accounts.filter((account) => account.platform === platform && (account.active || account.account_id === entry?.account_id));
+  const choices = active.filter((account) => account.platform === platform);
   const selected = choices.find((account) => account.account_id === accountId);
-  const outsideHistory = date < range.start || date > range.end;
   const dayHead = useQuery({ queryKey: [...financeQueryKey, userId, "day-head", platform, accountId, date],
     queryFn: () => loadFinancialDayEntries(platform, accountId, date),
-    enabled: !entry && outsideHistory && !!selected && !!date && date <= lastDay, retry: 1, staleTime: 0 });
-  const headRows = outsideHistory ? financialDays(dayHead.data ?? []).map(day => day.current) : latest;
-  const previous = entry ?? headRows.find((row) => row.platform === platform && row.account_id === accountId && row.reference_date === date);
+    enabled: !!selected && !!date && date <= lastDay, retry: 1, staleTime: 0, refetchOnWindowFocus: false });
+  const previous = dayHead.data?.[0];
+  useEffect(() => {
+    setBalance(previous?.available_balance_brl == null ? "" : money(previous.available_balance_brl));
+    setDraft(null); setError("");
+  }, [platform, accountId, date, previous?.id]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -216,7 +198,7 @@ function FinanceForm({ accounts, latest, userId, entry, range, lastDay, onCancel
         setError("Selecione uma conta e uma data até hoje. Use valores em reais com até duas casas decimais, como 1.234,56.");
         return;
       }
-      if (!entry && outsideHistory && !dayHead.isSuccess) { setError("Aguarde a confirmação da versão vigente para esta conta/data."); return; }
+      if (!dayHead.isSuccess) { setError("Aguarde a confirmação da versão vigente para esta conta/data."); return; }
       setError("");
       setDraft({ platform, account_id: accountId, reference_date: date, available_balance_brl: parsedBalance,
         previous_id: previous?.id ?? null, request_key: crypto.randomUUID() });
@@ -236,34 +218,36 @@ function FinanceForm({ accounts, latest, userId, entry, range, lastDay, onCancel
   }
 
   return (
-    <Panel title={draft ? "Confirmar registro financeiro" : entry ? "Corrigir registro financeiro" : "Registrar saldo"} className="retaguarda-finance-form" noTilt>
+    <Panel title={draft ? "Confirmar registro financeiro" : previous ? "Corrigir saldo vigente" : "Registrar saldo"} className="retaguarda-finance-form" noTilt>
       <form ref={form} onSubmit={(event) => void submit(event)} aria-label="Registro financeiro">
         {draft ? (
           <div className="retaguarda-finance-note">
             <p>{financePlatforms[platform]} · {selected && financialAccountLabel(selected)} · {displayDate(date)}</p>
             <p>Saldo {money(Number(draft.available_balance_brl))}</p>
-            {draft.previous_id && <p>Este registro cria uma nova versão e mantém os valores anteriores no histórico.</p>}
+            {draft.previous_id && <p>Este registro cria uma nova versão, preservando o registro anterior no banco.</p>}
           </div>
         ) : (
           <div className="form-grid">
-            <Field label="Plataforma"><select value={platform} disabled={!!entry} onChange={(event) => {
+            <Field label="Plataforma"><select value={platform} onChange={(event) => {
               const next = event.target.value as Channel;
               setPlatform(next);
               setAccountId(active.find((account) => account.platform === next)?.account_id ?? "");
             }}>{platforms.map((item) => <option key={item} value={item}>{financePlatforms[item]}</option>)}</select></Field>
-            <Field label="Conta de anúncios"><select value={accountId} disabled={!!entry} required onChange={(event) => setAccountId(event.target.value)}>
+            <Field label="Conta de anúncios"><select value={accountId} required onChange={(event) => setAccountId(event.target.value)}>
               <option value="">Selecione uma conta</option>
               {choices.map((account) => <option key={account.account_id} value={account.account_id}>{financialAccountLabel(account)}</option>)}
             </select></Field>
-            <Field label="Data de referência"><input type="date" required max={lastDay} value={date} disabled={!!entry} onChange={(event) => setDate(event.target.value)} /></Field>
-            <Field label="Saldo disponível (BRL)"><input inputMode="decimal" required placeholder="0,00" value={balance} onChange={(event) => setBalance(event.target.value)} /></Field>
+            <Field label="Data de referência"><input type="date" required max={lastDay} value={date} onChange={(event) => setDate(event.target.value)} /></Field>
+            <Field label="Saldo disponível (BRL)"><input inputMode="decimal" required disabled={!dayHead.isSuccess} placeholder="0,00" value={balance} onChange={(event) => setBalance(event.target.value)} /></Field>
           </div>
         )}
+        {dayHead.isPending && <p role="status">Consultando registro vigente da conta/data…</p>}
+        {dayHead.isError && <p role="alert">Não foi possível confirmar o registro vigente. <button type="button" className="secondary-button" onClick={() => void dayHead.refetch()}>Tentar novamente</button></p>}
         {error && <p className="retaguarda-finance-note" role="alert">{error}</p>}
         <div className="manual-actions">
           <button type="button" className="secondary-button" onClick={onCancel} disabled={pending}>Cancelar</button>
           {draft && !error && <button type="button" className="secondary-button" onClick={() => setDraft(null)} disabled={pending}>Revisar valores</button>}
-          <button type="submit" className="primary-button" disabled={pending} aria-busy={pending}>
+          <button type="submit" className="primary-button" disabled={pending || !dayHead.isSuccess} aria-busy={pending}>
             {pending ? "Salvando…" : draft ? "Confirmar e salvar" : "Revisar registro"}
           </button>
         </div>
@@ -276,67 +260,3 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>;
 }
 
-function FinanceHistory({ range, accounts, days, onCorrect }: {
-  range: DateRange; accounts: FinancialAccount[]; days: ReturnType<typeof financialDays>; onCorrect?: (entry: FinancialEntry) => void;
-}) {
-  const [platform, setPlatform] = useState<Channel | "">("");
-  const [accountKey, setAccountKey] = useState("");
-  const [date, setDate] = useState("");
-  const accountNames = new Map(accounts.map((account) => [financialAccountKey(account), financialAccountLabel(account)]));
-  const choices = new Map(days.filter(({ current }) => !platform || current.platform === platform).map(({ current }) => {
-    const key = financialAccountKey(current);
-    return [key, `${financePlatforms[current.platform]} · ${accountNames.get(key) ?? current.account_id}`];
-  }));
-  const filtered = days.filter(({ current }) => (!platform || current.platform === platform)
-    && (!accountKey || financialAccountKey(current) === accountKey) && (!date || current.reference_date === date));
-  const rows = useExpandableRows(filtered, JSON.stringify([platform, accountKey, date]), 5);
-  if (!days.length) return <div className="empty-state">Nenhum registro financeiro no período.</div>;
-
-  return (
-    <>
-      <div className="form-grid retaguarda-finance-filters">
-        <Field label="Filtrar por plataforma"><select value={platform} onChange={(event) => { setPlatform(event.target.value as Channel | ""); setAccountKey(""); }}>
-          <option value="">Todas as plataformas</option>
-          {platforms.map((item) => <option key={item} value={item}>{financePlatforms[item]}</option>)}
-        </select></Field>
-        <Field label="Filtrar por conta"><select value={accountKey} onChange={(event) => setAccountKey(event.target.value)}>
-          <option value="">Todas as contas</option>
-          {[...choices].map(([key, name]) => <option key={key} value={key}>{name}</option>)}
-        </select></Field>
-        <Field label="Filtrar por data"><input type="date" min={range.start} max={range.end} value={date} onChange={(event) => setDate(event.target.value)} /></Field>
-      </div>
-      {!filtered.length ? <div className="empty-state">Nenhum registro para os filtros escolhidos.</div> : (
-        <div className="table-wrap retaguarda-history retaguarda-finance-table">
-          <TableViewport label="Colunas do histórico financeiro">
-            <table aria-label="Histórico financeiro">
-              <thead><tr>{["Data", "Plataforma e conta", "Saldo", "Estimativa registrada", "Medição e origem", "Versões e ações"].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
-              <tbody>{rows.visibleRows.map(({ current, versions }) => {
-                const group = [current, ...versions];
-                return <tr key={current.id}>
-                  <th scope="row">{displayDate(current.reference_date)}</th>
-                  <td>{financePlatforms[current.platform]} · {accountNames.get(financialAccountKey(current)) ?? current.account_id}</td>
-                  <td>{currency(current.available_balance_brl)}</td>
-                  <td>{currency(current.estimated_daily_spend_brl)}</td>
-                  <td>{displayTime(current.measured_at)} · {financeOrigins[current.origin]}</td>
-                  <td>
-                    <details>
-                      <summary>{group.length === 1 ? "Detalhes do registro" : `Consultar ${group.length} versões`}</summary>
-                      <ol className="retaguarda-versions">{group.map((version, index) => <li key={version.id}>
-                        <strong>{index === 0 ? "Versão vigente" : "Versão anterior"}</strong>
-                        <span>Saldo {currency(version.available_balance_brl)} · Estimativa {currency(version.estimated_daily_spend_brl)}</span>
-                        <span>{financeOrigins[version.origin]} · Medição em {displayTime(version.measured_at)}</span>
-                        <span>Gravação em {dateTime(version.created_at)} · Autor {version.created_by ?? "não identificado"}</span>
-                      </li>)}</ol>
-                    </details>
-                    {onCorrect && <button type="button" className="table-toggle" onClick={() => onCorrect(current)}>Corrigir</button>}
-                  </td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </TableViewport>
-          <ExpandableTableFooter rows={rows} summary="registros por conta e dia" />
-        </div>
-      )}
-    </>
-  );
-}

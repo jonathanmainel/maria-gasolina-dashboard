@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadFinancialEntries } from "./retaguarda-finance";
+import { loadFinancialDayEntries, loadFinancialEntries } from "./retaguarda-finance";
 import { loadLatestBalances } from "./meta-balance";
 
 const fake = vi.hoisted(() => ({ clientId: vi.fn(), rows: vi.fn(), rpc: vi.fn() }));
@@ -14,6 +14,13 @@ beforeEach(() => {
 });
 
 describe("leitura de saldos e histórico", () => {
+  it("lê somente a versão vigente da conta/data para corrigir sem consultar histórico", async () => {
+    await expect(loadFinancialDayEntries("meta_ads", "123", "2026-11-18")).resolves.toEqual([]);
+    expect(fake.rpc).toHaveBeenCalledWith("get_retaguarda_financial_day_head", {
+      p_client_id: 7, p_platform: "meta_ads", p_account_id: "123", p_reference_date: "2026-11-18",
+    });
+    expect(fake.rows).not.toHaveBeenCalled();
+  });
   it("mantém o cliente, exclui datas futuras e não aplica o filtro global ao saldo conhecido", async () => {
     await expect(loadLatestBalances()).resolves.toEqual([]);
     expect(fake.rpc).toHaveBeenCalledWith("get_retaguarda_latest_balances", { p_client_id: 7 });
