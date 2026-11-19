@@ -17,6 +17,9 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+supabase/functions/.env
+supabase/functions/.env.local
+supabase/functions/.env.*.local
 
 # Logs and operating-system files
 *.log

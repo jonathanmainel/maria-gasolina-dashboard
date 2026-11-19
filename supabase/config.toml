@@ -455,3 +455,24 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-ga4/deno.json"
 entrypoint = "./functions/sync-ga4/index.ts"
+
+[functions.request-meta-balance]
+enabled = true
+# Auth.getUser validates the user's session; the database rechecks membership.
+verify_jwt = false
+import_map = "./functions/request-meta-balance/deno.json"
+entrypoint = "./functions/request-meta-balance/index.ts"
+
+[functions.sync-meta-balance]
+enabled = true
+# Server-secret authentication is enforced by withSupabase in the handler.
+verify_jwt = false
+import_map = "./functions/sync-meta-balance/deno.json"
+entrypoint = "./functions/sync-meta-balance/index.ts"
+
+[functions.diagnose-meta-balance]
+# Temporary, never deployed by this change. Authenticated server-secret handler.
+enabled = true
+verify_jwt = false
+import_map = "./functions/diagnose-meta-balance/deno.json"
+entrypoint = "./functions/diagnose-meta-balance/index.ts"

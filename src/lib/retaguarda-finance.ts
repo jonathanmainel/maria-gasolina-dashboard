@@ -67,7 +67,7 @@ export function financialDays(entries: FinancialEntry[]) {
 export function platformFinancialSummary(accounts: FinancialAccount[], current: FinancialEntry[], platform: Channel) {
   const latestByAccount = new Map<string, FinancialEntry>();
   for (const entry of current) {
-    if (entry.platform !== platform) continue;
+    if (entry.platform !== platform || entry.available_balance_brl === null) continue;
     const previous = latestByAccount.get(entry.account_id);
     if (!previous || previous.reference_date < entry.reference_date) latestByAccount.set(entry.account_id, entry);
   }
@@ -94,6 +94,16 @@ export async function loadFinancialEntries(range: DateRange): Promise<FinancialE
   const clientId = await getClientId();
   return fetchAllRows<FinancialEntry>(table, columns, (query) => query.eq("client_id", clientId)
     .gte("reference_date", range.start).lte("reference_date", range.end).order("created_at").order("id"));
+}
+
+export async function loadFinancialDayEntries(platform: Channel, accountId: string, date: string): Promise<FinancialEntry[]> {
+  if (isDemoMode) return [];
+  if (!supabase) throw new Error("Leitura financeira indisponível.");
+  const { data, error } = await supabase.rpc("get_retaguarda_financial_day_head", {
+    p_client_id: await getClientId(), p_platform: platform, p_account_id: accountId, p_reference_date: date,
+  });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function saveFinancialEntry(draft: FinancialDraft, expectedUser: string): Promise<void> {
