@@ -1,3 +1,4 @@
+import { saveIntradayMetrics } from "../_shared/intraday-write.ts";
 import { authorizeCollection } from "../_shared/sync-control.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
@@ -173,6 +174,7 @@ export async function handleGoogleAds(
     await listSourceAccounts(ctx.supabaseAdmin, {
       clientId: dashboardClient.id,
       source: "google_ads",
+      automationOnly: body.intraday === true,
     });
 
   if (sourceAccountsError) {
@@ -271,6 +273,17 @@ export async function handleGoogleAds(
   }
 
   const normalized = normalizeGoogleAdsData(raw);
+  if (body.intraday === true) {
+    return saveIntradayMetrics(ctx.supabaseAdmin, body.automation_run_id, {
+      paid_media: [normalized.daily, normalized.campaigns, normalized.ads],
+      groups: normalized.adGroups, keywords: normalized.keywords,
+      pmax_asset_group: normalized.pmaxAssetGroups, pmax_asset: normalized.pmaxAssets,
+    }, { counts: {
+      daily: normalized.daily.length, campaigns: normalized.campaigns.length, ads: normalized.ads.length,
+      ad_groups: normalized.adGroups.length, keywords: normalized.keywords.length,
+      pmax_asset_groups: normalized.pmaxAssetGroups.length, pmax_assets: normalized.pmaxAssets.length,
+    } });
+  }
   let databaseWritePerformed = false;
   let databaseWriteStatus: string | null = null;
   let databaseWriteResult: WriteResults | null = null;

@@ -1,3 +1,4 @@
+import { saveIntradayMetrics } from "../_shared/intraday-write.ts";
 import { authorizeCollection } from "../_shared/sync-control.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
@@ -47,7 +48,7 @@ export default {
     if (reservationError) return reservationError;
 
     const { data: accounts, error: accountError } = await listSourceAccounts(ctx.supabaseAdmin, {
-      clientId: client.id, source: "ga4",
+      clientId: client.id, source: "ga4", automationOnly: body.intraday === true,
     });
     if (accountError || !accounts || accounts.length !== 1) {
       return Response.json({
@@ -104,6 +105,10 @@ export default {
         previews: Object.fromEntries(DATASETS.map((name) => [name, preview(datasets[name])])),
         form_audit: formAudit,
       });
+    }
+
+    if (body.intraday === true) {
+      return saveIntradayMetrics(ctx.supabaseAdmin, body.automation_run_id, datasets, { counts });
     }
 
     const databaseWriteResult: Record<string, unknown> = {};

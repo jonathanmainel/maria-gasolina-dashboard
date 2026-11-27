@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { getClientId, isDemoMode } from "./api";
 import { supabase } from "./supabase";
+import { affectedMarketingQueries } from "./marketing-sync";
 import { clearCreativePreviewCache } from "./creative-previews";
 
 export const marketingSources = ["meta_ads", "google_ads", "ga4"] as const;
@@ -25,7 +26,14 @@ export async function getSourceFreshness(): Promise<SourceFreshness[]> {
 }
 
 /** Called after backend completion: refetch marketing reads, including previously visited Site/detail caches. No API collection. */
-export async function reloadDashboardData(client: QueryClient) {
-  clearCreativePreviewCache();
-  await client.invalidateQueries({ predicate: query => refreshKeys.has(String(query.queryKey[0])), refetchType: "all" }, { throwOnError: true });
+export async function reloadDashboardData(client: QueryClient, sources?: ReadonlySet<MarketingSource>) {
+  const keys = sources ? new Set([...sources].flatMap(affectedMarketingQueries)) : refreshKeys;
+  if (!sources) clearCreativePreviewCache();
+  await client.invalidateQueries({
+    predicate: ({ queryKey }) => {
+      if (sources && queryKey[0] === "retaguarda") return sources.has(queryKey.at(-1) as MarketingSource);
+      return keys.has(String(queryKey[0]));
+    },
+    refetchType: sources ? "active" : "all",
+  }, { throwOnError: true });
 }

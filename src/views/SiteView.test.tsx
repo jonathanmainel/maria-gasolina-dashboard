@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { cloneElement, isValidElement, type ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { comparisonPeriod } from "../lib/reporting-period";
 import type { AllItems } from "../lib/api";
 import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem, DateRange } from "../types";
 
@@ -153,7 +154,7 @@ describe("aba Site: cabeçalho e KPIs executivos", () => {
 
   it("respeita o período global em todas as consultas, sem date picker próprio", async () => {
     renderSite();
-    await waitFor(() => expect(getSiteOverview).toHaveBeenCalledWith(range));
+    await waitFor(() => expect(getSiteOverview).toHaveBeenCalledWith(range, comparisonPeriod(range).previous));
     expect(getAllAnalyticsAcquisition).toHaveBeenCalledWith(range);
     expect(getAllAnalyticsLandingPages).toHaveBeenCalledWith(range);
     expect(getAllAnalyticsEvents).toHaveBeenCalledWith(range);
@@ -162,7 +163,7 @@ describe("aba Site: cabeçalho e KPIs executivos", () => {
     cleanup();
     const other: DateRange = { start: "2026-07-01", end: "2026-07-31" };
     renderSite(other);
-    await waitFor(() => expect(getSiteOverview).toHaveBeenCalledWith(other));
+    await waitFor(() => expect(getSiteOverview).toHaveBeenCalledWith(other, comparisonPeriod(other).previous));
     expect(getAllAnalyticsLandingPages).toHaveBeenCalledWith(other);
   });
 });

@@ -10,6 +10,7 @@ import {
   channelPerformance, eventHighlights, siteSeries, topLandingPages,
   type ChannelPerformance, type ChartMode,
 } from "../lib/site-analytics";
+import { comparisonPeriod } from "../lib/reporting-period";
 import { useChartColors } from "../lib/use-dashboard";
 import type { AnalyticsLandingPageItem, DateRange } from "../types";
 
@@ -31,7 +32,7 @@ const chartModes: Array<{ id: ChartMode; label: string }> = [
   { id: "monthly", label: "Mensal" },
 ];
 
-export function SiteView({ range }: { range: DateRange }) {
+export function SiteView({ range, previousRange = comparisonPeriod(range).previous }: { range: DateRange; previousRange?: DateRange }) {
   const colors = useChartColors();
   const [chartMode, setChartMode] = useState<ChartMode>("daily");
   const [chartMetric, setChartMetric] = useState<"leads" | "engagement">("leads");
@@ -39,13 +40,13 @@ export function SiteView({ range }: { range: DateRange }) {
   // Trocar o período troca o dataset das três tabelas: todas voltam ao Top 5.
   const resetToken = `${range.start}|${range.end}`;
 
-  const overview = useQuery({ queryKey: ["site-overview", range.start, range.end], queryFn: () => getSiteOverview(range), retry: 1 });
+  const overview = useQuery({ queryKey: ["site-overview", range.start, range.end, previousRange.start, previousRange.end], queryFn: () => getSiteOverview(range, previousRange), retry: 1 });
   const acquisition = useQuery({ queryKey: ["site-acquisition", range.start, range.end], queryFn: () => getAllAnalyticsAcquisition(range), retry: 1 });
   const landingPages = useQuery({ queryKey: ["site-landing-pages", range.start, range.end], queryFn: () => getAllAnalyticsLandingPages(range), retry: 1 });
   const events = useQuery({ queryKey: ["site-events", range.start, range.end], queryFn: () => getAllAnalyticsEvents(range), retry: 1 });
 
   const current = overview.data?.current ?? null;
-  const previous = overview.data?.previous ?? null;
+  const previous = overview.data?.previous?.has_data ? overview.data.previous : null;
   const daily = overview.data?.daily ?? [];
   const hasData = Boolean(current?.has_data);
 
@@ -77,7 +78,7 @@ export function SiteView({ range }: { range: DateRange }) {
 
       {overview.isLoading ? (
         <div className="grid grid-6">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={132} />)}</div>
-      ) : overview.isError ? (
+      ) : overview.isLoadingError ? (
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar os dados do site: {(overview.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : !hasData ? (
         <div className="empty-state">Nenhum dado do site sincronizado para este período.</div>
@@ -104,7 +105,7 @@ export function SiteView({ range }: { range: DateRange }) {
           }
           noTilt
         >
-          {overview.isLoading ? <Skeleton height={320} /> : overview.isError ? (
+          {overview.isLoading ? <Skeleton height={320} /> : overview.isLoadingError ? (
             <div className="inline-error"><AlertCircle size={17} />Série indisponível neste momento.</div>
           ) : !chartData.length ? (
             <div className="empty-state">Sem série diária do site para este período.</div>
@@ -132,7 +133,7 @@ export function SiteView({ range }: { range: DateRange }) {
         </Panel>
 
         <Panel title="Performance por canal" description="Volume, qualidade e leads de cada canal do GA4" noTilt>
-          {acquisition.isLoading ? <Skeleton height={320} /> : acquisition.isError ? (
+          {acquisition.isLoading ? <Skeleton height={320} /> : acquisition.isLoadingError ? (
             <div className="inline-error"><AlertCircle size={17} />Canais indisponíveis: {(acquisition.error as Error)?.message ?? "erro desconhecido"}.</div>
           ) : !channels.length ? (
             <div className="empty-state">Nenhum canal com sessões neste período.</div>
@@ -152,7 +153,7 @@ export function SiteView({ range }: { range: DateRange }) {
           options={[{ id: "sessions", label: "Por sessões" }, { id: "generate_leads", label: "Por leads" }]}
         />
       </div>
-      {acquisition.isLoading ? <Skeleton height={300} /> : acquisition.isError ? (
+      {acquisition.isLoading ? <Skeleton height={300} /> : acquisition.isLoadingError ? (
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar a aquisição: {(acquisition.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : (
         <>
@@ -164,7 +165,7 @@ export function SiteView({ range }: { range: DateRange }) {
       <div className="section-title"><div><h2>Landing pages</h2><p>As páginas pelas quais os usuários iniciaram a visita ao site.</p></div></div>
       {landingPages.isLoading ? (
         <div className="grid grid-wide"><Skeleton height={260} /><Skeleton height={260} /></div>
-      ) : landingPages.isError ? (
+      ) : landingPages.isLoadingError ? (
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar as landing pages: {(landingPages.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : (
         <>
@@ -184,7 +185,7 @@ export function SiteView({ range }: { range: DateRange }) {
           <div className="grid grid-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={108} />)}</div>
           <div style={{ marginTop: 14 }}><Skeleton height={280} /></div>
         </>
-      ) : events.isError ? (
+      ) : events.isLoadingError ? (
         <div className="inline-error"><AlertCircle size={17} />Não foi possível carregar os eventos: {(events.error as Error)?.message ?? "erro desconhecido"}.</div>
       ) : (
         <>

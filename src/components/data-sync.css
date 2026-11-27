@@ -19,6 +19,8 @@
 .data-sync-sources small { font-size:10px; color:var(--muted); line-height:1.5; margin-top:7px; }
 .intraday-banner { padding:10px 16px; border:1px solid rgba(215,152,43,.35); border-radius:10px; color:var(--text); background:rgba(215,152,43,.07); font-size:12px; margin:0 0 16px; }
 @media(max-width:640px) {
+  .data-sync-readonly .sync-pill { display:flex; }
+  .data-sync-readonly .sync-pill i { flex-shrink:0; }
   .data-sync-panel { padding:18px; }
   .data-sync-sources { grid-template-columns:1fr; }
   .data-sync-control { justify-content:space-between; }

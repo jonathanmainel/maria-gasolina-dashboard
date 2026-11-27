@@ -8,7 +8,7 @@ import { useGoals } from "../lib/goals";
 import { byChannel, dailySeries, monthProgress, totals, weeklySeries } from "../lib/metrics";
 import { CREATIVE_RANKING_LIMIT, CREATIVE_RANKING_PREVIEW, creativeCategory, rankCreatives, type CreativeCategory } from "../lib/creatives";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
-import type { AppView, CommercialFront, Creative, DateRange, Front, PendingFront } from "../types";
+import type { FrontDaily, AppView, CommercialFront, Creative, DateRange, Front, PendingFront } from "../types";
 import { commercialFronts, isPendingFront, isPlaceFront } from "../lib/fronts";
 import { PlaceComparisonView } from "./PlaceComparisonView";
 import type { ChannelFilter } from "../lib/detail-rows";
@@ -141,6 +141,9 @@ const filteredPrevRows = useMemo(
   [prevRows, channelFilter],
 );
 
+const hasCurrentRows = filteredRows.length > 0;
+const hasPreviousRows = filteredPrevRows.length > 0;
+
 const filteredCurrent = useMemo(
   () => totals(filteredRows),
   [filteredRows],
@@ -167,10 +170,6 @@ const weeks = useMemo(
   const monthLeads = monthRows.reduce((s, r) => s + r.leads, 0);
   const monthSpend = monthRows.reduce((s, r) => s + r.spend, 0);
   const monthCpl = monthLeads ? monthSpend / monthLeads : 0;
-  const metaT = totals(byChannel(rows, "meta_ads"));
-  const googleT = totals(byChannel(rows, "google_ads"));
-  const metaP = totals(byChannel(prevRows, "meta_ads"));
-  const googleP = totals(byChannel(prevRows, "google_ads"));
   const campaigns = useMemo(
     () => data.campaigns.filter((c) => c.front === front && (channelFilter === "all" || c.channel === channelFilter)),
     [data.campaigns, front, channelFilter],
@@ -185,12 +184,12 @@ const weeks = useMemo(
       <FrontHeader front={front} channelFilter={channelFilter} onChannelChange={onChannelChange} onCompare={onCompare} compareButton={compareButton} />
 
       <div className="grid grid-6">
-  <Kpi label="Investimento" value={filteredCurrent.spend} previous={filteredPrevious.spend} format={money} accent={meta.accent} icon={<Wallet size={16} />} spark={series.map((d) => d.spend)} />
-  <Kpi label={`Leads (${meta.leadWord})`} value={filteredCurrent.leads} previous={filteredPrevious.leads} format={integer} accent={meta.accent} icon={<Target size={16} />} spark={series.map((d) => d.leads)} />
-  <Kpi label="Custo por lead" value={filteredCurrent.cpl} previous={filteredPrevious.cpl} format={money} accent="green" icon={<Zap size={16} />} lowerIsBetter spark={series.map((d) => d.cpl ?? 0)} />
+  <Kpi label="Investimento" value={hasCurrentRows ? filteredCurrent.spend : null} previous={hasPreviousRows ? filteredPrevious.spend : null} format={money} accent={meta.accent} icon={<Wallet size={16} />} spark={series.map((d) => d.spend)} />
+  <Kpi label={`Leads (${meta.leadWord})`} value={hasCurrentRows ? filteredCurrent.leads : null} previous={hasPreviousRows ? filteredPrevious.leads : null} format={integer} accent={meta.accent} icon={<Target size={16} />} spark={series.map((d) => d.leads)} />
+  <Kpi label="Custo por lead" value={filteredCurrent.cpl} previous={filteredPrevious.cpl} format={money} accent="green" icon={<Zap size={16} />} lowerIsBetter spark={series.flatMap((d) => d.cpl == null ? [] : [d.cpl])} />
   <Kpi label="Conversão clique → lead" value={filteredCurrent.conv_rate} previous={filteredPrevious.conv_rate} format={percent} accent="sky" icon={<Percent size={16} />} />
-  <Kpi label="Cliques" value={filteredCurrent.clicks} previous={filteredPrevious.clicks} format={integer} accent="navy" icon={<MousePointerClick size={16} />} spark={series.map((d) => d.clicks)} />
-  <Kpi label="Impressões" value={filteredCurrent.impressions} previous={filteredPrevious.impressions} format={compact} accent="navy" icon={<Eye size={16} />} spark={series.map((d) => d.impressions)} />
+  <Kpi label="Cliques" value={hasCurrentRows ? filteredCurrent.clicks : null} previous={hasPreviousRows ? filteredPrevious.clicks : null} format={integer} accent="navy" icon={<MousePointerClick size={16} />} spark={series.map((d) => d.clicks)} />
+  <Kpi label="Impressões" value={hasCurrentRows ? filteredCurrent.impressions : null} previous={hasPreviousRows ? filteredPrevious.impressions : null} format={compact} accent="navy" icon={<Eye size={16} />} spark={series.map((d) => d.impressions)} />
 </div>
 
       <div className="grid grid-hero" style={{ marginTop: 14 }}>
@@ -222,7 +221,7 @@ const weeks = useMemo(
           <div className="grid grid-2" style={{ gap: 10, marginTop: 16 }}>
             <MiniStat
               label="CPC"
-              value={filteredCurrent.cpc ?? 0}
+              value={filteredCurrent.cpc}
               format={money}
               delta={
                 <Delta
@@ -235,7 +234,7 @@ const weeks = useMemo(
 
             <MiniStat
               label="CTR"
-              value={filteredCurrent.ctr ?? 0}
+              value={filteredCurrent.ctr}
               format={percent}
               delta={
                 <Delta
@@ -249,8 +248,8 @@ const weeks = useMemo(
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 14 }}>
-        <ChannelCard name="Meta Ads" chip="meta" t={metaT} p={metaP} />
-        <ChannelCard name="Google Ads" chip="google" t={googleT} p={googleP} />
+        <ChannelCard name="Meta Ads" chip="meta" rows={byChannel(rows, "meta_ads")} previousRows={byChannel(prevRows, "meta_ads")} />
+        <ChannelCard name="Google Ads" chip="google" rows={byChannel(rows, "google_ads")} previousRows={byChannel(prevRows, "google_ads")} />
         <Panel title="Leads por semana" description="Semanas completas dentro do período">
           <div className="chart-box h-180">
             <ResponsiveContainer width="100%" height="100%">
@@ -301,7 +300,6 @@ export function CreativeSection({ creatives, front }: { creatives: Creative[]; f
 
 export function CreativeRanking({ creatives, emptyLabel = "Nenhum criativo de Meta Ads com dados neste período." }: { creatives: Creative[]; emptyLabel?: string }) {
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => { setExpanded(false); }, [creatives]);
   const visible = creatives.slice(0, expanded ? CREATIVE_RANKING_LIMIT : CREATIVE_RANKING_PREVIEW);
 
   if (!creatives.length) return <div className="empty-state">{emptyLabel}</div>;
@@ -335,14 +333,16 @@ export function CreativeRanking({ creatives, emptyLabel = "Nenhum criativo de Me
   );
 }
 
-function ChannelCard({ name, chip, t, p }: { name: string; chip: string; t: ReturnType<typeof totals>; p: ReturnType<typeof totals> }) {
+function ChannelCard({ name, chip, rows, previousRows }: { name: string; chip: string; rows: FrontDaily[]; previousRows: FrontDaily[] }) {
+  const t = rows.length ? totals(rows) : null;
+  const p = previousRows.length ? totals(previousRows) : null;
   return (
     <Panel className="channel-card" title={name} badge={<span className={`chip ${chip}`}>{chip === "meta" ? "Meta" : "Google"}</span>}>
-      <div className="front-main" style={{ marginTop: 4 }}><strong style={{ fontSize: 32 }}><AnimatedNumber value={t.leads} format={integer} /></strong><small>leads</small><span style={{ marginLeft: "auto" }}><Delta current={t.leads} previous={p.leads} /></span></div>
+      <div className="front-main" style={{ marginTop: 4 }}><strong style={{ fontSize: 32 }}><AnimatedNumber value={t?.leads} format={integer} /></strong><small>leads</small><span style={{ marginLeft: "auto" }}><Delta current={t?.leads} previous={p?.leads} /></span></div>
       <div className="front-meta" style={{ marginTop: 14 }}>
-        <div><small>Investimento</small><b>{money(t.spend)}</b></div>
-        <div><small>CPL</small><b style={{ color: chip === "meta" ? "var(--sky-text)" : "var(--green-text)" }}>{money(t.cpl)}</b></div>
-        <div><small>CTR</small><b>{percent(t.ctr)}</b></div>
+        <div><small>Investimento</small><b>{money(t?.spend)}</b></div>
+        <div><small>CPL</small><b style={{ color: chip === "meta" ? "var(--sky-text)" : "var(--green-text)" }}>{money(t?.cpl)}</b></div>
+        <div><small>CTR</small><b>{percent(t?.ctr)}</b></div>
       </div>
     </Panel>
   );

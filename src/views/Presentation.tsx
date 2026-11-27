@@ -25,7 +25,7 @@ import { exampleCrmSummary } from "../lib/commercial-examples";
 
 const SLIDE_MS = 14000;
 
-export function Presentation({ data, range, onExit, commercialDemo = false, onCommercialDemoChange, salesFront, onSalesFrontChange }: { data: DashboardData; range: DateRange; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void; salesFront?: CommercialFront; onSalesFrontChange?: (next: CommercialFront) => void }) {
+export function Presentation({ data, range, periodNote, onExit, commercialDemo = false, onCommercialDemoChange, salesFront, onSalesFrontChange }: { data: DashboardData; range: DateRange; periodNote?: string; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void; salesFront?: CommercialFront; onSalesFrontChange?: (next: CommercialFront) => void }) {
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -77,7 +77,7 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
   return <div className="present responsive-present" style={{ '--presentation-scale': layout.scale } as CSSProperties}>
     <div className="ambient" />
     <header className="present-top">
-      <div className="present-brand"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="t"><small>Maria Gasolina Express · {period}</small><strong>{title}</strong>{isDemoMode && <small role="status">Modo demonstração · dados de mídia ilustrativos</small>}</div></div>
+      <div className="present-brand"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="t"><small>Maria Gasolina Express · {period}</small><strong>{title}</strong>{periodNote && <small role="note">{periodNote}</small>}{isDemoMode && <small role="status">Modo demonstração · dados de mídia ilustrativos</small>}</div></div>
       <button type="button" className="icon-button" onClick={onExit} aria-label="Sair da apresentação"><X size={18} /></button>
     </header>
     <div className="present-slide" data-slide={slide.id} data-kind={slide.kind} key={slide.id}>
@@ -127,8 +127,8 @@ function ExecutiveSlide({ data, range }: { data: DashboardData; range: DateRange
     <div className="presentation-executive">
       <div className="presentation-stack">
         <div className="grid grid-4">
-          <Kpi label="Investimento" value={data.all.current.spend} previous={data.all.previous.spend} format={money} accent="red" />
-          <Kpi label="Leads gerados" value={data.all.current.leads} previous={data.all.previous.leads} format={integer} accent="gold" />
+          <Kpi label="Investimento" value={data.current.length ? data.all.current.spend : null} previous={data.previous.length ? data.all.previous.spend : null} format={money} accent="red" />
+          <Kpi label="Leads gerados" value={data.current.length ? data.all.current.leads : null} previous={data.previous.length ? data.all.previous.leads : null} format={integer} accent="gold" />
           <Kpi label="Custo por lead" value={data.all.current.cpl} previous={data.all.previous.cpl} format={money} accent="green" lowerIsBetter />
           <Kpi label="Novos seguidores" value={organicAvailable ? data.instagram.current.new_followers + data.facebook.current.new_followers : null} previous={organicAvailable ? data.instagram.previous.new_followers + data.facebook.previous.new_followers : null} format={integer} accent="violet" hideDelta={!organicAvailable} foot={organicAvailable ? undefined : "Integração orgânica pendente"} />
         </div>
@@ -164,8 +164,8 @@ function FrontSlide({ data, front, goals, range }: { data: DashboardData; front:
   return (
     <div style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 18, minHeight: 0 }}>
       <div className="grid grid-4">
-        <Kpi label="Investimento" value={b.current.spend} previous={b.previous.spend} format={money} accent={meta.accent} />
-        <Kpi label={`Leads (${meta.leadWord})`} value={b.current.leads} previous={b.previous.leads} format={integer} accent={meta.accent} />
+        <Kpi label="Investimento" value={b.rows.length ? b.current.spend : null} previous={b.prevRows.length ? b.previous.spend : null} format={money} accent={meta.accent} />
+        <Kpi label={`Leads (${meta.leadWord})`} value={b.rows.length ? b.current.leads : null} previous={b.prevRows.length ? b.previous.leads : null} format={integer} accent={meta.accent} />
         <Kpi label="Custo por lead" value={b.current.cpl} previous={b.previous.cpl} format={money} accent="green" lowerIsBetter />
         <Kpi label="Conversão clique → lead" value={b.current.conv_rate} previous={b.previous.conv_rate} format={percent} accent="sky" />
       </div>

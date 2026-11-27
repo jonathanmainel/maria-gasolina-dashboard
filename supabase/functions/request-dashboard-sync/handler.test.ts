@@ -53,3 +53,15 @@ it("tracks only bounded UUID run ids and does not accept browser dates", async (
   expect(rpc).toHaveBeenCalledWith("get_dashboard_sync_status", { p_client_slug: "maria-gasolina", p_user_id: "verified-user", p_run_ids: [key] });
   for (const run_ids of [["invalid"], [key,key,key,key]]) expect((await handleManualSync(request({ action: "status", client_slug: "maria-gasolina", run_ids }), deps)).status).toBe(400);
 });
+
+it("offers members a fixed intraday action when enabled, with identity supplied by Auth", async () => {
+  const rpc = vi.fn(async () => ({ data: { results: [] }, error: null }));
+  const deps = { getUser: async () => ({ id: "verified-member" }), rpc, intradayEnabled: true };
+  const intraday = { action: "intraday", client_slug: "maria-gasolina" };
+  expect((await handleManualSync(request(intraday), { ...deps, intradayEnabled: false })).status).toBe(503);
+  for (const fields of [{ sources: ["ga4"] }, { user_id: key }, { request_key: key }, { end_date: "2026-01-01" }]) {
+    expect((await handleManualSync(request({ ...intraday, ...fields }), deps)).status).toBe(400);
+  }
+  expect((await handleManualSync(request(intraday), deps)).status).toBe(202);
+  expect(rpc).toHaveBeenCalledExactlyOnceWith("request_dashboard_intraday_sync", { p_client_slug: "maria-gasolina", p_user_id: "verified-member" });
+});

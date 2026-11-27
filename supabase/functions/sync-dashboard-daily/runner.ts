@@ -3,7 +3,7 @@ import {previewSelection,SHA256,type PreviewSelection} from '../_shared/preview-
 
 type RpcResult = { data: any; error: unknown };
 export type SyncAdmin = { rpc(name: string, args: Record<string, unknown>): PromiseLike<RpcResult> };
-export type ClaimedRun = { id: string; source: SyncSource; client_id: number; client_slug: string; range_start: string; range_end: string; operation?:'metrics'|'previews';account_id?:string;preview_selection?:PreviewSelection;selection_fingerprint?:string };
+export type ClaimedRun = { id: string; source: SyncSource; client_id: number; client_slug: string; range_start: string; range_end: string; trigger?: string; operation?:'metrics'|'previews';account_id?:string;preview_selection?:PreviewSelection;selection_fingerprint?:string };
 
 const COUNT_KEYS = ["daily", "campaigns", "ads", "ad_sets", "ad_groups", "keywords", "pmax_asset_groups", "pmax_assets", "acquisition", "events", "landing_pages"];
 export function safeCounts(source: SyncSource, body: Record<string, any>) {
@@ -35,6 +35,7 @@ export async function runReservedSync(id: string, admin: SyncAdmin, url: string,
       signal: AbortSignal.timeout(90000),
       body: JSON.stringify({ client_slug: run.client_slug, start_date: run.range_start,
         end_date: run.range_end, dry_run: false, automation_run_id: run.id,
+        ...(run.trigger === 'intraday' ? { intraday: true } : {}),
         ...(preview?{operation:'previews',preview_ad_ids:run.preview_selection!.ad_ids,preview_selection:run.preview_selection,
           preview_account_id:run.account_id,selection_fingerprint:run.selection_fingerprint}:{}) }),
     });

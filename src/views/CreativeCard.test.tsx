@@ -78,6 +78,14 @@ describe("creative ranking expansion", () => {
     expect([...container.querySelectorAll(".rank")].map((node) => node.textContent)).toEqual(["1", "2", "3"]);
   });
 
+  it("keeps the ranking expanded after metric values refresh", () => {
+    const { rerender } = render(<CreativeRanking creatives={creatives} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ver mais criativos" }));
+    rerender(<CreativeRanking creatives={creatives.map(item => ({ ...item, leads: item.leads + 1 }))} />);
+    expect(screen.getByRole("button", { name: "Mostrar menos" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getAllByRole("button", { name: /Ampliar imagem:/ })).toHaveLength(9);
+  });
+
   it("does not show expansion with three or fewer creatives", () => {
     const { rerender } = render(<CreativeRanking creatives={creatives.slice(0, 3)} />);
     expect(screen.queryByRole("button", { name: "Ver mais criativos" })).toBeNull();

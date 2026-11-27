@@ -1,5 +1,5 @@
 import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem, CursorPage, DateRange, EntityItem, EntityLevel, OverviewResponse, PmaxItem, PmaxLevel, Source } from "../types";
-import { mockAnalyticsAcquisition, mockAnalyticsEvents, mockAnalyticsLandingPages, mockEntities, mockOverview, mockPmax } from "../data/mock";
+import { analyticsKpis, demoSiteDaily, mockAnalyticsAcquisition, mockAnalyticsEvents, mockAnalyticsLandingPages, mockEntities, mockOverview, mockPmax } from "../data/mock";
 import { supabase } from "./supabase";
 import { getMetaCreativePreviews } from "./creative-previews";
 import { rankedCreativeIds } from "./creatives";
@@ -16,7 +16,7 @@ export const isDemoMode =
 
 const delay = (ms = 260) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-export async function getOverview(range: DateRange): Promise<OverviewResponse> {
+export async function getOverview(range: DateRange, previous?: DateRange): Promise<OverviewResponse> {
   if (isDemoMode) {
     await delay();
     return { ...mockOverview, period: { ...mockOverview.period, ...range } };
@@ -26,6 +26,7 @@ export async function getOverview(range: DateRange): Promise<OverviewResponse> {
     p_client_slug: CLIENT_SLUG,
     p_start_date: range.start,
     p_end_date: range.end,
+    ...(previous && { p_comparison_start_date: previous.start, p_comparison_end_date: previous.end }),
   });
   if (error) throw error;
   return data as OverviewResponse;
@@ -202,7 +203,7 @@ export const getAllAnalyticsLandingPages = (range: DateRange) =>
 // em vez de ser jogado numa frente arbitrária ou descartado em silêncio.
 // ---------------------------------------------------------------------------
 import { demoCampaigns, demoCreatives, demoFrontDaily, demoOrganicDaily, demoOrganicPosts } from "../data/demo";
-import { previousRange } from "./metrics";
+import { comparisonPeriod } from "./reporting-period";
 import type { CampaignRow, Channel, Creative, Front, FrontDaily, OrganicDaily, OrganicPost } from "../types";
 
 export interface UnclassifiedSpend {
@@ -354,14 +355,13 @@ function demoBundle(range: DateRange): FrontBundle {
   };
 }
 
-export async function getFrontData(range: DateRange): Promise<FrontBundle> {
+export async function getFrontData(range: DateRange, previous = comparisonPeriod(range).previous): Promise<FrontBundle> {
   if (isDemoMode) {
     await delay(180);
     return demoBundle(range);
   }
   if (!supabase) throw new Error("A conexão com o Supabase ainda não foi configurada.");
 
-  const previous = previousRange(range);
   const clientId = await getClientId();
 
   // Período atual + período de comparação numa leitura só: os cards, o gráfico e
@@ -371,7 +371,9 @@ export async function getFrontData(range: DateRange): Promise<FrontBundle> {
     fetchAllRows<CampaignDailyRow>(
       "dashboard_campaign_daily",
       "source,campaign_id,campaign_name,campaign_status,metric_date,impressions,reach,clicks,link_clicks,conversions,spend",
-      (query) => query.eq("client_id", clientId).gte("metric_date", previous.start).lte("metric_date", range.end),
+      (query) => query.eq("client_id", clientId).or(
+        `and(metric_date.gte.${previous.start},metric_date.lte.${previous.end}),and(metric_date.gte.${range.start},metric_date.lte.${range.end})`,
+      ),
     ),
     fetchAllRows<AdDailyRow>(
       "dashboard_ad_daily",
@@ -523,15 +525,23 @@ export interface SiteOverviewBundle {
  * próprio estado de carregamento e de erro, então uma RPC secundária que falhe
  * não derruba os KPIs nem o gráfico principal.
  */
-export async function getSiteOverview(range: DateRange): Promise<SiteOverviewBundle> {
-  const overview = await getOverview(range);
+export async function getSiteOverview(range: DateRange, previous?: DateRange): Promise<SiteOverviewBundle> {
+  const inRange = (day: AnalyticsDailyMetric, period: DateRange) => day.date >= period.start && day.date <= period.end;
+  if (isDemoMode) {
+    await delay();
+    const comparison = previous ?? comparisonPeriod(range).previous;
+    const daily = demoSiteDaily.filter(day => inRange(day, range));
+    const previousDaily = demoSiteDaily.filter(day => inRange(day, comparison));
+    return { current: analyticsKpis(daily), previous: analyticsKpis(previousDaily), daily, origin: "demo" };
+  }
+  const overview = await getOverview(range, previous);
   return {
     current: overview.analytics?.current ?? null,
     previous: overview.analytics?.previous ?? null,
     // O recorte por período é defensivo: garante que a série do gráfico nunca
     // inclua dias do período de comparação, qualquer que seja a RPC.
-    daily: (overview.analytics?.daily ?? []).filter((day) => day.date >= range.start && day.date <= range.end),
-    origin: isDemoMode ? "demo" : "supabase",
+    daily: (overview.analytics?.daily ?? []).filter(day => inRange(day, range)),
+    origin: "supabase",
   };
 }
 

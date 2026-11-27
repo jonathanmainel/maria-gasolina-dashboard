@@ -2,10 +2,10 @@ import { Building2, CalendarDays, ClipboardList, ChevronDown, Download, Globe, L
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { useAuth } from "../auth";
 import { brandLogoUrl } from "../lib/app-path";
-import { dateTime, longDate, shortDate } from "../lib/format";
+import { longDate, shortDate } from "../lib/format";
 import { useTheme } from "../theme";
 import type { AppView, CommercialFront, DateRange } from "../types";
-import { todayReportingRange } from "../lib/reporting-period";
+import { reportingToday, todayReportingRange, type PeriodPreset } from "../lib/reporting-period";
 import { PeriodPicker } from "./PeriodPicker";
 import { DataRefreshPanel } from "./DataRefreshPanel";
 import { Popover } from "./ui/popover";
@@ -19,8 +19,9 @@ interface Props extends PropsWithChildren {
   onViewChange: (view: AppView) => void;
   range: DateRange;
   comparisonEnabled: boolean;
-  onPeriodApply: (range: DateRange, comparisonEnabled: boolean) => void;
-  lastSync?: string;
+  onPeriodApply: (range: DateRange, comparisonEnabled: boolean, preset: PeriodPreset) => void;
+  preset?: PeriodPreset;
+  reportingDay?: string;
   readOnly?: boolean;
   onPresent: () => void;
   onShare: () => void;
@@ -35,7 +36,7 @@ const viewTitles: Record<Exclude<AppView, CommercialFront>, { eyebrow: string; t
   settings: { eyebrow: "Configurações", title: "Metas, compartilhamento e exportação" },
 };
 
-export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodApply, lastSync, readOnly, onPresent, onShare, children }: Props) {
+export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodApply, reportingDay = reportingToday(), preset = "fixed", readOnly, onPresent, onShare, children }: Props) {
   const activeCategory = isCommercialFront(view) ? commercialFronts[view].category : null;
   const [expanded, setExpanded] = useState<Record<CommercialCategory, boolean>>(() => ({ place: activeCategory === "place", expansion: activeCategory === "expansion" }));
   useEffect(() => {
@@ -144,8 +145,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
         <div className="topbar-title"><small>{title.eyebrow}</small><strong>{title.title}</strong></div>
         <div className="topbar-actions">
           <div className="topbar-sync-group">
-            <div className="sync-pill"><i />{lastSync ? `Atualizado ${dateTime(lastSync).replace(/,/, " ·")}` : "Ainda não sincronizado"}</div>
-            <DataRefreshPanel range={range} readOnly={readOnly} onShowToday={today => onPeriodApply(todayReportingRange(today), false)} />
+            <DataRefreshPanel range={range} readOnly={readOnly} onShowToday={today => onPeriodApply(todayReportingRange(today), false, "fixed")} />
           </div>
           <div className="period-control">
             <button ref={periodAnchor} type="button" className="period-button" onClick={() => setPeriodOpen((o) => !o)} aria-expanded={periodOpen} aria-haspopup="dialog">
@@ -154,7 +154,7 @@ export function Shell({ view, onViewChange, range, comparisonEnabled, onPeriodAp
               <ChevronDown size={15} />
             </button>
             <Popover open={periodOpen} onClose={closePeriod} anchorRef={periodAnchor} label="Escolher período" width={760}>
-              <PeriodPicker embedded range={range} comparisonEnabled={comparisonEnabled} onApply={(r, c) => { onPeriodApply(r, c); setPeriodOpen(false); }} onClose={closePeriod} />
+              <PeriodPicker embedded range={range} reportingDay={reportingDay} preset={preset} comparisonEnabled={comparisonEnabled} onApply={(r, c, mode) => { onPeriodApply(r, c, mode); setPeriodOpen(false); }} onClose={closePeriod} />
             </Popover>
           </div>
           <div className="topbar-tools" role="group" aria-label="Ações do dashboard">
