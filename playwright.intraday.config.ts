@@ -12,8 +12,8 @@ export default defineConfig({
   },
   webServer: {
     command: [
-      "vite build --configLoader runner --mode demo --outDir .preview/intraday",
-      "vite preview --configLoader runner --outDir .preview/intraday --host 127.0.0.1 --port 5198 --strictPort",
+      "vite build --configLoader runner --mode demo --base / --outDir .preview/intraday",
+      "vite preview --configLoader runner --base / --outDir .preview/intraday --host 127.0.0.1 --port 5198 --strictPort",
     ].join(" && "),
     env: {
       VITE_SUPABASE_URL: "http://127.0.0.1:55498",
