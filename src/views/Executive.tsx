@@ -6,7 +6,7 @@ import { NetworkHero } from "../components/NetworkHero";
 import { isDemoMode } from "../lib/api";
 import { compact, integer, money, percent, shortDate } from "../lib/format";
 import { useGoals } from "../lib/goals";
-import { dailySeries, monthProgress } from "../lib/metrics";
+import { byChannel, dailySeries, monthProgress, totals } from "../lib/metrics";
 import { frontMeta, useChartColors, type DashboardData } from "../lib/use-dashboard";
 import type { AppView, DateRange } from "../types";
 
@@ -28,7 +28,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const prevFollowers = organicAvailable ? instagram.previous.new_followers + facebook.previous.new_followers : null;
   const sparkSpend = series.map((d) => d.spend);
   const sparkLeads = series.map((d) => d.leads);
-  const sparkCpl = series.map((d) => d.cpl ?? 0);
+  const sparkCpl = series.flatMap((d) => d.cpl == null ? [] : [d.cpl]);
   const orgSpark = useMemo(() => {
     if (!organicAvailable) return [];
     const m = new Map<string, number>();
@@ -38,19 +38,32 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
   const chartData = series.map((d) => ({ label: shortDate(d.date), Franquias: metric === "leads" ? d.franchise : metric === "spend" ? d.spend_franchise : d.franchise ? d.spend_franchise / d.franchise : null, Condomínios: metric === "leads" ? d.condominium : metric === "spend" ? d.spend_condominium : d.condominium ? d.spend_condominium / d.condominium : null }));
   const fmt = (n: number) => (metric === "leads" ? integer(n) : money(n));
   const channelMix = [
-    { name: "Meta Ads", value: data.current.filter((r) => r.channel === "meta_ads").reduce((s, r) => s + r.leads, 0), color: colors.meta, hint: money(data.current.filter((r) => r.channel === "meta_ads").reduce((s, r) => s + r.spend, 0)) },
-    { name: "Google Ads", value: data.current.filter((r) => r.channel === "google_ads").reduce((s, r) => s + r.leads, 0), color: colors.google, hint: money(data.current.filter((r) => r.channel === "google_ads").reduce((s, r) => s + r.spend, 0)) },
-    ...(organicAvailable ? [{ name: "Orgânico (DMs + perfil)", value: instagram.current.dms + facebook.current.dms, color: colors.violet, hint: "sem custo de mídia" }] : []),
-  ];
+    { name: "Meta Ads", channel: "meta_ads" as const, color: colors.meta },
+    { name: "Google Ads", channel: "google_ads" as const, color: colors.google },
+  ].flatMap(({ name, channel, color }) => {
+    const rows = byChannel(data.current, channel);
+    if (!rows.length) return [];
+    const { leads, spend } = totals(rows);
+    return [{ name, value: leads, color, hint: money(spend) }];
+  });
+  if (organicAvailable) channelMix.push({
+    name: "Orgânico (DMs + perfil)", value: instagram.current.dms + facebook.current.dms,
+    color: colors.violet, hint: "sem custo de mídia",
+  });
 
   // Tendências: metade recente do período contra a metade anterior, para enxergar
   // evolução ou regressão sem esperar a virada do período de comparação completo.
-  const split = (arr: number[]) => { const n = arr.length; const half = Math.floor(n / 2); return [arr.slice(0, n - half), arr.slice(n - half)] as const; };
-  const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
-  const avg = (a: number[]) => (a.length ? sum(a) / a.length : 0);
+  const split = (values: number[]) => {
+    const half = Math.floor(values.length / 2);
+    return [values.slice(0, half), values.slice(half)] as const;
+  };
+  const sum = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) : null;
+  const costPerLead = (spend: number[], leads: number[]) => {
+    const totalLeads = sum(leads);
+    return totalLeads ? (sum(spend) ?? 0) / totalLeads : null;
+  };
   const [spendA, spendB] = split(sparkSpend);
   const [leadsA, leadsB] = split(sparkLeads);
-  const [cplA, cplB] = split(sparkCpl.filter((v) => v > 0));
   const [followA, followB] = split(orgSpark);
 
   // Vendas. Dois blocos de natureza diferente, que o dashboard não mistura:
@@ -91,8 +104,8 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       )}
 
       <div className="grid grid-4">
-        <Kpi label="Investimento em mídia" value={all.current.spend} previous={all.previous.spend} format={money} accent="red" icon={<Wallet size={17} />} spark={sparkSpend} />
-        <Kpi label="Leads gerados (todas as frentes)" value={all.current.leads} previous={all.previous.leads} format={integer} accent="gold" icon={<Target size={17} />} spark={sparkLeads} />
+        <Kpi label="Investimento em mídia" value={data.current.length ? all.current.spend : null} previous={data.previous.length ? all.previous.spend : null} format={money} accent="red" icon={<Wallet size={17} />} spark={sparkSpend} />
+        <Kpi label="Leads gerados (todas as frentes)" value={data.current.length ? all.current.leads : null} previous={data.previous.length ? all.previous.leads : null} format={integer} accent="gold" icon={<Target size={17} />} spark={sparkLeads} />
         <Kpi label="Custo por lead médio" value={all.current.cpl} previous={all.previous.cpl} format={money} accent="green" icon={<Zap size={17} />} lowerIsBetter spark={sparkCpl} />
         <Kpi label="Novos seguidores (IG + FB)" value={newFollowers} previous={prevFollowers} format={integer} accent="violet" icon={<UserPlus size={17} />} spark={orgSpark} hideDelta={!organicAvailable} foot={organicAvailable ? undefined : "Integração orgânica pendente"} />
       </div>
@@ -119,7 +132,7 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
       <div className="grid grid-4">
         <Kpi label="Investimento" value={sum(spendB)} previous={sum(spendA)} format={money} accent="red" icon={<Wallet size={15} />} spark={sparkSpend} foot="metade recente vs. anterior" lowerIsBetter />
         <Kpi label="Leads" value={sum(leadsB)} previous={sum(leadsA)} format={integer} accent="gold" icon={<Target size={15} />} spark={sparkLeads} foot="metade recente vs. anterior" />
-        <Kpi label="Custo por lead" value={avg(cplB)} previous={avg(cplA)} format={money} accent="green" icon={<Zap size={15} />} spark={sparkCpl} foot="média: recente vs. anterior" lowerIsBetter />
+        <Kpi label="Custo por lead" value={costPerLead(spendB, leadsB)} previous={costPerLead(spendA, leadsA)} format={money} accent="green" icon={<Zap size={15} />} spark={sparkCpl} foot="metade recente vs. anterior" lowerIsBetter />
         <Kpi label="Novos seguidores" value={organicAvailable ? sum(followB) : null} previous={organicAvailable ? sum(followA) : null} format={integer} accent="violet" icon={<UserPlus size={15} />} spark={orgSpark} hideDelta={!organicAvailable} foot={organicAvailable ? "metade recente vs. anterior" : "Integração orgânica pendente"} />
       </div>
 
@@ -201,10 +214,10 @@ export function ExecutiveView({ data, range, onNavigate }: { data: DashboardData
           </Panel>
           <Panel title="Eficiência por frente" description="CPL e taxa de conversão de clique em lead">
             <div className="grid grid-2" style={{ gap: 10 }}>
-              <MiniStat label="CPL franquias" value={franchise.current.cpl ?? 0} format={money} accent="var(--red)" delta={<Delta current={franchise.current.cpl} previous={franchise.previous.cpl} lowerIsBetter />} />
-              <MiniStat label="CPL condomínios" value={condominium.current.cpl ?? 0} format={money} accent="var(--gold)" delta={<Delta current={condominium.current.cpl} previous={condominium.previous.cpl} lowerIsBetter />} />
-              <MiniStat label="Conversão franquias" value={franchise.current.conv_rate ?? 0} format={percent} accent="var(--red)" />
-              <MiniStat label="Conversão condomínios" value={condominium.current.conv_rate ?? 0} format={percent} accent="var(--gold)" />
+              <MiniStat label="CPL franquias" value={franchise.current.cpl} format={money} accent="var(--red)" delta={<Delta current={franchise.current.cpl} previous={franchise.previous.cpl} lowerIsBetter />} />
+              <MiniStat label="CPL condomínios" value={condominium.current.cpl} format={money} accent="var(--gold)" delta={<Delta current={condominium.current.cpl} previous={condominium.previous.cpl} lowerIsBetter />} />
+              <MiniStat label="Conversão franquias" value={franchise.current.conv_rate} format={percent} accent="var(--red)" />
+              <MiniStat label="Conversão condomínios" value={condominium.current.conv_rate} format={percent} accent="var(--gold)" />
             </div>
           </Panel>
         </div>
@@ -220,18 +233,18 @@ function FrontCard({ front, totals, previous, spark, onClick }: { front: "franch
   return (
     <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className={`front-card tilt ${front}`} onClick={onClick} role="link" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onClick()}>
       <div className="front-card-head"><h3><i />{meta.label}</h3><ArrowRight size={18} /></div>
-      <div className="front-main"><strong><AnimatedNumber value={totals.leads} format={integer} /></strong><small>{meta.leadWord} no período</small></div>
+      <div className="front-main"><strong><AnimatedNumber value={spark.length ? totals.leads : null} format={integer} /></strong><small>{meta.leadWord} no período</small></div>
       <Sparkline className="front-spark" points={spark} color={front === "franchise" ? "#d8443a" : "#e9ad3f"} />
       <div className="front-meta">
-        <div><small>Investimento</small><b>{money(totals.spend)}</b></div>
+        <div><small>Investimento</small><b>{money(spark.length ? totals.spend : null)}</b></div>
         <div><small>CPL</small><b>{money(totals.cpl)}</b></div>
-        <div><small>vs. anterior</small><b><Delta current={totals.leads} previous={previous.leads} /></b></div>
+        <div><small>vs. anterior</small><b><Delta current={spark.length ? totals.leads : null} previous={previous.leads} /></b></div>
       </div>
     </article>
   );
 }
 
-export function MiniStat({ label, value, format, accent, delta }: { label: string; value: number; format: (n: number) => string; accent?: string; delta?: React.ReactNode }) {
+export function MiniStat({ label, value, format, accent, delta }: { label: string; value: number | null; format: (n: number) => string; accent?: string; delta?: React.ReactNode }) {
   return (
     <div style={{ padding: "12px 14px", borderRadius: 12, background: "color-mix(in srgb, var(--bg) 40%, transparent)", border: "1px solid var(--line)", borderLeft: accent ? `3px solid ${accent}` : undefined }}>
       <small style={{ display: "block", color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 800 }}>{label}</small>

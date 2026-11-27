@@ -2,7 +2,7 @@
 
 O dashboard abre no mês corrente até hoje, pelo calendário de `America/Sao_Paulo`. O preset **Este mês** avança à meia-noite de Brasília, inclusive com a página aberta. Datas digitadas, seleções no calendário e os demais presets mantêm a seleção aplicada.
 
-A comparação de **Este mês** começa no primeiro dia do mês anterior e termina no mesmo dia do mês, limitada ao último dia válido. O seletor e o dashboard indicam a diferença de duração. Hoje entra nos indicadores e pode ter dados parciais. Os períodos fixos usam os dias imediatamente anteriores, com a mesma duração. O botão de comparação controla os deltas inclusive no modo apresentação. A aba Site envia as quatro datas para a RPC de leitura. A assinatura anterior de três argumentos continua disponível aos outros consumidores.
+A comparação de **Este mês** começa no primeiro dia do mês anterior e termina no mesmo dia do mês, limitada ao último dia válido. O seletor e o dashboard indicam a diferença de duração. Hoje entra nos indicadores e pode ter dados parciais. Os períodos fixos usam os dias imediatamente anteriores, com a mesma duração. O botão de comparação controla os deltas inclusive no modo apresentação. Os indicadores derivados usam os totais do intervalo. O CPL em Tendências também usa o investimento e os leads de cada metade do período. A aba Site envia as quatro datas para a RPC de leitura. A assinatura anterior de três argumentos continua disponível aos outros consumidores.
 
 ## Modalidades
 
