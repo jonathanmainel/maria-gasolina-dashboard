@@ -7,11 +7,11 @@ export interface MarketingRun {
   id: string; status: "queued" | "running" | "indeterminate" | "success" | "failed";
   requested_at: string; started_at: string | null; completed_at: string | null;
   range_start: string; range_end: string; database_write_status: string | null;
-  error_code: string | null; overdue: boolean; period_mode: "complete_days" | "including_today"; requested_by: string | null; trigger: "cron" | "manual" | "backfill";
+  error_code: string | null; overdue: boolean; period_mode: "complete_days" | "including_today" | "today_only"; requested_by: string | null; trigger: "cron" | "manual" | "backfill" | "intraday"; operation?: "metrics" | "previews";
 }
 export interface MarketingSourceStatus {
   source: MarketingSource; enabled: boolean; latest_run: MarketingRun | null;
-  last_success_at: string | null; available_through: string | null; missing_accounts: number;
+  last_success_at: string | null; last_today_success_at?: string | null; available_through: string | null; missing_accounts: number;
   accounts: Array<{ account_id: string; last_data_date: string | null }>;
   next_manual_at: string | null;
 }
@@ -22,6 +22,13 @@ export interface MarketingSyncStatus {
 export interface MarketingRequestResult {
   ok: boolean; range_start: string; range_end: string;
   results: Array<{ source: MarketingSource; state: "accepted" | "active" | "existing" | "cooldown" | "unavailable"; run_id?: string; retry_at?: string }>;
+}
+export interface IntradayResult {
+  range_start: string; range_end: string;
+  results: Array<{ source: MarketingSource; state: "accepted" | "active" | "fresh" | "backoff" | "scheduled" | "unavailable"; run_id?: string; write_status?: string }>;
+}
+export async function requestIntradaySync(): Promise<IntradayResult> {
+  return invokeSync({ action: "intraday" });
 }
 async function invokeSync(body: Record<string, unknown>) {
   if (isDemoMode || !supabase) throw new Error("Sincronização operacional indisponível neste ambiente.");
@@ -49,5 +56,5 @@ export function isCoverageBehind(item: MarketingSourceStatus, today: string) {
   return item.missing_accounts > 0 || !item.available_through || item.available_through < yesterday.toISOString().slice(0, 10);
 }
 export function affectedMarketingQueries(source: MarketingSource): string[] {
-  return source === "ga4" ? ["site-overview", "site-acquisition", "site-landing-pages", "site-events", "last-sync"] : ["fronts", "detail", "last-sync"];
+  return source === "ga4" ? ["site-overview", "site-acquisition", "site-landing-pages", "site-events", "source-freshness"] : ["fronts", "detail", "retaguarda-spend", "source-freshness"];
 }

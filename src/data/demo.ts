@@ -1,4 +1,5 @@
-import { addDays, format, subDays } from "date-fns";
+import { addDays, format, parseISO, subDays } from "date-fns";
+import { reportingToday } from "../lib/reporting-period";
 import type {
   CampaignRow, Channel, Creative, DeliveryStatus, Front, FrontDaily, Goals,
   NetworkCity, NetworkUnitsSnapshot, OrganicDaily, OrganicPost, Platform,
@@ -17,7 +18,7 @@ function rng(seed: number) {
 }
 
 export const DEMO_DAYS = 120;
-export const demoEnd = subDays(new Date(), 1);
+export const demoEnd = parseISO(reportingToday());
 export const demoStart = subDays(demoEnd, DEMO_DAYS - 1);
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");

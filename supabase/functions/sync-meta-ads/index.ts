@@ -1,3 +1,4 @@
+import { saveIntradayMetrics } from "../_shared/intraday-write.ts";
 import { authorizeCollection } from "../_shared/sync-control.ts";
 import {previewSelection} from '../_shared/preview-operation.ts';
 import {previewReceipts} from './preview-receipts.ts';
@@ -510,6 +511,7 @@ export default {
           await listSourceAccounts(ctx.supabaseAdmin, {
             clientId: dashboardClient.id,
             source: "meta_ads",
+            automationOnly: body.intraday === true,
           });
 
         if (sourceAccountsError) {
@@ -628,6 +630,16 @@ export default {
           (row) =>
             `${row.account_id ?? ""}|${row.ad_id ?? ""}|${row.metric_date ?? ""}`,
         );
+
+        if (body.intraday === true) {
+          return await saveIntradayMetrics(ctx.supabaseAdmin, body.automation_run_id, {
+            paid_media: [normalizedDailyRows, normalizedCampaignRows, normalizedAdRows],
+            groups: normalizedAdSetRows,
+          }, { meta_insights: {
+            daily_count: normalizedDailyRows.length, campaign_count: normalizedCampaignRows.length,
+            ad_set_count: normalizedAdSetRows.length, ad_count: normalizedAdRows.length,
+          } });
+        }
 
         let databaseWritePerformed = false;
         let databaseWriteResult: {

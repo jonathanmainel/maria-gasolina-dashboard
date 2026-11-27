@@ -42,13 +42,15 @@ export function listSourceAccounts(
   params: {
     clientId: number;
     source: DashboardSource;
+    automationOnly?: boolean;
   },
 ) {
-  return supabaseAdmin
+  const query = supabaseAdmin
     .from("dashboard_source_accounts")
     .select("id, account_id, account_name")
     .eq("client_id", params.clientId)
     .eq("source", params.source)
     .eq("active", true)
     .order("id", { ascending: true });
+  return params.automationOnly ? query.eq("automation_enabled", true) : query;
 }

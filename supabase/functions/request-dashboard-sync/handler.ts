@@ -8,6 +8,7 @@ const CORS = {
 };
 type Result = { data: unknown; error: { code?: string } | null };
 export interface ManualSyncDependencies {
+  intradayEnabled?: boolean;
   getUser: (token: string) => Promise<{ id: string } | null>;
   rpc: (name: string, args: Record<string, unknown>) => PromiseLike<Result>;
 }
@@ -39,7 +40,15 @@ export async function handleManualSync(req: Request, deps: ManualSyncDependencie
     try { body = JSON.parse(new TextDecoder().decode(merged)); } catch { return json({ error_code: "INVALID_REQUEST" }, 400); }
     const input = parseManualRequest(body);
     if (!input) return json({ error_code: "INVALID_REQUEST" }, 400);
-    // Both RPCs re-check current membership and active client in the database.
+    if (input.action === "intraday") {
+      if (!deps.intradayEnabled) return json({ error_code: "SYNC_UNAVAILABLE" }, 503);
+      const { data, error } = await deps.rpc("request_dashboard_intraday_sync", {
+        p_client_slug: input.clientSlug, p_user_id: user.id,
+      });
+      if (error) return json({ error_code: error.code === "42501" ? "FORBIDDEN" : "SYNC_UNAVAILABLE" }, error.code === "42501" ? 403 : 503);
+      return json(data, 202);
+    }
+    // The RPCs recheck current membership and active client in the database.
     const preview=input.action==='request'&&'operation' in input&&input.operation==='previews';
     const { data, error } = await deps.rpc(preview?'request_dashboard_preview_sync':input.action === "status" ? "get_dashboard_sync_status" : "request_dashboard_sync", {
       p_client_slug: input.clientSlug, p_user_id: user.id,

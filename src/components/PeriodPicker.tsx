@@ -17,14 +17,16 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { reportingToday } from "../lib/reporting-period";
+import { useEffect, useMemo, useState } from "react";
+import { comparisonPeriod, monthToDate, reportingToday, type PeriodPreset } from "../lib/reporting-period";
 import type { DateRange } from "../types";
 
 interface Props {
   range: DateRange;
   comparisonEnabled: boolean;
-  onApply: (range: DateRange, comparisonEnabled: boolean) => void;
+  preset?: PeriodPreset;
+  reportingDay?: string;
+  onApply: (range: DateRange, comparisonEnabled: boolean, preset: PeriodPreset) => void;
   onClose: () => void;
   /** The surrounding Popover owns dialog semantics and focus when embedded. */
   embedded?: boolean;
@@ -40,14 +42,21 @@ function makeRange(start: Date, end: Date): DateRange {
   return { start: toIso(start), end: toIso(end) };
 }
 
-export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embedded = false }: Props) {
-  const [draft, setDraft] = useState<DateRange>(range);
+export function PeriodPicker({ range, comparisonEnabled, preset = "fixed", reportingDay = reportingToday(), onApply, onClose, embedded = false }: Props) {
+  const [fixedDraft, setDraft] = useState<DateRange>(range);
+  const [draftPreset, setDraftPreset] = useState(preset);
+  const draft = draftPreset === "mtd" ? monthToDate(reportingDay) : fixedDraft;
   const [compare, setCompare] = useState(comparisonEnabled);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseISO(range.end)));
   const [awaitingEnd, setAwaitingEnd] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
 
-  const today = useMemo(() => parseISO(reportingToday()), []);
+  const reportingMonth = reportingDay.slice(0, 7);
+  useEffect(() => {
+    if (draftPreset === "mtd") setVisibleMonth(parseISO(`${reportingMonth}-01`));
+  }, [draftPreset, reportingMonth]);
+
+  const today = useMemo(() => parseISO(reportingDay), [reportingDay]);
   const presets = useMemo(() => {
     const lastWeek = subWeeks(today, 1);
     const lastMonth = subMonths(today, 1);
@@ -60,10 +69,10 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
       { label: "Últimos 30 dias", range: makeRange(subDays(today, 29), today) },
       { label: "Esta semana", range: makeRange(startOfWeek(today, { weekStartsOn: 0 }), today) },
       { label: "Semana passada", range: makeRange(startOfWeek(lastWeek, { weekStartsOn: 0 }), endOfWeek(lastWeek, { weekStartsOn: 0 })) },
-      { label: "Este mês", range: makeRange(startOfMonth(today), today) },
+      { label: "Este mês", range: monthToDate(reportingDay), mode: "mtd" as const },
       { label: "Mês passado", range: makeRange(startOfMonth(lastMonth), endOfMonth(lastMonth)) },
     ];
-  }, [today]);
+  }, [today, reportingDay]);
 
   const start = parseISO(draft.start);
   const end = parseISO(draft.end);
@@ -73,13 +82,10 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
     return eachDayOfInterval({ start: first, end: last });
   }, [visibleMonth]);
 
-  const comparisonRange = useMemo(() => {
-    const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
-    const previousEnd = subDays(start, 1);
-    return makeRange(subDays(previousEnd, days - 1), previousEnd);
-  }, [end, start]);
+  const { previous: comparisonRange, currentDays, previousDays } = comparisonPeriod(draft, draftPreset);
 
-  const selectPreset = (nextRange: DateRange) => {
+  const selectPreset = (nextRange: DateRange, mode: PeriodPreset = "fixed") => {
+    setDraftPreset(mode);
     setDraft(nextRange);
     setVisibleMonth(startOfMonth(parseISO(nextRange.end)));
     setAwaitingEnd(false);
@@ -88,6 +94,7 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
 
   const selectDay = (day: Date) => {
     const value = toIso(day);
+    setDraftPreset("fixed");
 
     if (!awaitingEnd) {
       setDraft({ start: value, end: value });
@@ -109,6 +116,7 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
     const next = { ...draft, [field]: value };
     if (field === "start" && next.start > next.end) next.end = next.start;
     if (field === "end" && next.end < next.start) next.start = next.end;
+    setDraftPreset("fixed");
     setDraft(next);
     setVisibleMonth(startOfMonth(parseISO(value)));
     setAwaitingEnd(false);
@@ -116,7 +124,7 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
   };
 
   const apply = () => {
-    if (draft.start <= draft.end) onApply(draft, compare);
+    if (draft.start <= draft.end) onApply(draft, compare, draftPreset);
   };
 
   return (
@@ -129,9 +137,9 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
       <div className="period-picker-body">
         <div className="period-presets" aria-label="Períodos pré-definidos">
           {presets.map((preset) => {
-            const active = preset.range.start === draft.start && preset.range.end === draft.end;
+            const active = (preset.mode ?? "fixed") === draftPreset && preset.range.start === draft.start && preset.range.end === draft.end;
             return (
-              <button type="button" key={preset.label} className={active ? "active" : ""} onClick={() => selectPreset(preset.range)}>
+              <button type="button" key={preset.label} className={active ? "active" : ""} onClick={() => selectPreset(preset.range, preset.mode)}>
                 {active && <Check size={15} />}
                 {preset.label}
               </button>
@@ -197,6 +205,8 @@ export function PeriodPicker({ range, comparisonEnabled, onApply, onClose, embed
             <span aria-hidden="true" />
             <strong>Comparar com período anterior</strong>
           </label>
+          {compare && draftPreset === "mtd" && <p>Mesmo intervalo do mês anterior. Hoje é parcial e pode sofrer alterações.</p>}
+          {compare && currentDays !== previousDays && <p>Períodos com durações diferentes ({currentDays} e {previousDays} dias).</p>}
           <p>{compare ? `Comparação: ${format(parseISO(comparisonRange.start), "dd MMM", { locale: ptBR })} a ${format(parseISO(comparisonRange.end), "dd MMM yyyy", { locale: ptBR })}` : "Comparação desativada"}</p>
         </div>
         <button type="button" className="primary-button" onClick={apply}>Aplicar período</button>

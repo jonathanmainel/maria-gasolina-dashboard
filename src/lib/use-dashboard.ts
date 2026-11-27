@@ -6,20 +6,20 @@ import { useCommercialData } from "./commercial-data";
 import { commercialFronts } from "./fronts";
 import { isDemoMode } from "./api";
 import { useManualData } from "./manual-inputs";
-import { byFront, inRange, organicSummary, previousRange, totals } from "./metrics";
+import { byFront, inRange, organicSummary, totals } from "./metrics";
+import { comparisonPeriod } from "./reporting-period";
 import { useTheme } from "../theme";
 import type { DateRange, Front, CommercialFront, CrmSummary, FrontDaily, OrganicDaily } from "../types";
 
-export function useDashboard(range: DateRange, enabled = true) {
+export function useDashboard(range: DateRange, enabled = true, prev = comparisonPeriod(range).previous) {
   // A chave inclui o intervalo inteiro: trocar o período descarta o cache antigo
   // em vez de reaproveitá-lo, então nenhum card fica exibindo o período anterior
   // enquanto o novo carrega. Todas as telas leem deste mesmo hook, o que garante
   // que card, gráfico e tabela estejam sempre no mesmo intervalo.
-  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end], queryFn: () => getFrontData(range), enabled, refetchInterval: 5 * 60 * 1000 });
+  const fronts = useQuery({ queryKey: ["fronts", range.start, range.end, prev.start, prev.end], queryFn: () => getFrontData(range, prev), enabled, refetchInterval: 5 * 60 * 1000 });
   const organic = useQuery({ queryKey: ["organic", range.start, range.end], queryFn: () => getOrganic(range), enabled });
   const manual = useManualData(enabled);
   const commercial = useCommercialData(range, enabled);
-  const prev = useMemo(() => previousRange(range), [range]);
 
   const computed = useMemo(() => {
     const daily: FrontDaily[] = fronts.data?.daily ?? [];
@@ -65,7 +65,7 @@ export function useDashboard(range: DateRange, enabled = true) {
     ...computed,
     prevRange: prev,
     isLoading: fronts.isLoading || organic.isLoading || manual.isLoading,
-    isError: fronts.isError || organic.isError,
+    isError: fronts.isLoadingError || organic.isLoadingError,
     error: (fronts.error ?? organic.error) as Error | null,
     // View state follows its own existing read query, without changing fetches,
     // permissions, cache keys or synchronization schedules.

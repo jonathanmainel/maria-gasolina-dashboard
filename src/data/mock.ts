@@ -1,4 +1,5 @@
 import type { AnalyticsAcquisitionItem, AnalyticsDailyMetric, AnalyticsEventItem, AnalyticsKpis, AnalyticsLandingPageItem, CursorPage, EntityItem, OverviewResponse, PmaxItem } from "../types";
+import { reportingToday, shiftReportingDay } from "../lib/reporting-period";
 
 const kpis = (spend: number, impressions: number, clicks: number, results: number, reach?: number) => ({
   has_data: true,
@@ -37,6 +38,13 @@ const analyticsDaily: AnalyticsDailyMetric[] = [
   { date: days[6], sessions: 469, engaged_sessions: 327, active_users: 414, new_users: 339, views: 802, events: 2416, conversions: 21, revenue: 0, page_views: 802, scrolls: 304, generate_leads: 21 },
 ];
 
+// Dates follow the reporting calendar in the interactive demo.
+const demoToday = reportingToday();
+export const demoSiteDaily = Array.from({ length: 90 }, (_, index) => ({
+  ...analyticsDaily[index % analyticsDaily.length],
+  date: shiftReportingDay(demoToday, index - 89),
+}));
+
 // As taxas saem dos totais somados (soma / soma), igual ao que a RPC devolve —
 // a média das taxas diárias daria peso igual a um dia fraco e a um dia forte.
 const withRates = (total: AnalyticsKpis): AnalyticsKpis => ({
@@ -46,7 +54,7 @@ const withRates = (total: AnalyticsKpis): AnalyticsKpis => ({
   lead_rate: total.sessions ? (total.generate_leads * 100) / total.sessions : null,
 });
 
-const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => withRates(daily.reduce<AnalyticsKpis>((total, item) => ({
+export const analyticsKpis = (daily: AnalyticsDailyMetric[]): AnalyticsKpis => withRates(daily.reduce<AnalyticsKpis>((total, item) => ({
   has_data: true,
   sessions: total.sessions + item.sessions,
   engaged_sessions: total.engaged_sessions + item.engaged_sessions,

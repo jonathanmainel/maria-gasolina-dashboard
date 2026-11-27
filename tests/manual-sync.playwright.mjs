@@ -7,7 +7,8 @@ const origin='http://127.0.0.1:5190';
 const initialRole=process.env.SYNC_TEST_ROLE??'admin';
 if(!['admin','editor'].includes(initialRole))throw new Error('Expected admin or editor test role');
 const outputDir='artifacts/manual-playwright/'+initialRole;
-const browser=await chromium.launch({channel:'chrome',headless:true});
+const chromiumPath=process.env.PLAYWRIGHT_CHROMIUM_PATH;
+const browser=await chromium.launch(chromiumPath?{executablePath:chromiumPath,headless:true}:{channel:'chrome',headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce',timezoneId:'America/Sao_Paulo'});
 const page=await context.newPage();
 const userId='10000000-0000-4000-8000-000000000003';
@@ -46,7 +47,7 @@ await page.route('**/*',async route=>{
   if(url.pathname.endsWith('/dashboard_manual_inputs'))return json([]);
   if(url.pathname.endsWith('/dashboard_sync_runs'))return json([{completed_at:'2026-10-26T04:00:00Z'}]);
   if(url.pathname.endsWith('/dashboard_campaign_daily')){
-   campaignReads++;metricEnds.push(url.searchParams.getAll('metric_date').find(x=>x.startsWith('lte.')));
+   campaignReads++;metricEnds.push(...Array.from((url.searchParams.get('or')??'').matchAll(/metric_date\.lte\.([\d-]+)/g),match=>match[1]));
    return json([{source:'google_ads',campaign_id:'synthetic-campaign',campaign_name:'FRANQUIA TESTE',campaign_status:'ENABLED',metric_date:completed?today:yesterday,impressions:1000,clicks:30,conversions:completed?12:7,spend:150}]);
   }
   if(url.pathname.endsWith('/rpc/get_dashboard_network_units'))return json({units:[],cities:[],summary:{total_units:0,total_cities:0,unresolved_cities:0},headquarters:{city:'Campinas',state:'SP'}});
@@ -59,7 +60,8 @@ await fs.mkdir(outputDir,{recursive:true});
 try {
  await page.goto(origin+'/dashboard/maria-gasolina');
  await page.getByRole('button',{name:'Atualizar agora',exact:true}).waitFor({timeout:30000});
- assert.ok(metricEnds.some(x=>x==='lte.'+yesterday));
+ await page.locator('.kpi').filter({hasText:'Leads gerados (todas as frentes)'}).getByText('7',{exact:true}).waitFor();
+ assert.ok(metricEnds.includes(today),'MTD includes today before the manual collection');
  await page.screenshot({path:outputDir+'/desktop-before.png'});
  await page.getByRole('button',{name:'Atualizar agora',exact:true}).click();
  await page.getByRole('button',{name:'Sincronizando...',exact:true}).waitFor();
@@ -73,8 +75,8 @@ try {
  await page.locator('.data-sync-panel').screenshot({path:outputDir+'/partial-result.png'});
  await page.getByRole('button',{name:'Ver Hoje · parcial'}).click();
  await page.locator('.intraday-banner').waitFor();
- await page.waitForFunction(()=>document.body.textContent.includes('dados parciais'));
- assert.ok(metricEnds.some(x=>x==='lte.'+today));
+ await page.waitForFunction(()=>document.body.textContent.includes('Hoje é parcial'));
+ assert.ok(metricEnds.includes(today));
  await page.locator('.kpi').filter({hasText:'Leads gerados (todas as frentes)'}).getByText('12',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Escolher período',exact:true}).count();
  // Existing PeriodPicker continues to provide Hoje as a separate preset.
@@ -90,7 +92,7 @@ try {
  await page.getByRole('button',{name:'Fechar atualização'}).click();
  role='viewer';await page.reload();await page.getByRole('button',{name:'Ver atualização das fontes'}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Atualizar agora',exact:true}).count(),0);
- await page.getByRole('button',{name:'Ver atualização das fontes'}).click();await page.getByText('Consulta disponível. Administradores e editores podem iniciar coletas fora do modo somente leitura.').waitFor();
+ await page.getByRole('button',{name:'Ver atualização das fontes'}).click();await page.getByText(/Administradores e editores podem solicitar a coleta manual/).waitFor();
  await page.screenshot({path:outputDir+'/viewer.png'});
  assert.equal(requests,1);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
  const result={passed:true,role:initialRole,desktop:'1440x1100',mobile:'390x844',requests,campaignReads,partialResult:true,todayFilter:true,viewerBlocked:true,internalCredentialsInBrowser:false,externalRequests:external,runtimeErrors:errors,scope:'Real UI/AuthProvider/HTTP client with local Auth/REST/Edge/platform fixtures; not production API E2E'};

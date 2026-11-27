@@ -47,5 +47,16 @@ jobs:
       - name: Testar histórico e disparo horário em PostgreSQL isolado
         run: npm run test:meta-balance:sql
 
+      - name: Testar reservas, persistência e comparação do dashboard
+        run: |
+          npm run test:dashboard-sync
+          npm run test:dashboard-sync:sql
+
+      - name: Preparar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Testar atualização intradiária no navegador
+        run: npm run test:dashboard-sync:e2e
+
       - name: Compilar para GitHub Pages
         run: npm run build:pages

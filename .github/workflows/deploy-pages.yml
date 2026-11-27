@@ -41,6 +41,7 @@ jobs:
 
       - name: Gerar versão de validação e Build
         env:
+          VITE_ENABLE_INTRADAY_SYNC: ${{ vars.VITE_ENABLE_INTRADAY_SYNC }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build:pages

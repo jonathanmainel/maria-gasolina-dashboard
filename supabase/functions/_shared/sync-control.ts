@@ -10,6 +10,10 @@ export function parseManualRequest(body: unknown) {
   const allowed = ["action", "client_slug", "sources", "request_key", "run_ids", "operation", "preview_ad_ids", "preview_assets"];
   if (Object.keys(value).some((key) => !allowed.includes(key))) return null;
   if (typeof value.client_slug !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.client_slug) || value.client_slug.length > 100) return null;
+  if (value.action === "intraday") {
+    if (Object.keys(value).length !== 2) return null;
+    return { action: "intraday" as const, clientSlug: value.client_slug };
+  }
   if (value.action === "status") {
     if(value.operation!==undefined||value.preview_ad_ids!==undefined||value.preview_assets!==undefined)return null;
     if (value.sources !== undefined || value.request_key !== undefined) return null;
@@ -34,7 +38,7 @@ export function parseManualRequest(body: unknown) {
 export function safeSyncErrorCode(body: { error_code?: unknown; meta_error?: unknown }, httpStatus: number): string {
   const safeCodes = ["OAUTH_INVALID_GRANT", "OAUTH_INVALID_CLIENT", "OAUTH_UNAUTHORIZED_CLIENT",
     "OAUTH_ACCESS_DENIED", "OAUTH_SESSION_POLICY", "OAUTH_TEMPORARILY_UNAVAILABLE", "OAUTH_TOKEN_REJECTED",
-    "OAUTH_TRANSPORT_ERROR", "OAUTH_INVALID_RESPONSE", "SYNC_RESERVATION_REQUIRED", "SYNC_RESERVATION_CONFLICT"];
+    "OAUTH_TRANSPORT_ERROR", "OAUTH_INVALID_RESPONSE", "INTRADAY_WRITE_FAILED", "SYNC_RESERVATION_REQUIRED", "SYNC_RESERVATION_CONFLICT"];
   if (typeof body.error_code === "string" && safeCodes.includes(body.error_code)) return body.error_code;
   // Preserve numeric Meta diagnostics, never the provider message or raw response.
   if (body.meta_error && typeof body.meta_error === "object") {
@@ -50,12 +54,15 @@ export function safeSyncErrorCode(body: { error_code?: unknown; meta_error?: unk
 // No writes (including diagnostics) when a secret-authenticated dry run is used.
 export async function authorizeCollection(
   admin: { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> },
-  body: { dry_run?: boolean; automation_run_id?: unknown; operation?:unknown; preview_ad_ids?:unknown; refresh_video_previews_only?:unknown;preview_selection?:unknown;preview_account_id?:unknown;selection_fingerprint?:unknown },
+  body: { dry_run?: boolean; intraday?: boolean; automation_run_id?: unknown; operation?:unknown; preview_ad_ids?:unknown; refresh_video_previews_only?:unknown;preview_selection?:unknown;preview_account_id?:unknown;selection_fingerprint?:unknown },
   clientId: number, source: SyncSource, start: string, end: string,
 ): Promise<Response | null> {
-  if (body.dry_run === true) return null;
+  if (body.dry_run === true && body.intraday !== true) return null;
   if (typeof body.automation_run_id !== "string" || !UUID.test(body.automation_run_id)) {
     return Response.json({ ok: false, error_code: "SYNC_RESERVATION_REQUIRED", database_write_performed: false }, { status: 409 });
+  }
+  if (body.intraday === true && (body.dry_run === true || body.operation === 'previews' || start !== end)) {
+    return Response.json({ ok: false, error_code: 'SYNC_RESERVATION_CONFLICT', database_write_performed: false }, { status: 409 });
   }
   if(body.operation==='previews'){
     const fields=['client_slug','start_date','end_date','dry_run','automation_run_id','operation','preview_ad_ids','preview_selection','preview_account_id','selection_fingerprint'];
@@ -73,6 +80,7 @@ export async function authorizeCollection(
     return Response.json({ok:false,error_code:'SYNC_RESERVATION_CONFLICT',database_write_performed:false},{status:409});
   const { data, error } = await admin.rpc("begin_dashboard_sync_collection", {
     p_run_id: body.automation_run_id, p_client_id: clientId, p_source: source, p_start: start, p_end: end,
+    ...(body.intraday === true ? { p_intraday: true } : {}),
   });
   if (error || data !== true) {
     return Response.json({ ok: false, error_code: "SYNC_RESERVATION_CONFLICT", database_write_performed: false }, { status: 409 });

@@ -25,7 +25,7 @@ import { exampleCrmSummary } from "../lib/commercial-examples";
 
 const SLIDE_MS = 14000;
 
-export function Presentation({ data, range, onExit, commercialDemo = false, onCommercialDemoChange, salesFront, onSalesFrontChange }: { data: DashboardData; range: DateRange; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void; salesFront?: CommercialFront; onSalesFrontChange?: (next: CommercialFront) => void }) {
+export function Presentation({ data, range, periodNote, onExit, commercialDemo = false, onCommercialDemoChange, salesFront, onSalesFrontChange }: { data: DashboardData; range: DateRange; periodNote?: string; onExit: () => void; commercialDemo?: boolean; onCommercialDemoChange?: (next: boolean) => void; salesFront?: CommercialFront; onSalesFrontChange?: (next: CommercialFront) => void }) {
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -77,7 +77,7 @@ export function Presentation({ data, range, onExit, commercialDemo = false, onCo
   return <div className="present responsive-present" style={{ '--presentation-scale': layout.scale } as CSSProperties}>
     <div className="ambient" />
     <header className="present-top">
-      <div className="present-brand"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="t"><small>Maria Gasolina Express · {period}</small><strong>{title}</strong>{isDemoMode && <small role="status">Modo demonstração · dados de mídia ilustrativos</small>}</div></div>
+      <div className="present-brand"><img src={brandLogoUrl} alt="Maria Gasolina" /><div className="t"><small>Maria Gasolina Express · {period}</small><strong>{title}</strong>{periodNote && <small role="note">{periodNote}</small>}{isDemoMode && <small role="status">Modo demonstração · dados de mídia ilustrativos</small>}</div></div>
       <button type="button" className="icon-button" onClick={onExit} aria-label="Sair da apresentação"><X size={18} /></button>
     </header>
     <div className="present-slide" data-slide={slide.id} data-kind={slide.kind} key={slide.id}>

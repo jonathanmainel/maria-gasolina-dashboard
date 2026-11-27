@@ -8,6 +8,7 @@ Deno.serve(async (req: Request) => {
   if (!url || !key) return Response.json({ error_code: "SERVER_CONFIGURATION_ERROR" }, { status: 503 });
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, redirect: "error", signal: AbortSignal.timeout(15000) }) } });
   return await handleManualSync(req, {
+    intradayEnabled: Deno.env.get("DASHBOARD_INTRADAY_SYNC_ENABLED") === "true",
     getUser: async (token) => {
       const { data, error } = await admin.auth.getUser(token);
       return error || !data.user || data.user.is_anonymous ? null : { id: data.user.id };

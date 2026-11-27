@@ -55,3 +55,16 @@ it("retains safe numeric Meta codes and excludes provider messages", async () =>
   expect(response.error_code).toBe("META_API_190_463");
   expect(JSON.stringify(admin.rpc.mock.calls)).not.toContain("sensitive-provider-text");
 });
+
+it("dispatches a single-day collection with the intraday claim contract", async () => {
+  const admin = fixture({ ...run, trigger: "intraday", range_start: run.range_end });
+  const transport = vi.fn(async (_url: string, init?: RequestInit) => {
+    expect(JSON.parse(String(init?.body))).toEqual({
+      client_slug: run.client_slug, start_date: run.range_end, end_date: run.range_end,
+      dry_run: false, automation_run_id: run.id, intraday: true,
+    });
+    return Response.json({ ok: true, database_write_status: "no_data" });
+  }) as unknown as typeof fetch;
+  expect((await runReservedSync(run.id, admin, "https://local", {}, transport)).state).toBe("success");
+  expect(admin.rpc).toHaveBeenLastCalledWith("finish_dashboard_sync_run", expect.objectContaining({ p_write_status: "no_data" }));
+});

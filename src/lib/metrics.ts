@@ -19,14 +19,6 @@ export function inRange(rows: FrontDaily[], range: DateRange) {
   return rows.filter((r) => r.date >= range.start && r.date <= range.end);
 }
 
-export function previousRange(range: DateRange): DateRange {
-  const days = differenceInCalendarDays(parseISO(range.end), parseISO(range.start)) + 1;
-  const end = new Date(parseISO(range.start).getTime() - 86400000);
-  const start = new Date(end.getTime() - (days - 1) * 86400000);
-  const f = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: f(start), end: f(end) };
-}
-
 export function byFront(rows: FrontDaily[], front: Front) { return rows.filter((r) => r.front === front); }
 export function byChannel(rows: FrontDaily[], channel: Channel) { return rows.filter((r) => r.channel === channel); }
 
