@@ -31,7 +31,7 @@ function fixture(origin: DashboardData["organicOrigin"] | undefined = "demo"): D
   return {
     organicOrigin: origin, paidOrigin: "supabase", manualStorage: "supabase",
     all: { current: totals(rows), previous: emptyTotals }, franchise: paid("franchise"), condominium: paid("condominium"),
-    current: rows, organicRows: [], organicPrevRows: [], unclassified: { campaigns: [], spend: 0, leads: 0 },
+    current: rows, previous: [], organicRows: [], organicPrevRows: [], unclassified: { campaigns: [], spend: 0, leads: 0 },
     instagram: { current: { ...organicSummary([], "instagram"), followers: 4321, new_followers: 11, dms: 17 }, previous: organicSummary([], "instagram") },
     facebook: { current: { ...organicSummary([], "facebook"), followers: 1234, new_followers: 7, dms: 13 }, previous: organicSummary([], "facebook") },
     crm: { franchise: manual("franchise", 2, 40000), condominium: manual("condominium", 3, 60000) },
@@ -70,6 +70,29 @@ describe("origem do Organico nas visualizacoes operacionais", () => {
     expect(screen.queryByText("Modo demonstração.")).toBeNull();
     expect(value("Investimento em mídia")).toBe(money(900));
     expect(value("Leads gerados (todas as frentes)")).toBe("30");
+  });
+
+  it("Executiva: ausência de linhas de mídia deixa os indicadores principais sem valor", () => {
+    const data = fixture();
+    data.current = [];
+    data.all.current = emptyTotals;
+    executive(data);
+    expect(value("Investimento em mídia")).toBe("—");
+    expect(value("Leads gerados (todas as frentes)")).toBe("—");
+    expect(value("Custo por lead médio")).toBe("—");
+  });
+
+  it("Tendências divide os totais de investimento e leads da mesma metade", () => {
+    const data = fixture();
+    data.current = [
+      { ...rows[0], date: "2026-09-01", spend: 30, leads: 1 },
+      { ...rows[0], date: "2026-09-02", spend: 30, leads: 3 },
+      { ...rows[0], date: "2026-09-03", spend: 30, leads: 1 },
+      { ...rows[0], date: "2026-09-04", spend: 270, leads: 3 },
+    ];
+    data.all.current = totals(data.current);
+    executive(data);
+    expect(value("Custo por lead")).toBe(money(75));
   });
 
   it("Executiva: fonte real preserva os numeros e o mix organico", () => {

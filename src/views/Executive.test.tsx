@@ -35,7 +35,7 @@ const data = {
   franchise: front, condominium: front,
   instagram: { current: organicSummary([], "instagram"), previous: organicSummary([], "instagram") },
   facebook: { current: organicSummary([], "facebook"), previous: organicSummary([], "facebook") },
-  current: [], organicRows: [], unclassified: { campaigns: [], spend: 0, leads: 0 },
+  current: [], previous: [], organicRows: [], unclassified: { campaigns: [], spend: 0, leads: 0 },
   crm: { franchise: emptyCrm("franchise"), condominium: emptyCrm("condominium") },
   delivery: { posts_published: 0, stories_published: 0 },
 } as unknown as DashboardData;
